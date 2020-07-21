@@ -28,7 +28,7 @@ def getDfFromCsvs(filenames):
 def applyCuts(inputdf, cuts, verbose=True):
     df = inputdf
     for cut in cuts:
-        df.query(cut, inplace=True)
+        df = df.query(cut)
         if verbose:
             print('{0}: {1}'.format(cut, df.shape[0]))
     return df

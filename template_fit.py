@@ -103,23 +103,28 @@ class TemplateFit:
         if self.verbosity:
             print('Purity = {0:2.2f}, +{1:2.2f}, -{2:2.2f}'.format(self.purity, self.purityerrhigh, self.purityerrlow))
 
-    # returns list of handles: data, signal, bkg, chi2, purity
+    # returns list of handles: data, bkg, signal, chi2, purity
     def plotFit(self, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg'):
-        dataplot = plt.errorbar(self.binCenters, self.data, yerr=self.dataerr, label=dataLabel, fmt='ko')
-        bkgplot = plt.bar(self.binCenters, self.fitBkg, yerr=self.fitBkgerr, width=self.binWidths, align='center', label=bkgLabel, capsize=0, color=self.bkgColor, ec=self.bkgColor, ecolor=self.bkgColor)
-        signalplot = plt.bar(self.binCenters, self.fitSignal, yerr=self.fitSignalerr, bottom=self.fitBkg, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, bkgLabel), capsize=0, color=self.signalColor, ec=self.signalColor, ecolor=self.signalColor)
+        norm = self.N * (self.binCenters[1] - self.binCenters[0])
+        totalerr = quadSumPairwise(self.dataerr, self.fitBkgerr)
+
+        dataplot = plt.errorbar(self.binCenters, self.data / norm, yerr=self.dataerr / norm, label=dataLabel, fmt='ko')
+        bkgplot = plt.bar(self.binCenters, self.fitBkg / norm, width=self.binWidths, align='center', label=bkgLabel, capsize=0, color=self.bkgColor, ec=self.bkgColor)
+        signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, 'Bkg'), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
+        # signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, bkgLabel), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
+
         chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:2.2f}'.format(self.chi2 / self.dof))
         puritytext, = plt.plot([], [], ' ', label='Purity = ${0:2.1f}\pm{1:2.1f}$%'.format(100 * self.purity, 100 * self.purityerr))
 
-        plt.xlabel(self.xlabel)
-        plt.ylabel('Entries')
+        ax = plt.gca()
+        pmin, pmax = getBinRange(self.binEdges, self.purityMin, self.purityMax)
+        ax.axvspan(self.binCenters[pmin] - self.binWidths[pmin] / 2.0, self.binCenters[pmax] - self.binWidths[pmax] / 2.0, color='black', alpha=0.1)
 
-        return [dataplot, bkgplot, signalplot, chi2text, puritytext]
+        return dataplot, bkgplot, signalplot, chi2text, puritytext
 
     def plotResiduals(self, ylim=[-8.9, 8.9]):
         plt.plot(self.binCenters, self.residuals, 'ko', alpha=0.65)
-        plt.xlabel(self.xlabel)
-        plt.ylabel('(Fit - Data)/Dataerr')
+        plt.ylabel('(Fit - Data)/Dataerr', fontsize=26)
         plt.ylim(ylim)
 
     def plotNormalizedTemplates(self, signalLabel='Signal', bkgLabel='Bkg'):
@@ -135,6 +140,45 @@ class TemplateFit:
         plt.xlabel(self.xlabel)
         plt.ylabel('Entries')
         plt.legend(loc='best')
+
+    def plotFitAndResiduals(self, ptrange, centrange, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', ylim=[-8.9, 8.9]):
+        fig = plt.figure()
+
+        fig.add_axes((0.1, 0.3, 0.88, 0.6))
+
+        ax = plt.gca()
+        ax.minorticks_on()
+        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
+        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+
+        fig.add_axes((0.1, 0.3, 0.88, 0.6))
+        dataplot, bkgplot, signalplot, chi2text, puritytext = self.plotFit(dataLabel, signalLabel, bkgLabel)
+
+        datapoint, = plt.plot([], [], 'ko', label=dataLabel)
+        plt.legend(handles=[datapoint, signalplot, bkgplot, chi2text, puritytext], ncol=1, numpoints=1, loc=1, fontsize=22, frameon=False)
+
+        pttext = '{0} < pT < {1} GeV/$c$'.format(ptrange[0], ptrange[1])
+        centtext = '{0}-{1}% Pb-Pb'.format(centrange[0], centrange[1])
+        # centtext = '{0}-{1}% Pb-Pb\n$\sqrt{{s_{{NN}}}}=5.02$ TeV'.format(centrange[0], centrange[1])
+        plt.annotate('{0}\n{1}'.format(pttext, centtext), xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
+        plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
+
+        fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
+
+        ax = plt.gca()
+        ax.minorticks_on()
+        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
+        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+
+        self.plotResiduals(ylim=ylim)
+        average = np.average(self.residuals)
+        plt.axhline(y=average, color='r', label='Average')
+        plt.legend(loc=1, frameon=False, fontsize=22)
+
+        plt.xlabel(self.xlabel, fontsize=30, x=1.0, ha='right')
+
+        if figfilename:
+            fig.savefig(figfilename)
 
 
 # Requires all histograms as normalized numpy arrays

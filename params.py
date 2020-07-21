@@ -4,7 +4,7 @@ import numpy as np
 class IsolationParams:
     # set defaults here or override via keywords
     def __init__(self, **kwargs):
-        self.isovar = kwargs.get('isovar', 'cluster_iso_its_04_sub')
+        self.isovar = kwargs.get('isovar', 'cluster_iso_tpc_02_sub')
         self.isocut = kwargs.get('isocut', 1.5)
         self.antiisocutlow = kwargs.get('antiisocutlow', 5.0)
         self.antiisocuthigh = kwargs.get('antiisocuthigh', 10.0)
