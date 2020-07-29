@@ -3,7 +3,7 @@ import numpy as np
 
 def haveSameLength(*args):
     n = len(args[0])
-    return all(len(l) == n for l in args)
+    return all(len(array) == n for array in args)
 
 
 def is1D(x):

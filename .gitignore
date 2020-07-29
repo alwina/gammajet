@@ -1,2 +1,6 @@
 *.pyc
 .ipynb_checkpoints
+csv/
+# for now, don't push notebooks or plots
+*.ipynb
+plots/
