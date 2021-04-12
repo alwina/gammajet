@@ -32,14 +32,18 @@ class ShowerShapeParams:
 
     def setDefaultLambda(self):
         self.ssvar = 'cluster_Lambda'
-        self.binEdges = np.linspace(0, 2, 101)
-        self.purityRange = (0.0, 0.3)
+        self.binEdges = np.linspace(0.1, 2, 96)
+        self.purityRange = (0.1, 0.3)
         self.bkgFitRange = (0.4, 1.5)
         self.tfFitRange = None
         self.axisLabel = '$\mathrm{\sigma^2_{long}}$'
         self.legendLabel = '$\mathrm{\sigma^2_{long}}$'
-        self.doubleRatioBinEdges = np.linspace(0, 2, 21)
+        self.doubleRatioBinEdges = np.linspace(0.1, 2, 20)
         self.doubleRatioFitRange = (0.5, 1.75)
+
+    def setVarBinLambda(self):
+        self.setDefaultLambda()
+        self.binEdges = np.concatenate((np.linspace(0.1, 0.3, 11), np.linspace(0.32, 1.12, 11), np.linspace(1.2, 2, 6)))
 
     def setDefaultDNN(self):
         self.ssvar = 'cluster_NN1'

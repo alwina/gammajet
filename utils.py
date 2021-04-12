@@ -67,7 +67,8 @@ def getHistAndErr(df, var, binEdges, weightvar='weights'):
     for left, right in zip(binEdges[:-1], binEdges[1:]):
         weights = [w for (x, w) in zip(df[var], df[weightvar]) if x >= left and x <= right]
         errs.append(quadSumAll(weights))
-    return hist, errs
+    binWidths = getWidths(binEdges)
+    return np.divide(hist, binWidths), np.divide(errs, binWidths)
 
 
 def normalizeHistAndErr(hist, err):
@@ -81,8 +82,16 @@ def getNormHistAndErr(df, var, binEdges, weightvar='weights'):
 
 
 def divideHistsAndErrs(hist1, err1, hist2, err2):
-    hist = np.divide(hist1, hist2)
-    relativeerr = quadSumPairwise(np.divide(err1, hist1), np.divide(err2, hist2))
+    hist = np.full_like(hist1, np.nan)
+    np.divide(hist1, hist2, out=hist, where=hist2 != 0)
+
+    relerr1 = np.zeros_like(hist1)
+    np.divide(err1, hist1, out=relerr1, where=err1 != 0)
+
+    relerr2 = np.zeros_like(hist2)
+    np.divide(err2, hist2, out=relerr2, where=err2 != 0)
+
+    relativeerr = quadSumPairwise(relerr1, relerr2)
     histerr = np.multiply(hist, relativeerr)
 
     return hist, histerr
@@ -94,3 +103,26 @@ def integrateHist(hist, binEdges):
 
 def getUniformUncertainty(dist):
     return np.ptp(dist) / np.sqrt(12)
+
+
+def Chi2Histograms(df1, df2, var, bins):
+    hist1, err1 = getNormHistAndErr(df1, var, bins)
+    hist2, err2 = getNormHistAndErr(df2, var, bins)
+
+    toterr = quadSumPairwise(err1, err2)
+
+    numerator = np.square(np.subtract(hist1, hist2))
+    denominator = np.square(toterr)
+
+    chi2 = np.sum(np.divide(numerator, denominator))
+    return chi2
+
+
+def getTimeText(duration):
+    if duration < 120:
+        timetext = '{0:0.0f} seconds'.format(duration)
+    elif duration < 3600:
+        timetext = '{0:0.0f} minutes'.format(duration / 60.0)
+    else:
+        timetext = '{0:0.0f} hours {1:0.0f} minutes'.format(duration / 3600, (duration % 3600) / 60.0)
+    return timetext

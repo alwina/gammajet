@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.integrate
+import scipy.misc
 import scipy.special
 
 import iminuit
@@ -32,8 +33,12 @@ class FitFunction:
         finite = np.logical_and(np.isfinite(y), np.isfinite(yerr))
         return np.logical_and(finite, np.array(yerr) != 0)
 
-    def calculateChi2(self, model, y, yerr):
-        return np.sum(np.power(np.divide(np.subtract(y, model), yerr, where=self.isFiniteAndNonzero(y, yerr)), 2.0))
+    def calculateChi2(self, model, y, yerr, xerr=None):
+        if xerr is None:
+            xerr = np.zeros_like(yerr)
+        numerator = np.square(np.subtract(y, model))
+        denominator = np.sum(np.square([yerr, xerr]), axis=0)
+        return np.sum(np.divide(numerator, denominator, where=self.isFiniteAndNonzero(y, yerr)))
 
     def doFit(self, Chi2, nPoints):
         params = []
@@ -44,7 +49,7 @@ class FitFunction:
         mt = iminuit.Minuit(Chi2, errordef=1, print_level=0, **self.initParams)
         mt.migrad()
         if not mt.migrad_ok():
-            print('Warning: double ratio fit did not converge')
+            print('Warning: fit did not converge')
 
         self.fitParams = {}
         self.fitErrors = {}
@@ -148,9 +153,15 @@ class ErrorFunctionFit(FitFunction):
             return a * scipy.special.erf((x - b) / c)
         return function
 
-    def getParamsAndErrors(self, y, yerr, x):
+    def getParamsAndErrors(self, y, yerr, x, xwidths=None):
         def Chi2(a, b, c):
             model = list(map(self.getFunction(a, b, c), x))
-            return self.calculateChi2(model, y, yerr)
+            if xwidths is None:
+                xerr = np.zeros_like(x)
+            else:
+                xerr = []
+                for (xval, xwidth) in zip(x, xwidths):
+                    xerr.append(xwidth / 2 * scipy.misc.derivative(self.getFunction(a, b, c), xval))
+            return self.calculateChi2(model, y, yerr, xerr)
 
         self.doFit(Chi2, len(y))

@@ -113,7 +113,7 @@ class TemplateFit:
         signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, 'Bkg'), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
         # signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, bkgLabel), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
 
-        chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:2.2f}'.format(self.chi2 / self.dof))
+        chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:2.2f}/{1:2.0f}'.format(self.chi2, self.dof))
         puritytext, = plt.plot([], [], ' ', label='Purity = ${0:2.1f}\pm{1:2.1f}$%'.format(100 * self.purity, 100 * self.purityerr))
 
         ax = plt.gca()
@@ -141,7 +141,7 @@ class TemplateFit:
         plt.ylabel('Entries')
         plt.legend(loc='best')
 
-    def plotFitAndResiduals(self, ptrange, centrange, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', ylim=[-8.9, 8.9]):
+    def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
         fig = plt.figure()
 
         fig.add_axes((0.1, 0.3, 0.88, 0.6))
@@ -158,9 +158,13 @@ class TemplateFit:
         plt.legend(handles=[datapoint, signalplot, bkgplot, chi2text, puritytext], ncol=1, numpoints=1, loc=1, fontsize=22, frameon=False)
 
         pttext = '{0} < pT < {1} GeV/$c$'.format(ptrange[0], ptrange[1])
-        centtext = '{0}-{1}% Pb-Pb'.format(centrange[0], centrange[1])
+        if centrange:
+            centtext = '{0}-{1}% {2}'.format(centrange[0], centrange[1], system)
+        infotext = pttext
+        if centrange:
+            infotext = infotext + '\n' + centtext
         # centtext = '{0}-{1}% Pb-Pb\n$\sqrt{{s_{{NN}}}}=5.02$ TeV'.format(centrange[0], centrange[1])
-        plt.annotate('{0}\n{1}'.format(pttext, centtext), xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
+        plt.annotate(infotext, xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
         plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
 
         fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
