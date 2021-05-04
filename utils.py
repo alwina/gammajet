@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -103,6 +104,35 @@ def integrateHist(hist, binEdges):
 
 def getUniformUncertainty(dist):
     return np.ptp(dist) / np.sqrt(12)
+
+
+# skip the underflow and overflow bins for now -- we can change our minds later
+# these assume equally-spaced bins
+
+def th1ToArrays(th1, nBinsX, minX, maxX):
+    hist, err = [], []
+    for binX in range(1, nBinsX + 1):
+        hist.append(th1.GetBinContent(binX))
+        err.append(th1.GetBinError(binX))
+    binEdges = np.linspace(minX, maxX, nBinsX + 1)
+    return hist, err, binEdges
+
+
+def plotTH1(th1, nBinsX, minX, maxX, **kwargs):
+    hist, err, binEdges = th1ToArrays(th1, nBinsX, minX, maxX)
+    plt.errorbar(getCenters(binEdges), hist, yerr=err, xerr=getXerrForPlot(binEdges), **kwargs)
+
+
+def plotTH2(th2, nBinsX, minX, maxX, nBinsY, minY, maxY):
+    hist2d = np.zeros((nBinsX + 1, nBinsY + 1))
+    for binX in range(1, nBinsX + 1):
+        for binY in range(1, nBinsY + 1):
+            globalBinNumber = th2.GetBin(binX, binY)
+            hist2d[binX][binY] = th2.GetBinContent(globalBinNumber)
+    # set 0 values to be white when plotting
+    hist2d[hist2d == 0] = np.nan
+
+    plt.imshow(hist2d, origin='lower', extent=(minX, maxX, minY, maxY))
 
 
 def Chi2Histograms(df1, df2, var, bins):

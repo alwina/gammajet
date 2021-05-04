@@ -34,7 +34,7 @@ class ShowerShapeParams:
         self.ssvar = 'cluster_Lambda'
         self.binEdges = np.linspace(0.1, 2, 96)
         self.purityRange = (0.1, 0.3)
-        self.bkgFitRange = (0.4, 1.5)
+        self.bkgFitRange = (0.6, 1.5)
         self.tfFitRange = None
         self.axisLabel = '$\mathrm{\sigma^2_{long}}$'
         self.legendLabel = '$\mathrm{\sigma^2_{long}}$'

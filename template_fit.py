@@ -269,7 +269,7 @@ class BackgroundFit:
         plt.xlabel(self.xlabel)
         plt.ylabel('Entries')
 
-        return [dataplot, bkgplot, chi2text, puritytext]
+        return dataplot, bkgplot, chi2text, puritytext
 
     def plotResiduals(self, ylim=[-8.9, 8.9]):
         plt.plot(self.binCenters[self.fitRange], self.residuals[self.fitRange], 'ko', alpha=0.65)
@@ -277,3 +277,46 @@ class BackgroundFit:
         plt.ylabel('(Fit - Data)/Dataerr')
         plt.xlim([self.binCenters[0], self.binCenters[-1]])
         plt.ylim(ylim)
+
+    def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
+        fig = plt.figure()
+
+        fig.add_axes((0.1, 0.3, 0.88, 0.6))
+
+        ax = plt.gca()
+        ax.minorticks_on()
+        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
+        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+
+        fig.add_axes((0.1, 0.3, 0.88, 0.6))
+        dataplot, bkgplot, chi2text, puritytext = self.plotFit(dataLabel, bkgLabel)
+
+        datapoint, = plt.plot([], [], 'ko', label=dataLabel)
+        plt.legend(handles=[datapoint, bkgplot, chi2text, puritytext], ncol=1, numpoints=1, loc=1, fontsize=22, frameon=False)
+
+        pttext = '{0} < pT < {1} GeV/$c$'.format(ptrange[0], ptrange[1])
+        if centrange:
+            centtext = '{0}-{1}% {2}'.format(centrange[0], centrange[1], system)
+        infotext = pttext
+        if centrange:
+            infotext = infotext + '\n' + centtext
+        # centtext = '{0}-{1}% Pb-Pb\n$\sqrt{{s_{{NN}}}}=5.02$ TeV'.format(centrange[0], centrange[1])
+        plt.annotate(infotext, xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
+        plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
+
+        fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
+
+        ax = plt.gca()
+        ax.minorticks_on()
+        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
+        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+
+        self.plotResiduals(ylim=ylim)
+        average = np.average(self.residuals)
+        plt.axhline(y=average, color='r', label='Average')
+        plt.legend(loc=1, frameon=False, fontsize=22)
+
+        plt.xlabel(self.xlabel, fontsize=30, x=1.0, ha='right')
+
+        if figfilename:
+            fig.savefig(figfilename)
