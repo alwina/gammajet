@@ -517,6 +517,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   Long64_t nentries = _tree_event->GetEntries();
   std::cout << " Total Number of entries in TTree: " << nentries << std::endl;
 
+  EcrossoverE_min = 10;
+  pT_max = 100;
   //Cluster Cut Summary
   fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
   fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
@@ -532,8 +534,12 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   ------------------------------------------------------------------------*/
   TH1I *SR_mixed_event_counter = new TH1I("SR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
   TH1I *BR_mixed_event_counter = new TH1I("BR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
-  //Deicated Histograms, or must be added to THnSparse
   //GetEntries() of above is all that is needed. Distributions serve as additional check to mixing
+
+  THnSparseF* hnMixSR= new THnSparseF("hnMixSR", "Number of Mixed Events (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+  THnSparseF* hnMixBR= new THnSparseF("hnMixBR", "Number of Mixed Events (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+  Double_t nMixSR[ndimTrig];
+  Double_t nMixBR[ndimTrig];
 
   const H5std_string hdf5_file_name(argv[2]);
   TString hdf5_file = (TString)argv[2];
@@ -610,9 +616,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   //MAIN CORRELATION LOOP
 
+  nentries=2;
   fprintf(stderr, "\n Looping for main correlation functions \n");
   for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
-    /* for(Long64_t ievent = 0; ievent < 10000 ; ievent++){ */
     _tree_event->GetEntry(ievent);
     fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
@@ -627,14 +633,16 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
     for (ULong64_t n = 0; n < ncluster; n++) {
       /* fprintf(stderr,"%d: pT = %f, eta = %f, ncell = %i, e_cross_e = %f, d_to_bad = %f, tof = %f\n",__LINE__, */
-      /*  cluster_pt[n],cluster_eta[n], cluster_ncell[n], cluster_e_cross[n], cluster_distance_to_bad_channel[n]); */ 
-      if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons
-      if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector
-      if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells
-      if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters
-      if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels
-      if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima.
-      if (not(abs(cluster_tof[n]) < cluster_time)) continue;
+       /*  cluster_pt[n],cluster_eta[n], cluster_ncell[n], cluster_e_cross[n], cluster_distance_to_bad_channel[n]); */ 
+      /* if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons */
+      /* if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector */
+      /* if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells */
+      /* if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters */
+      /* if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels */
+      /* if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima. */
+      /* if (not(abs(cluster_tof[n]) < cluster_time)) continue; */
+
+      /* fprintf(stderr,"%d: PASSED WITH Cluster pT = %f\n",__LINE__,cluster_pt[n]); */
       
       float isolation;
       if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
@@ -682,7 +690,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       //Jet Loop
       for (Long64_t imix = mix_start; imix < mix_end; imix++){
         Long64_t mix_event = mix_events[imix];
-        fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event);
+        /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
 
         if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings 
 
@@ -721,6 +729,10 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
             corrSR[3] = jetpt;
             corrSR[4] = ptratio;
             hCorrSR->Fill(corrSR);
+
+            nMixSR[0] = centrality_v0m;
+            nMixSR[1] = cluster_pt[n];
+            hnMixSR->Fill(nMixSR);
             SR_mixed_event_counter->Fill(mix_event);
 
           }
@@ -732,6 +744,10 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
             corrBR[3] = jetpt;
             corrBR[4] = ptratio;
             hCorrBR->Fill(corrBR);
+
+            nMixBR[0] = centrality_v0m;
+            nMixBR[1] = cluster_pt[n];
+            hnMixBR->Fill(nMixBR);
             BR_mixed_event_counter->Fill(mix_event);
           }
         }//for ijets
@@ -748,9 +764,12 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
     hTrigSR->Write();
     hCorrSR->Write();
+    hnMixSR->Write();
     SR_mixed_event_counter->Write();
+
     hTrigBR->Write();
     hCorrBR->Write();
+    hnMixBR->Write();
     BR_mixed_event_counter->Write();
 
     //Seperate zt loops for easier file reading
