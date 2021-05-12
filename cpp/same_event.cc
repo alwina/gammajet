@@ -17,6 +17,8 @@
 #include <vector>
 #include <math.h>
 
+#include "yaml-cpp/yaml.h"
+
 const int MAX_INPUT_LENGTH = 200;
 
 enum isolationDet {CLUSTER_ISO_TPC_04, CLUSTER_ISO_ITS_04, CLUSTER_ISO_ITS_04_SUB, CLUSTER_ISO_TPC_04_SUB, CLUSTER_FRIXIONE_TPC_04_02, CLUSTER_FRIXIONE_ITS_04_02};
@@ -79,7 +81,7 @@ Float_t Get_Purity_ErrFunction(Float_t pT_GeV, std::string deviation, bool Is_pp
 
 
 int main(int argc, char *argv[])
-{
+{    
   if (argc < 3) {
     fprintf(stderr, "Format: [command] [root file] [pp or pPb] \n");
     exit(EXIT_FAILURE);
@@ -101,7 +103,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "\n PROTON PROTON SELECTED \n \n");
 
   //Config File
-  FILE* config = fopen("../Corr_config.yaml", "r");
+  YAML::Node config = YAML::LoadFile("Corr_config.yaml");
   double DNN_min = 0;
   double DNN_max = 0;
   double DNN_Bkgd = 0;
@@ -119,10 +121,6 @@ int main(int argc, char *argv[])
 
   bool do_pile = false;
 
-  float track_pT_min = 0.0;
-  float track_pT_max = 0.0;
-  int Track_Cut_Bit = 0;
-  int track_chi_max = 0;
   double iso_max = 0;
   double noniso_min = 0;
   double noniso_max = 0;
@@ -135,260 +133,137 @@ int main(int argc, char *argv[])
 
   bool TPC_Iso_Flag = false;
 
-  // Zt bins
-  //FIXME: Will have to likely set nztbins first, then initialize array
-  int nztbins = 7;
-  float* ztbins;
-  ztbins = new float[nztbins + 1];
-  ztbins[0] = 0.0; ztbins[1] = 0.1; ztbins[2] = 0.2; ztbins[3] = 0.4; ztbins[4] = 0.6; ztbins[5] = 0.8; ztbins[6] = 1.0; ztbins[7] = 1.2;
-
-  int nptbins = 3;
-  float* ptbins;
-  ptbins = new float[nptbins + 1];
-  ptbins[0] = 10.0; ptbins[1] = 11; ptbins[2] = 12.5; ptbins[3] = 16;
-
-  //FIXME: Obviously needs to be put in a header file.
-  // Loop through config file
-  char line[MAX_INPUT_LENGTH];
-  while (fgets(line, MAX_INPUT_LENGTH, config) != NULL) {
-    if (line[0] == '#') continue;
-
-    char key[MAX_INPUT_LENGTH];
-    char dummy[MAX_INPUT_LENGTH];
-    char value[MAX_INPUT_LENGTH];
-
-    // Cap off key[0] and value[0] with null characters and load the key, dummy-characters, and value of the line into their respective arrays
-    key[0] = '\0';
-    value[0] = '\0';
-    sscanf(line, "%[^:]:%[ \t]%100[^\n]", key, dummy, value);
-
-    //Read Config File: Detect Keys
-    if (strcmp(key, "DNN_min") == 0) {
-      DNN_min = atof(value);
-      std::cout << "DNN_min: " << DNN_min << std::endl;
-    }
-
-    else if (strcmp(key, "DNN_max") == 0) {
-      DNN_max = atof(value);
-      std::cout << "DNN_max: " << DNN_max << std::endl;
-    }
-
-    else if (strcmp(key, "DNN_BKGD") == 0) {
-      DNN_Bkgd = atof(value);
-      std::cout << "DNN_BKGD: " << DNN_Bkgd << std::endl;
-    }
-
-    else if (strcmp(key, "Lambda0_cut") == 0) {
-      Lambda0_cut = atof(value);
-      std::cout << "Lambda0_cut: " << Lambda0_cut << std::endl;
-    }
-
-    if (strcmp(key, "EMax_EClus_min") == 0) {
-      Emax_min = atof(value);
-      std::cout << "EMax_EClus_min:" << Emax_min << std::endl;
-    }
-
-    else if (strcmp(key, "EMax_EClus_max") == 0) {
-      Emax_max = atof(value);
-      std::cout << "EMax_EClus_max: " << Emax_max << std::endl;
-    }
-
-    else if (strcmp(key, "pT_min") == 0) {
-      pT_min = atof(value);
-      std::cout << "pT_min: " << pT_min << std::endl;
-    }
-
-    else if (strcmp(key, "pT_max") == 0) {
-      pT_max = atof(value);
-      std::cout << "pT_max: " << pT_max << std::endl;
-    }
-
-    else if (strcmp(key, "Eta_max") == 0) {
-      Eta_max = atof(value);
-      std::cout << "Eta_max: " << Eta_max << std::endl;
-    }
-    else if (strcmp(key, "Cluster_min") == 0) {
-      Cluster_min = atof(value);
-      std::cout << "Cluster_min: " << Cluster_min << std::endl;
-    }
-
-    else if (strcmp(key, "Cluster_dist_to_bad_channel") == 0) {
-      Cluster_DtoBad = atof(value);
-      std::cout << "Cluster_DtoBad: " << Cluster_DtoBad << std::endl;
-    }
-
-    else if (strcmp(key, "Cluster_N_Local_Maxima") == 0) {
-      Cluster_NLocal_Max = atof(value);
-      std::cout << "Cluster_NLocal_Max: " << Cluster_NLocal_Max << std::endl;
-    }
-
-    else if (strcmp(key, "EcrossoverE_min") == 0) {
-      EcrossoverE_min = atof(value);
-      std::cout << "EcrossoverE_min; " << EcrossoverE_min << std::endl;
-    }
-
-    else if (strcmp(key, "Cluster_Time") == 0) {
-      cluster_time = atof(value);
-      std::cout << "Cluster_Time: " << cluster_time << std::endl;
-    }
-
-    else if (strcmp(key, "iso_max") == 0) {
-      iso_max = atof(value);
-      std::cout << "iso_max: " << iso_max << std::endl;
-    }
-
-    else if (strcmp(key, "noniso_min") == 0) {
-      noniso_min = atof(value);
-      std::cout << "noniso_min: " << noniso_min << std::endl;
-    }
-
-    else if (strcmp(key, "noniso_max") == 0) {
-      noniso_max = atof(value);
-      std::cout << "noniso_max: " << noniso_max << std::endl;
-    }
-
-    else if (strcmp(key, "do_pileup_cut") == 0) {
-      if (strcmp(value, "true") == 0)
-        do_pile = true;
-      std::cout << "do_pileup_cut: " << do_pile << std::endl;
-    }
-
-    // else if (strcmp(key, "deta_max") == 0) {
-    //     deta_max = atof(value);
-    //     std::cout << "deta_max: " << deta_max << std::endl; }
-
-    else if (strcmp(key, "N_Phi_Bins") == 0) {
-      n_phi_bins = atoi(value);
-      std::cout << "Number of Phi Bins: " << n_phi_bins << std::endl;
-    }
-
-    else if (strcmp(key, "N_Eta_Bins") == 0) {
-      n_eta_bins = atoi(value);
-      std::cout << "Number of Eta Bins: " << n_eta_bins << std::endl;
-    }
-
-    else if (strcmp(key, "Track_pT_Min") == 0) {
-      track_pT_min = atof(value);
-      std::cout << "Track Min pT: " << track_pT_min << std::endl;
-    }
-
-    else if (strcmp(key, "Track_pT_Max") == 0) {
-      track_pT_max = atof(value);
-      std::cout << "Track Max pT: " << track_pT_max << std::endl;
-    }
-
-    else if (strcmp(key, "Track_Cut_Bit") == 0) {
-      Track_Cut_Bit = atoi(value);
-      std::cout << "Track Cut Bit: " << Track_Cut_Bit << std::endl;
-    }
-
-    else if (strcmp(key, "Track_Chi_Max") == 0) {
-      track_chi_max = atoi(value);
-      std::cout << "Track Chi^2 Max: " << track_chi_max << std::endl;
-    }
-
-
-    else if (strcmp(key, "Zt_bins") == 0) {
-      nztbins = -1;
-      for (const char *v = value; *v != ']';) {
-        while (*v != ']' && !isdigit(*v)) v++;
-        nztbins++;
-        while (*v != ']' && (isdigit(*v) || *v == '.')) v++;
-      }
-
-      ztbins = new float[nztbins + 1];
-      int i = 0;
-      for (const char *v = value; *v != ']' ;) {
-        while (*v != ']' && !isdigit(*v)) v++;
-        ztbins[i] = atof(v);
-        i++;
-        while (*v != ']' && (isdigit(*v) || *v == '.')) v++;
-      }
-
-      std::cout << "Number of Zt bins: " << nztbins << std::endl << "Zt bins: {";
-      for (int i = 0; i <= nztbins; i++)
-        std::cout << ztbins[i] << ", ";
-      std::cout << "}\n";
-    }
-
-    else if (strcmp(key, "Pt_bins") == 0) {
-      nptbins = -1;
-      for (const char *v = value; *v != ']';) {
-        while (*v != ']' && !isdigit(*v)) v++;
-        nptbins++;
-        while (*v != ']' && (isdigit(*v) || *v == '.')) v++;
-      }
-
-      ptbins = new float[nptbins + 1];
-      int i = 0;
-      for (const char *v = value; *v != ']' ;) {
-        while (*v != ']' && !isdigit(*v))  v++;
-        ptbins[i] = atof(v);
-        i++;
-        while (*v != ']' && (isdigit(*v) || *v == '.')) v++;
-      }
-
-      std::cout << "Number of Pt bins: " << nptbins << std::endl << "Pt bins: {";
-      for (int i = 0; i <= nptbins; i++)
-        std::cout << ptbins[i] << ", ";
-      std::cout << "}\n";
-    }
-
-    else if (strcmp(key, "Cluster_isolation_determinant") == 0) {
-      if (strcmp(value, "cluster_iso_tpc_04") == 0) {
-        determiner = CLUSTER_ISO_TPC_04;
-        std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl;
-      }
-
-      else if (strcmp(value, "cluster_iso_its_04") == 0) {
-        determiner = CLUSTER_ISO_ITS_04;
-        std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl;
-      }
-
-      else if (strcmp(value, "cluster_iso_its_04_sub") == 0) {
-        determiner = CLUSTER_ISO_ITS_04_SUB;
-        std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
-      }
-
-      else if (strcmp(value, "cluster_iso_tpc_04_sub") == 0) {
-        determiner = CLUSTER_ISO_TPC_04_SUB;
-        TPC_Iso_Flag = true;
-        std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl;
-      }
-
-      else if (strcmp(value, "cluster_frixione_tpc_04_02") == 0) {
-        determiner = CLUSTER_FRIXIONE_TPC_04_02;
-        std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl;
-      }
-
-      else if (strcmp(value, "cluster_frixione_its_04_02") == 0) {
-        determiner = CLUSTER_FRIXIONE_ITS_04_02;
-        std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl;
-      }
-
-      else {
-        std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
-        exit(EXIT_FAILURE);
-      }
-    }
-
-    else if (strcmp(key, "Shower_Shape") == 0) {
-      shower_shape = value;
-      std::cout << "Shower Shape: " << shower_shape.data() << std::endl;
-      //if (strcmp(shower_shape.data(),"Lambda")== 0) std::cout<<"test worked"<<std::endl;
-    }
-
-    else if (strcmp(key, "Purity_Dev") == 0) {
-      purity_deviation = value;
-      std::cout << "Purity Deviation Change: " << purity_deviation.data() << std::endl;
-    }
-
-    else std::cout << "WARNING: Unrecognized keyvariable " << key << std::endl;
-
+  // parse config file
+  // check for existence first, then cast as appropriate
+  if (config["DNN_min"]) {
+    DNN_min = config["DNN_min"].as<double>();
   }
-  //end Config Loop
 
-  fclose(config);
+  if (config["DNN_max"]) {
+    DNN_max = config["DNN_max"].as<double>();
+  }
+
+  if (config["DNN_BKGD"]) {
+    DNN_Bkgd = config["DNN_BKGD"].as<double>();
+  }
+
+  if (config["Lambda0_cut"]) {
+    Lambda0_cut = config["Lambda0_cut"].as<double>();
+  }
+
+  if (config["EMax_EClus_min"]) {
+    Emax_min = config["EMax_EClus_min"].as<double>();
+  }
+
+  if (config["EMax_EClus_max"]) {
+    Emax_max = config["EMax_EClus_max"].as<double>();
+  }
+
+  if (config["pT_min"]) {
+    pT_min = config["pT_min"].as<double>();
+  }
+
+  if (config["pT_max"]) {
+    pT_max = config["pT_max"].as<double>();
+  }
+
+  if (config["Eta_max"]) {
+    Eta_max = config["Eta_max"].as<double>();
+  }
+
+  if (config["Cluster_min"]) {
+    Cluster_min = config["Cluster_min"].as<double>();
+  }
+
+  if (config["Cluster_dist_to_bad_channel"]) {
+    Cluster_DtoBad = config["Cluster_dist_to_bad_channel"].as<double>();
+  }
+
+  if (config["Cluster_N_Local_Maxima"]) {
+    Cluster_NLocal_Max = config["Cluster_N_Local_Maxima"].as<double>();
+  }
+
+  if (config["EcrossoverE_min"]) {
+    EcrossoverE_min = config["EcrossoverE_min"].as<double>();
+  }
+
+  if (config["Cluster_Time"]) {
+    cluster_time = config["Cluster_Time"].as<double>();
+  }
+
+  if (config["iso_max"]) {
+    iso_max = config["iso_max"].as<double>();
+  }
+
+  if (config["noniso_min"]) {
+    noniso_min = config["noniso_min"].as<double>();
+  }
+
+  if (config["noniso_max"]) {
+    noniso_max = config["noniso_max"].as<double>();
+  }
+
+  if (config["do_pileup_cut"]) {
+    do_pile = config["do_pileup_cut"].as<bool>();
+  }
+
+  if (config["N_Phi_Bins"]) {
+    n_phi_bins = config["N_Phi_Bins"].as<int>();
+  }
+
+  if (config["N_Eta_Bins"]) {
+    n_eta_bins = config["N_Eta_Bins"].as<int>();
+  }
+
+  if (config["Cluster_isolation_determinant"]) {
+    std::string determinant = config["Cluster_isolation_determinant"].as<std::string>();
+
+    if (determinant == "cluster_iso_tpc_04") {
+      determiner = CLUSTER_ISO_TPC_04;
+      std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl;
+    }
+
+    else if (determinant == "cluster_iso_its_04") {
+      determiner = CLUSTER_ISO_ITS_04;
+      std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl;
+    }
+
+    else if (determinant == "cluster_iso_its_04_sub") {
+      determiner = CLUSTER_ISO_ITS_04_SUB;
+      std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
+    }
+
+    else if (determinant == "cluster_iso_tpc_04_sub") {
+      determiner = CLUSTER_ISO_TPC_04_SUB;
+      TPC_Iso_Flag = true;
+      std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl;
+    }
+
+    else if (determinant == "cluster_frixione_tpc_04_02") {
+      determiner = CLUSTER_FRIXIONE_TPC_04_02;
+      std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl;
+    }
+
+    else if (determinant == "cluster_frixione_its_04_02") {
+      determiner = CLUSTER_FRIXIONE_ITS_04_02;
+      std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl;
+    }
+
+    else {
+      std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  if (config["Shower_Shape"]) {
+    shower_shape = config["Shower_Shape"].as<std::string>();
+    std::cout << "Shower Shape: " << shower_shape << std::endl;
+  }
+
+  if (config["Purity_Dev"]) {
+    purity_deviation = config["Purity_Dev"].as<std::string>();
+    std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
+  }
 
   //Purity Handling
 
@@ -772,7 +647,6 @@ int main(int argc, char *argv[])
   hTrigBR->Write();
   hCorrBR->Write();
 
-  //Seperate zt loops for easier file reading
   fout->Close();
   file->Close();
   std::cout << " ending " << std::endl;
