@@ -36,5 +36,5 @@ add_executable(response_matrix response_matrix.cc)
 
 # link libraries
 target_link_libraries(same_event ${ROOT_LIBRARIES} yaml-cpp)
-target_link_libraries(mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5)
-target_link_libraries(response_matrix RooUnfold ${ROOT_LIBRARIES})
+target_link_libraries(mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp)
+target_link_libraries(response_matrix RooUnfold ${ROOT_LIBRARIES} yaml-cpp)

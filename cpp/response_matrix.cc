@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "\n PROTON PROTON SELECTED \n \n");
 
   //Config File
-  FILE* config = fopen("Corr_config.yaml", "r");
+  YAML::Node config = YAML::LoadFile("Corr_config.yaml");
   double DNN_min = 0;
   double DNN_max = 0;
   double DNN_Bkgd = 0;

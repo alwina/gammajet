@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
   dummyv[0] = strdup("main");
 
   //Config File
-  FILE* config = fopen("../Corr_config.yaml", "r");
+  YAML::Node config = YAML::LoadFile("Corr_config.yaml");
   if (!config){
     fprintf(stderr,"Config YAML not Found. Bailing\n");
     exit(EXIT_FAILURE);
@@ -200,11 +200,6 @@ int main(int argc, char *argv[])
   if (config["Shower_Shape"]) {
     shower_shape = config["Shower_Shape"].as<std::string>();
     std::cout << "Shower Shape: " << shower_shape << std::endl;
-  }
-
-  if (config["Purity_Dev"]) {
-    purity_deviation = config["Purity_Dev"].as<std::string>();
-    std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
   }
 
   /*--------------------------------------------------------------
