@@ -17,7 +17,10 @@
 #include <vector>
 #include <math.h>
 
+#include "RooUnfoldResponse.h"
 #include "yaml-cpp/yaml.h"
+
+using namespace std;
 
 const int MAX_INPUT_LENGTH = 200;
 
@@ -81,7 +84,7 @@ Float_t Get_Purity_ErrFunction(Float_t pT_GeV, std::string deviation, bool Is_pp
 
 
 int main(int argc, char *argv[])
-{    
+{
   if (argc < 3) {
     fprintf(stderr, "Format: [command] [root file] [pp or pPb] \n");
     exit(EXIT_FAILURE);
@@ -103,7 +106,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "\n PROTON PROTON SELECTED \n \n");
 
   //Config File
-  YAML::Node config = YAML::LoadFile("Corr_config.yaml");
+  FILE* config = fopen("Corr_config.yaml", "r");
   double DNN_min = 0;
   double DNN_max = 0;
   double DNN_Bkgd = 0;
@@ -121,6 +124,10 @@ int main(int argc, char *argv[])
 
   bool do_pile = false;
 
+  float track_pT_min = 0.0;
+  float track_pT_max = 0.0;
+  int Track_Cut_Bit = 0;
+  int track_chi_max = 0;
   double iso_max = 0;
   double noniso_min = 0;
   double noniso_max = 0;
@@ -325,36 +332,15 @@ int main(int argc, char *argv[])
   }
 
   /*--------------------------------------------------------------
-  Setting up THnSparses
-  hCorrSR: cluster-jet correlations for the signal region
-  hTrigSR: counting the number of clusters in each bin in the signal region
-  hCorrBR: cluster-jet correlations for the bkg region
-  hTrigBR: counting the number of clusters in each bin in the bkg region
+  Setting up RooUnfoldResponse objects
   --------------------------------------------------------------*/
+  bool keepMisses = false;
+  bool keepFakes = false;
 
-  // dimensions: centrality, cluster pT
-  Int_t ndimTrig = 2;
-  Int_t nbinsTrig[ndimTrig] = {10, 50};
-  Double_t minbinsTrig[ndimTrig] = {0, 15};
-  Double_t maxbinsTrig[ndimTrig] = {100, 40};
-  THnSparseF* hTrigSR = new THnSparseF("hTrigSR", "Number of clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
-  THnSparseF* hTrigBR = new THnSparseF("hTrigBR", "Number of clusters (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+  RooUnfoldResponse deltaphiResponse(10, 0, M_PI, 10, 0, M_PI);
+  RooUnfoldResponse jetptResponse(9, 5, 50, 9, 5, 50);
+  RooUnfoldResponse ptratioResponse(10, 0, 2, 10, 0, 2);
 
-  Double_t trigSR[ndimTrig];
-  Double_t trigBR[ndimTrig];
-
-  // dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio
-  Int_t ndimCorr = 5;
-  Int_t nbinsCorr[ndimCorr] = {10, 50, 120, 120, 120};
-  Double_t minbinsCorr[ndimCorr] = {0, 15, 0, 0, 0};
-  Double_t maxbinsCorr[ndimCorr] = {100, 40, M_PI, 50, 2};
-  THnSparseF* hCorrSR = new THnSparseF("hCorrSR", "Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-  THnSparseF* hCorrBR = new THnSparseF("hCorrBR", "Correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-  hCorrSR->Sumw2();
-  hCorrBR->Sumw2();
-
-  Double_t corrSR[ndimCorr];
-  Double_t corrBR[ndimCorr];
 
   //for (int iarg = 1; iarg < argc; iarg++) {
   int iarg = 1;
@@ -413,6 +399,7 @@ int main(int argc, char *argv[])
   Float_t cluster_frixione_tpc_04_02[NTRACK_MAX];
   Float_t cluster_frixione_its_04_02[NTRACK_MAX];
   Float_t cluster_s_nphoton[NTRACK_MAX][4];
+  UInt_t cluster_nmc_truth[NTRACK_MAX];
   unsigned short cluster_mc_truth_index[NTRACK_MAX][32];
   Int_t cluster_ncell[NTRACK_MAX];
   UShort_t  cluster_cell_id_max[NTRACK_MAX];
@@ -431,6 +418,11 @@ int main(int argc, char *argv[])
   Float_t jet_ak04tpc_eta[NTRACK_MAX];
   Float_t jet_ak04tpc_phi[NTRACK_MAX];
 
+  UInt_t njet_charged_truth_ak04;
+  Float_t jet_charged_truth_ak04_pt[NTRACK_MAX];
+  Float_t jet_charged_truth_ak04_eta[NTRACK_MAX];
+  Float_t jet_charged_truth_ak04_phi[NTRACK_MAX];
+
   //MC
   unsigned int nmc_truth;
   Float_t mc_truth_pt[NTRACK_MAX];
@@ -439,6 +431,7 @@ int main(int argc, char *argv[])
   short mc_truth_pdg_code[NTRACK_MAX];
   short mc_truth_first_parent_pdg_code[NTRACK_MAX];
   char mc_truth_charge[NTRACK_MAX];
+  Bool_t mc_truth_is_prompt_photon[NTRACK_MAX];
 
   Float_t mc_truth_first_parent_e[NTRACK_MAX];
   Float_t mc_truth_first_parent_pt[NTRACK_MAX];
@@ -449,8 +442,6 @@ int main(int argc, char *argv[])
   //Int_t   eg_ntrial;
 
   // Set the branch addresses of the branches in the TTrees
-  _tree_event->SetBranchStatus("*mc*", 0);
-
   //event Addresses
   _tree_event->SetBranchAddress("primary_vertex", primary_vertex);
   _tree_event->SetBranchAddress("is_pileup_from_spd_5_08", &is_pileup_from_spd_5_08);
@@ -482,6 +473,7 @@ int main(int argc, char *argv[])
   _tree_event->SetBranchAddress("cluster_eta", cluster_eta);
   _tree_event->SetBranchAddress("cluster_phi", cluster_phi);
   _tree_event->SetBranchAddress("cluster_s_nphoton", cluster_s_nphoton);
+  _tree_event->SetBranchAddress("cluster_nmc_truth", cluster_nmc_truth);
   _tree_event->SetBranchAddress("cluster_mc_truth_index", cluster_mc_truth_index);
   _tree_event->SetBranchAddress("cluster_lambda_square", cluster_lambda_square);
   _tree_event->SetBranchAddress("cluster_iso_tpc_04", cluster_iso_tpc_04);
@@ -502,11 +494,20 @@ int main(int argc, char *argv[])
   //_tree_event->SetBranchAddress("eg_cross_section",&eg_cross_section);
   //_tree_event->SetBranchAddress("eg_ntrial",&eg_ntrial);
 
+  // MC addresses
+  _tree_event->SetBranchAddress("mc_truth_pdg_code", mc_truth_pdg_code);
+  _tree_event->SetBranchAddress("mc_truth_is_prompt_photon", mc_truth_is_prompt_photon);
+
   // Jet addresses
   _tree_event->SetBranchAddress("njet_ak04tpc", &njet_ak04tpc);
   _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_ak04tpc_pt_raw);
   _tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_ak04tpc_eta);
   _tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_ak04tpc_phi);
+
+  _tree_event->SetBranchAddress("njet_charged_truth_ak04", &njet_charged_truth_ak04);
+  _tree_event->SetBranchAddress("jet_charged_truth_ak04_pt", jet_charged_truth_ak04_pt);
+  _tree_event->SetBranchAddress("jet_charged_truth_ak04_eta", jet_charged_truth_ak04_eta);
+  _tree_event->SetBranchAddress("jet_charged_truth_ak04_phi", jet_charged_truth_ak04_phi);
 
 
   //IMPORTANT BOOLEAN VARIABLES
@@ -545,7 +546,50 @@ int main(int argc, char *argv[])
     if (primary_vertex[2] == 0.00) continue;
     if (do_pile && is_pileup_from_spd_5_08) continue;
 
+    // Jet matching - once per event
+    vector<pair<int, int>> matchedJetIndices;
+    set<int> unmatchedTruth;
+    set<int> unmatchedReco;
+    pair<int, int> matchedIndex;
 
+    // first, make all reco jets unmatched
+    for (int ireco = 0; ireco < njet_ak04tpc; ireco++) {
+      unmatchedReco.insert(ireco);
+    }
+
+    for (int itruth = 0; itruth < njet_charged_truth_ak04; itruth++) {
+      float minDistance2 = 99999999999;
+      int minDistanceIndex = -1;
+
+      float eta_truth = jet_charged_truth_ak04_eta[itruth];
+      float phi_truth = jet_charged_truth_ak04_phi[itruth];
+
+      for (int ireco = 0; ireco < njet_ak04tpc; ireco++) {
+        float eta_reco = jet_ak04tpc_eta[ireco];
+        float phi_reco = jet_ak04tpc_phi[ireco];
+        float distance2 = ((eta_truth - eta_reco) * (eta_truth - eta_reco)) + ((phi_truth - phi_reco) * (phi_truth - phi_reco));
+
+        if (distance2 < minDistance2) {
+          minDistance2 = distance2;
+          minDistanceIndex = ireco;
+        }
+      }
+
+      if (minDistanceIndex > -1) {
+        if (abs(jet_ak04tpc_eta[minDistanceIndex]) > 0.5) {
+          unmatchedTruth.insert(itruth);
+        } else {
+          matchedIndex = make_pair(itruth, minDistanceIndex);
+          matchedJetIndices.push_back(matchedIndex);
+          // remove the reco jet from the set of unmatched reco jets
+          unmatchedReco.erase(minDistanceIndex);
+        }
+      } else {
+        unmatchedTruth.insert(itruth);
+      }
+    }
+
+    // Cluster loop
     for (ULong64_t n = 0; n < ncluster; n++) {
       if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons
       if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector
@@ -553,7 +597,19 @@ int main(int argc, char *argv[])
       if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters
       if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels
       if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima.
-      if (not(abs(cluster_tof[n]) < cluster_time)) continue;
+
+      // select on prompt photon
+      bool isPrompt = false;
+      for (UInt_t itruth = 0; itruth < cluster_nmc_truth[n]; itruth++) {
+        unsigned short mcindex = cluster_mc_truth_index[n][itruth];
+        if (mcindex == 65535) continue;
+        if (!(abs(mc_truth_pdg_code[itruth]) == 11 || mc_truth_pdg_code[itruth] == 22)) continue;
+        if (mc_truth_is_prompt_photon[itruth]) {
+          isPrompt = true;
+          break;
+        }
+      }
+      if ( not(isPrompt)) continue;
 
       float isolation;
       if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
@@ -567,6 +623,8 @@ int main(int argc, char *argv[])
       else isolation = cluster_frixione_its_04_02[n];
 
       Isolated = (isolation < iso_max);
+      if (not(Isolated)) continue;
+
       if (strcmp(shower_shape.data(), "Lambda") == 0) {
         Signal = ((cluster_lambda_square[n][0] > 0.1) and (cluster_lambda_square[n][0] < Lambda0_cut));
         Background = (cluster_lambda_square[n][0] > 0.6);
@@ -582,70 +640,60 @@ int main(int argc, char *argv[])
         Background = (cluster_e_max[n] / cluster_e[n] < Emax_min);
       }
 
+      if (not(Signal)) continue;
 
-      float bkg_weight = 1.0;
-      float track_weight = 1.0; //Fake Rate, smearing, efficiency
+      // Filling the response matrices
+      for (auto matchedIndex : matchedJetIndices) {
+        int itruth = matchedIndex.first;
+        int ireco = matchedIndex.second;
 
-      if (Background and Isolated) {
-        BR_purity_weight = (1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag) - 1); //(1-p)/p = 1/p - 1
+        float j_truth_pt = jet_charged_truth_ak04_pt[itruth];
+        float j_truth_phi = jet_charged_truth_ak04_phi[itruth];
+        float j_reco_pt = jet_ak04tpc_pt_raw[ireco];
+        float j_reco_phi = jet_ak04tpc_phi[ireco];
 
-        trigBR[0] = centrality_v0m;
-        trigBR[1] = cluster_pt[n];
-        hTrigBR->Fill(trigBR);
+        float deltaphi_truth = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - j_truth_phi));
+        float deltaphi_reco = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - j_reco_phi));
+
+        deltaphiResponse.Fill(deltaphi_reco, deltaphi_truth);
+        jetptResponse.Fill(j_reco_pt, j_truth_pt);
+        ptratioResponse.Fill(j_reco_pt / cluster_pt[n], j_truth_pt / cluster_pt[n]);
       }
 
-      if (Signal and Isolated) {
-        purity_weight = 1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag);
-
-        trigSR[0] = centrality_v0m;
-        trigSR[1] = cluster_pt[n];
-        hTrigSR->Fill(trigSR);
+      if (keepMisses) {
+        for (int itruth : unmatchedTruth) {
+          deltaphiResponse.Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_charged_truth_ak04_phi[itruth])));
+          jetptResponse.Miss(jet_charged_truth_ak04_pt[itruth]);
+          ptratioResponse.Miss(jet_charged_truth_ak04_pt[itruth] / cluster_pt[n]);
+        }
       }
 
-      //Jet Loop
-
-      for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
-        if (jet_ak04tpc_pt_raw[ijet] < 5) continue;
-        if (jet_ak04tpc_pt_raw[ijet] > 50) continue;
-        if (abs(jet_ak04tpc_eta[ijet]) > 0.5) continue;
-
-        // Observables: delta phi, jet pT, pT ratio
-        Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ijet]));
-        Float_t jetpt = jet_ak04tpc_pt_raw[ijet];
-        Float_t ptratio = jetpt / cluster_pt[n];
-
-        if (Signal and Isolated) {
-          corrSR[0] = centrality_v0m;
-          corrSR[1] = cluster_pt[n];
-          corrSR[2] = deltaphi;
-          corrSR[3] = jetpt;
-          corrSR[4] = ptratio;
-          hCorrSR->Fill(corrSR, purity_weight);
+      if (keepFakes) {
+        for (int ireco : unmatchedReco) {
+          deltaphiResponse.Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ireco])));
+          jetptResponse.Fake(jet_ak04tpc_pt_raw[ireco]);
+          ptratioResponse.Fake(jet_ak04tpc_pt_raw[ireco] / cluster_pt[n]);
         }
+      }
 
-        if (Background and Isolated) {
-          corrBR[0] = centrality_v0m;
-          corrBR[1] = cluster_pt[n];
-          corrBR[2] = deltaphi;
-          corrBR[3] = jetpt;
-          corrBR[4] = ptratio;
-          hCorrBR->Fill(corrBR, BR_purity_weight);
-        }
-      }//for ijets
       first_cluster = false;
     }//for nclusters
+
+    matchedJetIndices.clear();
+    unmatchedTruth.clear();
+    unmatchedReco.clear();
+    
   } //for nevents
   //}//end loop over samples
 
   // Write to fout
   TFile* fout;
-  fout = new TFile("sameEvent.root", "RECREATE");
+  fout = new TFile("responseMatrix.root", "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
-  hTrigSR->Write();
-  hCorrSR->Write();
-  hTrigBR->Write();
-  hCorrBR->Write();
+  deltaphiResponse.Write();
+  jetptResponse.Write();
+  ptratioResponse.Write();
 
   fout->Close();
   file->Close();

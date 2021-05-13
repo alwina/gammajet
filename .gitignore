@@ -7,3 +7,4 @@ plots/
 
 *.root
 *.hdf5
+cpp/build/
