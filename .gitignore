@@ -4,3 +4,6 @@ csv/
 # for now, don't push notebooks or plots
 *.ipynb
 plots/
+
+*.root
+*.hdf5
