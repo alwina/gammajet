@@ -21,7 +21,7 @@
 
 const int MAX_INPUT_LENGTH = 200;
 
-enum isolationDet {CLUSTER_ISO_TPC_04, CLUSTER_ISO_ITS_04, CLUSTER_ISO_ITS_04_SUB, CLUSTER_ISO_TPC_04_SUB, CLUSTER_FRIXIONE_TPC_04_02, CLUSTER_FRIXIONE_ITS_04_02};
+enum isolationDet {CLUSTER_ISO_TPC_04, CLUSTER_ISO_ITS_04, CLUSTER_ISO_ITS_04_SUB, CLUSTER_ISO_TPC_02_SUB, CLUSTER_ISO_TPC_04_SUB, CLUSTER_FRIXIONE_TPC_04_02, CLUSTER_FRIXIONE_ITS_04_02};
 
 
 Float_t Get_Purity_ErrFunction(Float_t pT_GeV, std::string deviation, bool Is_pp, bool Use_TPC) {
@@ -81,35 +81,23 @@ Float_t Get_Purity_ErrFunction(Float_t pT_GeV, std::string deviation, bool Is_pp
 
 
 int main(int argc, char *argv[])
-{    
-  if (argc < 3) {
-    fprintf(stderr, "Format: [command] [root file] [pp or pPb] \n");
+{
+  if (argc < 1) {
+    fprintf(stderr, "Format: [command] [config file]\n");
     exit(EXIT_FAILURE);
   }
   int dummyc = 1;
   char **dummyv = new char *[1];
 
   dummyv[0] = strdup("main");
-
-
   bool Is_pp = false;
 
-
-  std::string coll_system = argv[2];
-  if (strcmp(coll_system.c_str(), "pp") == 0)
-    Is_pp = true;
-
-  if (Is_pp)
-    fprintf(stderr, "\n PROTON PROTON SELECTED \n \n");
-
   //Config File
-  YAML::Node config = YAML::LoadFile("Corr_config.yaml");
-  double DNN_min = 0;
-  double DNN_max = 0;
-  double DNN_Bkgd = 0;
-  double Lambda0_cut = 0;
-  double Emax_min = 0;
-  double Emax_max = 0;
+  YAML::Node config = YAML::LoadFile(argv[1]);
+  double srmin = 0;
+  double srmax = 0;
+  double brmin = 0;
+  double brmax = 0;
   double pT_min = 0;
   double pT_max = 0;
   double Eta_max = 0;
@@ -119,6 +107,10 @@ int main(int argc, char *argv[])
   double EcrossoverE_min = 0;
   double cluster_time = 20;
 
+  double jet_pt_min = 0;
+  double jet_pt_max = 500;
+  double jet_eta_max = 10;
+
   bool do_pile = false;
 
   double iso_max = 0;
@@ -126,8 +118,6 @@ int main(int argc, char *argv[])
   double noniso_max = 0;
   //double deta_max = 0;
   isolationDet determiner = CLUSTER_ISO_ITS_04;
-  int n_eta_bins = 0;
-  int n_phi_bins = 0;
   std::string shower_shape = "DNN";
   std::string purity_deviation = "None";
 
@@ -135,88 +125,63 @@ int main(int argc, char *argv[])
 
   // parse config file
   // check for existence first, then cast as appropriate
-  if (config["DNN_min"]) {
-    DNN_min = config["DNN_min"].as<double>();
+  if (config["showershape"]) {
+    srmin = config["showershape"]["srmin"].as<double>();
+    srmax = config["showershape"]["srmax"].as<double>();
+    brmin = config["showershape"]["brmin"].as<double>();
+    brmax = config["showershape"]["brmax"].as<double>();
+
+    shower_shape = config["showershape"]["ssvar"].as<std::string>();
+    std::cout << "Shower Shape: " << shower_shape << std::endl;
   }
 
-  if (config["DNN_max"]) {
-    DNN_max = config["DNN_max"].as<double>();
+  if (config["clustercuts"]["all"]["cluster_pt"]) {
+    pT_min = config["clustercuts"]["all"]["cluster_pt"]["min"].as<double>();
+    pT_max = config["clustercuts"]["all"]["cluster_pt"]["max"].as<double>();
   }
 
-  if (config["DNN_BKGD"]) {
-    DNN_Bkgd = config["DNN_BKGD"].as<double>();
+  if (config["clustercuts"]["all"]["cluster_eta"]) {
+    Eta_max = config["clustercuts"]["all"]["cluster_eta"]["max"].as<double>();
   }
 
-  if (config["Lambda0_cut"]) {
-    Lambda0_cut = config["Lambda0_cut"].as<double>();
+  if (config["clustercuts"]["all"]["cluster_ncell"]) {
+    Cluster_min = config["clustercuts"]["all"]["cluster_ncell"]["incmin"].as<double>();
   }
 
-  if (config["EMax_EClus_min"]) {
-    Emax_min = config["EMax_EClus_min"].as<double>();
+  if (config["clustercuts"]["all"]["cluster_distance_to_bad_channel"]) {
+    Cluster_DtoBad = config["clustercuts"]["all"]["cluster_distance_to_bad_channel"]["incmin"].as<double>();
   }
 
-  if (config["EMax_EClus_max"]) {
-    Emax_max = config["EMax_EClus_max"].as<double>();
+  if (config["clustercuts"]["all"]["cluster_nlocal_maxima"]) {
+    Cluster_NLocal_Max = config["clustercuts"]["all"]["cluster_nlocal_maxima"]["max"].as<double>();
   }
 
-  if (config["pT_min"]) {
-    pT_min = config["pT_min"].as<double>();
+  if (config["clustercuts"]["all"]["cluster_ecross_emax"]) {
+    EcrossoverE_min = config["clustercuts"]["all"]["cluster_ecross_emax"]["min"].as<double>();
   }
 
-  if (config["pT_max"]) {
-    pT_max = config["pT_max"].as<double>();
+  if (config["clustercuts"]["data"]["cluster_tof"]) {
+    cluster_time = config["clustercuts"]["data"]["cluster_tof"]["max"].as<double>();
   }
 
-  if (config["Eta_max"]) {
-    Eta_max = config["Eta_max"].as<double>();
+  if (config["isolation"]) {
+    iso_max = config["isolation"]["isocut"].as<double>();
+    noniso_min = config["isolation"]["antiisocutlow"].as<double>();
+    noniso_max = config["isolation"]["antiisocuthigh"].as<double>();
   }
 
-  if (config["Cluster_min"]) {
-    Cluster_min = config["Cluster_min"].as<double>();
-  }
-
-  if (config["Cluster_dist_to_bad_channel"]) {
-    Cluster_DtoBad = config["Cluster_dist_to_bad_channel"].as<double>();
-  }
-
-  if (config["Cluster_N_Local_Maxima"]) {
-    Cluster_NLocal_Max = config["Cluster_N_Local_Maxima"].as<double>();
-  }
-
-  if (config["EcrossoverE_min"]) {
-    EcrossoverE_min = config["EcrossoverE_min"].as<double>();
-  }
-
-  if (config["Cluster_Time"]) {
-    cluster_time = config["Cluster_Time"].as<double>();
-  }
-
-  if (config["iso_max"]) {
-    iso_max = config["iso_max"].as<double>();
-  }
-
-  if (config["noniso_min"]) {
-    noniso_min = config["noniso_min"].as<double>();
-  }
-
-  if (config["noniso_max"]) {
-    noniso_max = config["noniso_max"].as<double>();
+  if (config["jetcuts"]) {
+    jet_pt_min = config["jetcuts"]["jet_ak04tpc_pt_raw"]["min"].as<double>();
+    jet_pt_max = config["jetcuts"]["jet_ak04tpc_pt_raw"]["max"].as<double>();
+    jet_eta_max = config["jetcuts"]["jet_ak04tpc_eta"]["max"].as<double>();
   }
 
   if (config["do_pileup_cut"]) {
     do_pile = config["do_pileup_cut"].as<bool>();
   }
 
-  if (config["N_Phi_Bins"]) {
-    n_phi_bins = config["N_Phi_Bins"].as<int>();
-  }
-
-  if (config["N_Eta_Bins"]) {
-    n_eta_bins = config["N_Eta_Bins"].as<int>();
-  }
-
-  if (config["Cluster_isolation_determinant"]) {
-    std::string determinant = config["Cluster_isolation_determinant"].as<std::string>();
+  if (config["isolation"]) {
+    std::string determinant = config["isolation"]["isovar"].as<std::string>();
 
     if (determinant == "cluster_iso_tpc_04") {
       determiner = CLUSTER_ISO_TPC_04;
@@ -231,6 +196,12 @@ int main(int argc, char *argv[])
     else if (determinant == "cluster_iso_its_04_sub") {
       determiner = CLUSTER_ISO_ITS_04_SUB;
       std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
+    }
+
+    else if (determinant == "cluster_iso_tpc_02_sub") {
+      determiner = CLUSTER_ISO_TPC_02_SUB;
+      TPC_Iso_Flag = true;
+      std::cout << "Isolation Variable: cluster_iso_tpc_02_sub" << std::endl;
     }
 
     else if (determinant == "cluster_iso_tpc_04_sub") {
@@ -253,11 +224,6 @@ int main(int argc, char *argv[])
       std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
       exit(EXIT_FAILURE);
     }
-  }
-
-  if (config["Shower_Shape"]) {
-    shower_shape = config["Shower_Shape"].as<std::string>();
-    std::cout << "Shower Shape: " << shower_shape << std::endl;
   }
 
   if (config["Purity_Dev"]) {
@@ -356,29 +322,9 @@ int main(int argc, char *argv[])
   Double_t corrSR[ndimCorr];
   Double_t corrBR[ndimCorr];
 
-  //for (int iarg = 1; iarg < argc; iarg++) {
-  int iarg = 1;
-  TString root_file = (TString)argv[iarg];
-  std::cout << "Opening: " << (TString)argv[iarg] << std::endl;
-
-  TFile *file = TFile::Open(root_file);
-
-  if (file == NULL) {
-    std::cout << " fail" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  file->Print();
-
-  TTree *_tree_event = dynamic_cast<TTree *>(file->Get("_tree_event"));
-
-  if (_tree_event == NULL) {
-    _tree_event = dynamic_cast<TTree *>(file->Get("AliAnalysisTaskNTGJ/_tree_event"));
-    if (_tree_event == NULL) {
-      std::cout << " fail " << std::endl;
-      exit(EXIT_FAILURE);
-    }
-  }
-
+  /*--------------------------------------------------------------
+  Setting up local variables to be linked with ROOT branches
+  --------------------------------------------------------------*/
   //Events
   Bool_t is_pileup_from_spd_5_08;
   Double_t primary_vertex[3];
@@ -408,6 +354,7 @@ int main(int argc, char *argv[])
   Float_t cluster_pt[NTRACK_MAX];
   Float_t cluster_eta[NTRACK_MAX];
   Float_t cluster_phi[NTRACK_MAX];
+  Float_t cluster_iso_tpc_02[NTRACK_MAX];
   Float_t cluster_iso_tpc_04[NTRACK_MAX];
   Float_t cluster_iso_its_04[NTRACK_MAX];
   Float_t cluster_frixione_tpc_04_02[NTRACK_MAX];
@@ -423,6 +370,7 @@ int main(int argc, char *argv[])
 
   Float_t cluster_tof[NTRACK_MAX];
   Float_t cluster_iso_its_04_ue[NTRACK_MAX];
+  Float_t cluster_iso_tpc_02_ue[NTRACK_MAX];
   Float_t cluster_iso_tpc_04_ue[NTRACK_MAX];
 
   // Jets
@@ -448,194 +396,221 @@ int main(int argc, char *argv[])
   //Float_t eg_cross_section;
   //Int_t   eg_ntrial;
 
-  // Set the branch addresses of the branches in the TTrees
-  _tree_event->SetBranchStatus("*mc*", 0);
+  YAML::Node filenames = config["filelists"]["data"];
+  for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
+    std::string root_file = it->as<std::string>();
+    std::cout << "Opening " << root_file << std::endl;
+    TFile *file = TFile::Open((TString)root_file);
 
-  //event Addresses
-  _tree_event->SetBranchAddress("primary_vertex", primary_vertex);
-  _tree_event->SetBranchAddress("is_pileup_from_spd_5_08", &is_pileup_from_spd_5_08);
-  _tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
-  _tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
-  _tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
+    if (file == NULL) {
+      std::cout << " fail" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    file->Print();
 
-  //track Addresses
-  _tree_event->SetBranchAddress("primary_vertex", primary_vertex);
-  _tree_event->SetBranchAddress("ntrack", &ntrack);
-  _tree_event->SetBranchAddress("track_e", track_e);
-  _tree_event->SetBranchAddress("track_pt", track_pt);
-  _tree_event->SetBranchAddress("track_eta", track_eta);
-  _tree_event->SetBranchAddress("track_phi", track_phi);
-  _tree_event->SetBranchAddress("track_eta_emcal", track_eta_emcal);
-  _tree_event->SetBranchAddress("track_phi_emcal", track_phi_emcal);
-  _tree_event->SetBranchAddress("track_quality", track_quality);
-  _tree_event->SetBranchAddress("track_its_ncluster", &track_its_ncluster);
-  _tree_event->SetBranchAddress("track_its_chi_square", &track_its_chi_square);
-  _tree_event->SetBranchAddress("track_dca_xy", &track_dca_xy);
-  _tree_event->SetBranchAddress("track_dca_z", &track_dca_z);
+    TTree *_tree_event = dynamic_cast<TTree *>(file->Get("_tree_event"));
 
-  //Cluster Addresses
-  _tree_event->SetBranchAddress("ncluster", &ncluster);
-  _tree_event->SetBranchAddress("cluster_e", cluster_e);
-  _tree_event->SetBranchAddress("cluster_e_max", cluster_e_max);
-  _tree_event->SetBranchAddress("cluster_e_cross", cluster_e_cross);
-  _tree_event->SetBranchAddress("cluster_pt", cluster_pt);
-  _tree_event->SetBranchAddress("cluster_eta", cluster_eta);
-  _tree_event->SetBranchAddress("cluster_phi", cluster_phi);
-  _tree_event->SetBranchAddress("cluster_s_nphoton", cluster_s_nphoton);
-  _tree_event->SetBranchAddress("cluster_mc_truth_index", cluster_mc_truth_index);
-  _tree_event->SetBranchAddress("cluster_lambda_square", cluster_lambda_square);
-  _tree_event->SetBranchAddress("cluster_iso_tpc_04", cluster_iso_tpc_04);
-  _tree_event->SetBranchAddress("cluster_iso_its_04", cluster_iso_its_04);
-  _tree_event->SetBranchAddress("cluster_frixione_tpc_04_02", cluster_frixione_tpc_04_02);
-  _tree_event->SetBranchAddress("cluster_frixione_its_04_02", cluster_frixione_its_04_02);
-  _tree_event->SetBranchAddress("cluster_distance_to_bad_channel", cluster_distance_to_bad_channel);
-  _tree_event->SetBranchAddress("cluster_nlocal_maxima", cluster_nlocal_maxima);
-
-  _tree_event->SetBranchAddress("cluster_ncell", cluster_ncell);
-  _tree_event->SetBranchAddress("cluster_cell_id_max", cluster_cell_id_max);
-  _tree_event->SetBranchAddress("cell_e", cell_e);
-
-  _tree_event->SetBranchAddress("cluster_tof", cluster_tof);
-  _tree_event->SetBranchAddress("cluster_iso_its_04_ue", cluster_iso_its_04_ue);
-  _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
-
-  //_tree_event->SetBranchAddress("eg_cross_section",&eg_cross_section);
-  //_tree_event->SetBranchAddress("eg_ntrial",&eg_ntrial);
-
-  // Jet addresses
-  _tree_event->SetBranchAddress("njet_ak04tpc", &njet_ak04tpc);
-  _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_ak04tpc_pt_raw);
-  _tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_ak04tpc_eta);
-  _tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_ak04tpc_phi);
-
-
-  //IMPORTANT BOOLEAN VARIABLES
-  Bool_t Signal = false;
-  Bool_t Background = false;
-  Bool_t Isolated = false;
-
-  Long64_t nentries = _tree_event->GetEntries();
-  std::cout << " Total Number of entries in TTree: " << nentries << std::endl;
-
-  //Cluster Cut Summary
-  fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
-  fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
-  fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
-  fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, Lambda0_cut);
-  fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
-  fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
-  fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
-  fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
-
-  //MAIN CORRELATION LOOP
-
-  fprintf(stderr, "\n Looping for main correlation functions \n");
-  for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
-    //for(Long64_t ievent = 0; ievent < 10000 ; ievent++){
-    _tree_event->GetEntry(ievent);
-    fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
-
-    Float_t purity_weight = 0;
-    Float_t BR_purity_weight = 0;
-    bool first_cluster = true;
-    //if (not(first_cluster)) continue;
-
-    //Event Selection
-    if (TMath::Abs(primary_vertex[2]) > 10) continue;
-    if (primary_vertex[2] == 0.00) continue;
-    if (do_pile && is_pileup_from_spd_5_08) continue;
-
-
-    for (ULong64_t n = 0; n < ncluster; n++) {
-      if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons
-      if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector
-      if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells
-      if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters
-      if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels
-      if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima.
-      if (not(abs(cluster_tof[n]) < cluster_time)) continue;
-
-      float isolation;
-      if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
-      else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04[n];
-      else if (determiner == CLUSTER_ISO_ITS_04_SUB)
-        isolation = cluster_iso_its_04[n] + cluster_iso_its_04_ue[n] - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
-      else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
-        isolation = cluster_iso_tpc_04[n] + cluster_iso_tpc_04_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
+    if (_tree_event == NULL) {
+      _tree_event = dynamic_cast<TTree *>(file->Get("AliAnalysisTaskNTGJ/_tree_event"));
+      if (_tree_event == NULL) {
+        std::cout << " fail " << std::endl;
+        exit(EXIT_FAILURE);
       }
-      else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
-      else isolation = cluster_frixione_its_04_02[n];
+    }
 
-      Isolated = (isolation < iso_max);
-      if (strcmp(shower_shape.data(), "Lambda") == 0) {
-        Signal = ((cluster_lambda_square[n][0] > 0.1) and (cluster_lambda_square[n][0] < Lambda0_cut));
-        Background = (cluster_lambda_square[n][0] > 0.6);
-      }
+    // Set the branch addresses of the branches in the TTrees
+    _tree_event->SetBranchStatus("*mc*", 0);
 
-      else if (strcmp(shower_shape.data(), "DNN") == 0) {
-        Signal = ( (cluster_s_nphoton[n][1] > DNN_min) && (cluster_s_nphoton[n][1] < DNN_max));
-        Background = (cluster_s_nphoton[n][1] > 0.0 && cluster_s_nphoton[n][1] < DNN_Bkgd);
-      }
+    //event Addresses
+    _tree_event->SetBranchAddress("primary_vertex", primary_vertex);
+    _tree_event->SetBranchAddress("is_pileup_from_spd_5_08", &is_pileup_from_spd_5_08);
+    _tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
+    _tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
+    _tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
 
-      else if (strcmp(shower_shape.data(), "EMax") == 0) {
-        Signal = (cluster_e_max[n] / cluster_e[n] > Emax_max);
-        Background = (cluster_e_max[n] / cluster_e[n] < Emax_min);
-      }
+    //track Addresses
+    _tree_event->SetBranchAddress("primary_vertex", primary_vertex);
+    _tree_event->SetBranchAddress("ntrack", &ntrack);
+    _tree_event->SetBranchAddress("track_e", track_e);
+    _tree_event->SetBranchAddress("track_pt", track_pt);
+    _tree_event->SetBranchAddress("track_eta", track_eta);
+    _tree_event->SetBranchAddress("track_phi", track_phi);
+    _tree_event->SetBranchAddress("track_eta_emcal", track_eta_emcal);
+    _tree_event->SetBranchAddress("track_phi_emcal", track_phi_emcal);
+    _tree_event->SetBranchAddress("track_quality", track_quality);
+    _tree_event->SetBranchAddress("track_its_ncluster", &track_its_ncluster);
+    _tree_event->SetBranchAddress("track_its_chi_square", &track_its_chi_square);
+    _tree_event->SetBranchAddress("track_dca_xy", &track_dca_xy);
+    _tree_event->SetBranchAddress("track_dca_z", &track_dca_z);
+
+    //Cluster Addresses
+    _tree_event->SetBranchAddress("ncluster", &ncluster);
+    _tree_event->SetBranchAddress("cluster_e", cluster_e);
+    _tree_event->SetBranchAddress("cluster_e_max", cluster_e_max);
+    _tree_event->SetBranchAddress("cluster_e_cross", cluster_e_cross);
+    _tree_event->SetBranchAddress("cluster_pt", cluster_pt);
+    _tree_event->SetBranchAddress("cluster_eta", cluster_eta);
+    _tree_event->SetBranchAddress("cluster_phi", cluster_phi);
+    _tree_event->SetBranchAddress("cluster_s_nphoton", cluster_s_nphoton);
+    _tree_event->SetBranchAddress("cluster_mc_truth_index", cluster_mc_truth_index);
+    _tree_event->SetBranchAddress("cluster_lambda_square", cluster_lambda_square);
+    _tree_event->SetBranchAddress("cluster_iso_tpc_02", cluster_iso_tpc_02);
+    _tree_event->SetBranchAddress("cluster_iso_tpc_04", cluster_iso_tpc_04);
+    _tree_event->SetBranchAddress("cluster_iso_its_04", cluster_iso_its_04);
+    _tree_event->SetBranchAddress("cluster_frixione_tpc_04_02", cluster_frixione_tpc_04_02);
+    _tree_event->SetBranchAddress("cluster_frixione_its_04_02", cluster_frixione_its_04_02);
+    _tree_event->SetBranchAddress("cluster_distance_to_bad_channel", cluster_distance_to_bad_channel);
+    _tree_event->SetBranchAddress("cluster_nlocal_maxima", cluster_nlocal_maxima);
+
+    _tree_event->SetBranchAddress("cluster_ncell", cluster_ncell);
+    _tree_event->SetBranchAddress("cluster_cell_id_max", cluster_cell_id_max);
+    _tree_event->SetBranchAddress("cell_e", cell_e);
+
+    _tree_event->SetBranchAddress("cluster_tof", cluster_tof);
+    _tree_event->SetBranchAddress("cluster_iso_its_04_ue", cluster_iso_its_04_ue);
+    _tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
+    _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
+
+    //_tree_event->SetBranchAddress("eg_cross_section",&eg_cross_section);
+    //_tree_event->SetBranchAddress("eg_ntrial",&eg_ntrial);
+
+    // Jet addresses
+    _tree_event->SetBranchAddress("njet_ak04tpc", &njet_ak04tpc);
+    _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_ak04tpc_pt_raw);
+    _tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_ak04tpc_eta);
+    _tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_ak04tpc_phi);
 
 
-      float bkg_weight = 1.0;
-      float track_weight = 1.0; //Fake Rate, smearing, efficiency
+    //IMPORTANT BOOLEAN VARIABLES
+    Bool_t Signal = false;
+    Bool_t Background = false;
+    Bool_t Isolated = false;
 
-      if (Background and Isolated) {
-        BR_purity_weight = (1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag) - 1); //(1-p)/p = 1/p - 1
+    Long64_t nentries = _tree_event->GetEntries();
+    std::cout << " Total Number of entries in TTree: " << nentries << std::endl;
 
-        trigBR[0] = centrality_v0m;
-        trigBR[1] = cluster_pt[n];
-        hTrigBR->Fill(trigBR);
-      }
+    //Cluster Cut Summary
+    fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
+    fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
+    fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
+    fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, srmax);
+    fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
+    fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
+    fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
+    fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
 
-      if (Signal and Isolated) {
-        purity_weight = 1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag);
+    //MAIN CORRELATION LOOP
 
-        trigSR[0] = centrality_v0m;
-        trigSR[1] = cluster_pt[n];
-        hTrigSR->Fill(trigSR);
-      }
+    fprintf(stderr, "\n Looping for main correlation functions \n");
+    for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
+      //for(Long64_t ievent = 0; ievent < 10000 ; ievent++){
+      _tree_event->GetEntry(ievent);
+      fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
-      //Jet Loop
+      Float_t purity_weight = 0;
+      Float_t BR_purity_weight = 0;
+      bool first_cluster = true;
+      //if (not(first_cluster)) continue;
 
-      for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
-        if (jet_ak04tpc_pt_raw[ijet] < 5) continue;
-        if (jet_ak04tpc_pt_raw[ijet] > 50) continue;
-        if (abs(jet_ak04tpc_eta[ijet]) > 0.5) continue;
+      //Event Selection
+      if (TMath::Abs(primary_vertex[2]) > 10) continue;
+      if (primary_vertex[2] == 0.00) continue;
+      if (do_pile && is_pileup_from_spd_5_08) continue;
 
-        // Observables: delta phi, jet pT, pT ratio
-        Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ijet]));
-        Float_t jetpt = jet_ak04tpc_pt_raw[ijet];
-        Float_t ptratio = jetpt / cluster_pt[n];
 
-        if (Signal and Isolated) {
-          corrSR[0] = centrality_v0m;
-          corrSR[1] = cluster_pt[n];
-          corrSR[2] = deltaphi;
-          corrSR[3] = jetpt;
-          corrSR[4] = ptratio;
-          hCorrSR->Fill(corrSR, purity_weight);
+      for (ULong64_t n = 0; n < ncluster; n++) {
+        if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons
+        if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector
+        if ( not(cluster_ncell[n] >= Cluster_min)) continue;                 //removes clusters with 1 or 2 cells
+        if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters
+        if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels
+        if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima.
+        if (not(abs(cluster_tof[n]) < cluster_time)) continue;
+
+        float isolation;
+        if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
+        else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04[n];
+        else if (determiner == CLUSTER_ISO_ITS_04_SUB)
+          isolation = cluster_iso_its_04[n] + cluster_iso_its_04_ue[n] - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
+        else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
+          isolation = cluster_iso_tpc_04[n] + cluster_iso_tpc_04_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
         }
+        else if (determiner == CLUSTER_ISO_TPC_02_SUB) {
+          isolation = cluster_iso_tpc_02[n] + cluster_iso_tpc_02_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.2 * 0.2;
+        }
+        else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
+        else isolation = cluster_frixione_its_04_02[n];
+
+        Isolated = (isolation < iso_max);
+
+        float shower = -1;
+        if (shower_shape == "cluster_Lambda") {
+          shower = cluster_lambda_square[n][0];
+        }
+        else if (shower_shape == "cluster_NN1") {
+          shower = cluster_s_nphoton[n][1];
+        }
+        else if (shower_shape == "cluster_emax_over_e") {
+          shower = cluster_e_max[n] / cluster_e[n];
+        }
+
+        Signal = (shower > srmin) and (shower < srmax);
+        Background = (shower > brmin) and (shower < brmax);
+
+        float bkg_weight = 1.0;
+        float track_weight = 1.0; //Fake Rate, smearing, efficiency
 
         if (Background and Isolated) {
-          corrBR[0] = centrality_v0m;
-          corrBR[1] = cluster_pt[n];
-          corrBR[2] = deltaphi;
-          corrBR[3] = jetpt;
-          corrBR[4] = ptratio;
-          hCorrBR->Fill(corrBR, BR_purity_weight);
+          BR_purity_weight = (1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag) - 1); //(1-p)/p = 1/p - 1
+
+          trigBR[0] = centrality_v0m;
+          trigBR[1] = cluster_pt[n];
+          hTrigBR->Fill(trigBR);
         }
-      }//for ijets
-      first_cluster = false;
-    }//for nclusters
-  } //for nevents
-  //}//end loop over samples
+
+        if (Signal and Isolated) {
+          purity_weight = 1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag);
+
+          trigSR[0] = centrality_v0m;
+          trigSR[1] = cluster_pt[n];
+          hTrigSR->Fill(trigSR);
+        }
+
+        //Jet Loop
+
+        for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
+          if (jet_ak04tpc_pt_raw[ijet] < jet_pt_min) continue;
+          if (jet_ak04tpc_pt_raw[ijet] > jet_pt_max) continue;
+          if (abs(jet_ak04tpc_eta[ijet]) > jet_eta_max) continue;
+
+          // Observables: delta phi, jet pT, pT ratio
+          Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ijet]));
+          Float_t jetpt = jet_ak04tpc_pt_raw[ijet];
+          Float_t ptratio = jetpt / cluster_pt[n];
+
+          if (Signal and Isolated) {
+            corrSR[0] = centrality_v0m;
+            corrSR[1] = cluster_pt[n];
+            corrSR[2] = deltaphi;
+            corrSR[3] = jetpt;
+            corrSR[4] = ptratio;
+            hCorrSR->Fill(corrSR, purity_weight);
+          }
+
+          if (Background and Isolated) {
+            corrBR[0] = centrality_v0m;
+            corrBR[1] = cluster_pt[n];
+            corrBR[2] = deltaphi;
+            corrBR[3] = jetpt;
+            corrBR[4] = ptratio;
+            hCorrBR->Fill(corrBR, BR_purity_weight);
+          }
+        }//for ijets
+        first_cluster = false;
+      }//for nclusters
+    } //for nevents
+    file->Close();
+  }
 
   // Write to fout
   TFile* fout;
@@ -648,7 +623,6 @@ int main(int argc, char *argv[])
   hCorrBR->Write();
 
   fout->Close();
-  file->Close();
   std::cout << " ending " << std::endl;
   return EXIT_SUCCESS;
 }
