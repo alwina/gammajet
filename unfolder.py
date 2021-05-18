@@ -16,22 +16,12 @@ class Unfolder:
     def setMeasuredTH1(self, measuredTH1):
         self.measuredTH1 = measuredTH1
 
-    def setBinsMeasured(self, nBinsMeasured, minMeasured, maxMeasured):
-        self.nBinsMeasured = nBinsMeasured
-        self.minMeasured = minMeasured
-        self.maxMeasured = maxMeasured
-
-    def setBinsTruth(self, nBinsTruth, minTruth, maxTruth):
-        self.nBinsTruth = nBinsTruth
-        self.minTruth = minTruth
-        self.maxTruth = maxTruth
-
     def setResponseMatrix(self, rooUnfoldResponse):
         self.responseMatrix = rooUnfoldResponse
 
     def plotResponseMatrix(self):
         responseTH2 = self.responseMatrix.Hresponse()
-        plotTH2(responseTH2, self.nBinsMeasured, self.minMeasured, self.maxMeasured, self.nBinsTruth, self.minTruth, self.maxTruth)
+        plotTH2(responseTH2)
         plt.xlabel('Truth')
         plt.ylabel('Measured')
         plt.colorbar()
@@ -48,17 +38,14 @@ class Unfolder:
             self.unfoldedSvdTH1[k] = unfold.Hreco()
 
     def plotAllUnfolded(self, bayesKeys=None, svdKeys=None):
-        plotTH1(self.measuredTH1, self.nBinsMeasured, self.minMeasured, self.maxMeasured,
-                fmt='ko', label='Measured')
+        plotTH1(self.measuredTH1, fmt='ko', label='Measured')
 
         if bayesKeys is None:
             bayesKeys = self.unfoldedBayesTH1.keys()
         for key in bayesKeys:
-            plotTH1(self.unfoldedBayesTH1[key], self.nBinsMeasured, self.minMeasured, self.maxMeasured,
-                    label='Bayesian {0}'.format(key), linestyle='None', marker='.')
+            plotTH1(self.unfoldedBayesTH1[key], label='Bayesian {0}'.format(key), linestyle='None', marker='.')
 
         if svdKeys is None:
             svdKeys = self.unfoldedSvdTH1.keys()
         for key in svdKeys:
-            plotTH1(self.unfoldedSvdTH1[key], self.nBinsMeasured, self.minMeasured, self.maxMeasured,
-                    label='SVD {0}'.format(key), linestyle='None', marker='.')
+            plotTH1(self.unfoldedSvdTH1[key], label='SVD {0}'.format(key), linestyle='None', marker='.')

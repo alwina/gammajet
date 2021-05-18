@@ -109,21 +109,25 @@ def getUniformUncertainty(dist):
 # skip the underflow and overflow bins for now -- we can change our minds later
 # these assume equally-spaced bins
 
-def th1ToArrays(th1, nBinsX, minX, maxX):
-    hist, err = [], []
-    for binX in range(1, nBinsX + 1):
+def th1ToArrays(th1):
+    hist, err, binCenters, binWidths = [], [], [], []
+    for binX in range(1, th1.GetNbinsX()):
         hist.append(th1.GetBinContent(binX))
         err.append(th1.GetBinError(binX))
-    binEdges = np.linspace(minX, maxX, nBinsX + 1)
-    return hist, err, binEdges
+        binCenters.append(th1.GetBinCenter(binX))
+        binWidths.append(th1.GetBinWidth(binX))
+    return hist, err, binCenters, binWidths
 
 
-def plotTH1(th1, nBinsX, minX, maxX, **kwargs):
-    hist, err, binEdges = th1ToArrays(th1, nBinsX, minX, maxX)
-    plt.errorbar(getCenters(binEdges), hist, yerr=err, xerr=getXerrForPlot(binEdges), **kwargs)
+def plotTH1(th1, **kwargs):
+    hist, err, binCenters, binWidths = th1ToArrays(th1)
+    plt.errorbar(binCenters, hist, yerr=err, xerr=binWidths, **kwargs)
 
 
-def plotTH2(th2, nBinsX, minX, maxX, nBinsY, minY, maxY):
+def plotTH2(th2):
+    nBinsX = th2.GetNbinsX()
+    nBinsY = th2.GetNbinsY()
+
     hist2d = np.zeros((nBinsX + 1, nBinsY + 1))
     for binX in range(1, nBinsX + 1):
         for binY in range(1, nBinsY + 1):
@@ -132,7 +136,17 @@ def plotTH2(th2, nBinsX, minX, maxX, nBinsY, minY, maxY):
     # set 0 values to be white when plotting
     hist2d[hist2d == 0] = np.nan
 
+    minX = th2.GetXaxis().GetXmin()
+    maxX = th2.GetXaxis().GetXmax()
+    minY = th2.GetYaxis().GetXmin()
+    maxY = th2.GetYaxis().GetXmax()
     plt.imshow(hist2d, origin='lower', extent=(minX, maxX, minY, maxY))
+
+
+def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
+    for (axisNumber, axisMin, axisMax) in slices:
+        thnSparse.GetAxis(axisNumber).SetRangeUser(axisMin, axisMax)
+    return thnSparse.Projection(*axesToProject)
 
 
 def Chi2Histograms(df1, df2, var, bins):
