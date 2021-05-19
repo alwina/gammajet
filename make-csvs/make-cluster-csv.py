@@ -286,6 +286,7 @@ def main(ntuplefilenames, csvfilename):
                       'cluster_iso_tpc_01', 'cluster_iso_tpc_02', 'cluster_iso_tpc_03', 'cluster_iso_tpc_04',
                       'cluster_iso_tpc_01_sub', 'cluster_iso_tpc_02_sub', 'cluster_iso_tpc_03_sub', 'cluster_iso_tpc_04_sub',
                       'cluster_frixione_tpc_04_02', 'cluster_frixione_tpc_04_05', 'cluster_frixione_tpc_04_10',
+                      'cluster_5x5contiguouscluster', 'cluster_5x5contiguous', 'cluster_5x5cluster', 'cluster_5x5all',
                       'ue_estimate_tpc_const', 'weights', 'centrality_v0m']
         csvwriter = csv.DictWriter(csvfile, delimiter='\t', fieldnames=fieldnames)
         csvwriter.writeheader()
@@ -301,91 +302,105 @@ def main(ntuplefilenames, csvfilename):
             nevents = tree.GetEntries()
             totalevents = totalevents + nevents
 
-            ancluster = rnp.tree2array(tree, branches='ncluster')
-            acluster_pt = rnp.tree2array(tree, branches='cluster_pt')
-            acluster_eta = rnp.tree2array(tree, branches='cluster_eta')
-            acluster_phi = rnp.tree2array(tree, branches='cluster_phi')
-            acluster_e_cross = rnp.tree2array(tree, branches='cluster_e_cross')
-            acluster_e = rnp.tree2array(tree, branches='cluster_e')
-            acluster_e_max = rnp.tree2array(tree, branches='cluster_e_max')
-            acluster_ncell = rnp.tree2array(tree, branches='cluster_ncell')
-            acluster_tof = rnp.tree2array(tree, branches='cluster_tof')
-            acluster_nlocal_maxima = rnp.tree2array(tree, branches='cluster_nlocal_maxima')
-            acluster_distance_to_bad_channel = rnp.tree2array(tree, branches='cluster_distance_to_bad_channel')
-            acluster_iso_tpc_01 = rnp.tree2array(tree, branches='cluster_iso_tpc_01')
-            acluster_iso_tpc_02 = rnp.tree2array(tree, branches='cluster_iso_tpc_02')
-            acluster_iso_tpc_03 = rnp.tree2array(tree, branches='cluster_iso_tpc_03')
-            acluster_iso_tpc_04 = rnp.tree2array(tree, branches='cluster_iso_tpc_04')
-            acluster_iso_tpc_01_ue = rnp.tree2array(tree, branches='cluster_iso_tpc_01_ue')
-            acluster_iso_tpc_02_ue = rnp.tree2array(tree, branches='cluster_iso_tpc_02_ue')
-            acluster_iso_tpc_03_ue = rnp.tree2array(tree, branches='cluster_iso_tpc_03_ue')
-            acluster_iso_tpc_04_ue = rnp.tree2array(tree, branches='cluster_iso_tpc_04_ue')
-            acluster_frixione_tpc_04_02 = rnp.tree2array(tree, branches='cluster_frixione_tpc_04_02')
-            acluster_frixione_tpc_04_05 = rnp.tree2array(tree, branches='cluster_frixione_tpc_04_05')
-            acluster_frixione_tpc_04_10 = rnp.tree2array(tree, branches='cluster_frixione_tpc_04_10')
+            # can't loop through these in the normal way
             acluster_lambda_square = rnp.tree2array(tree, branches='cluster_lambda_square')
             acluster_s_nphoton = rnp.tree2array(tree, branches='cluster_s_nphoton')
-
-            acluster_nmc_truth = rnp.tree2array(tree, branches='cluster_nmc_truth')
             acluster_mc_truth_index = rnp.tree2array(tree, branches='cluster_mc_truth_index')
-            amc_truth_pdg_code = rnp.tree2array(tree, branches='mc_truth_pdg_code')
-            amc_truth_is_prompt_photon = rnp.tree2array(tree, branches='mc_truth_is_prompt_photon')
-
-            acentrality_v0m = rnp.tree2array(tree, branches='centrality_v0m')
-            aeg_cross_section = rnp.tree2array(tree, branches='eg_cross_section')
-            aeg_ntrial = rnp.tree2array(tree, branches='eg_ntrial')
-            aue_estimate_tpc_const = rnp.tree2array(tree, branches='ue_estimate_tpc_const')
 
             # compute MC weights or set to 1
+            aeg_cross_section = rnp.tree2array(tree, branches='eg_cross_section')
+            aeg_ntrial = rnp.tree2array(tree, branches='eg_ntrial')
             if 'pthat' in ntuplefilename:
                 avg_eg_ntrial = np.mean(aeg_ntrial)
                 nevents = len(aeg_ntrial)
                 aweights = np.divide(aeg_cross_section, avg_eg_ntrial * nevents)
             else:
-                aweights = np.ones_like(acentrality_v0m)
+                aweights = np.ones(nevents)
 
             # loop through events
             for ievent in range(nevents):
+                ncluster = getattr(tree, 'ncluster')
+                cluster_pt = getattr(tree, 'cluster_pt')
+                cluster_eta = getattr(tree, 'cluster_eta')
+                cluster_phi = getattr(tree, 'cluster_phi')
+                cluster_e_cross = getattr(tree, 'cluster_e_cross')
+                cluster_e = getattr(tree, 'cluster_e')
+                cluster_e_max = getattr(tree, 'cluster_e_max')
+                cluster_ncell = getattr(tree, 'cluster_ncell')
+                cluster_tof = getattr(tree, 'cluster_tof')
+                cluster_nlocal_maxima = getattr(tree, 'cluster_nlocal_maxima')
+                cluster_distance_to_bad_channel = getattr(tree, 'cluster_distance_to_bad_channel')
+                cluster_cell_id_max = getattr(tree, 'cluster_cell_id_max')
+                cluster_iso_tpc_01 = getattr(tree, 'cluster_iso_tpc_01')
+                cluster_iso_tpc_02 = getattr(tree, 'cluster_iso_tpc_02')
+                cluster_iso_tpc_03 = getattr(tree, 'cluster_iso_tpc_03')
+                cluster_iso_tpc_04 = getattr(tree, 'cluster_iso_tpc_04')
+                cluster_iso_tpc_01_ue = getattr(tree, 'cluster_iso_tpc_01_ue')
+                cluster_iso_tpc_02_ue = getattr(tree, 'cluster_iso_tpc_02_ue')
+                cluster_iso_tpc_03_ue = getattr(tree, 'cluster_iso_tpc_03_ue')
+                cluster_iso_tpc_04_ue = getattr(tree, 'cluster_iso_tpc_04_ue')
+                cluster_frixione_tpc_04_02 = getattr(tree, 'cluster_frixione_tpc_04_02')
+                cluster_frixione_tpc_04_05 = getattr(tree, 'cluster_frixione_tpc_04_05')
+                cluster_frixione_tpc_04_10 = getattr(tree, 'cluster_frixione_tpc_04_10')
+
+                cluster_nmc_truth = getattr(tree, 'cluster_nmc_truth')
+                mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
+                try:
+                    mc_truth_is_prompt_photon = getattr(tree, 'mc_truth_is_prompt_photon')
+                except ValueError:
+                    mc_truth_is_prompt_photon = None
+
+                centrality_v0m = getattr(tree, 'centrality_v0m')
+                ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
+
+                cell_e = getattr(tree, 'cell_e')
+                cell_cluster_index = getattr(tree, 'cell_cluster_index')
+
                 # event-based values
                 weight = aweights[ievent]
-                centrality = acentrality_v0m[ievent]
-                ue_estimate_tpc_const = aue_estimate_tpc_const[ievent]
 
-                for icluster in range(ancluster[ievent]):
+                for icluster in range(ncluster):
                     # cluster-based values
-                    pt = acluster_pt[ievent][icluster]
-                    eta = acluster_eta[ievent][icluster]
-                    phi = acluster_phi[ievent][icluster]
-                    e_cross = acluster_e_cross[ievent][icluster]
-                    e = acluster_e[ievent][icluster]
-                    e_max = acluster_e_max[ievent][icluster]
-                    ncell = acluster_ncell[ievent][icluster]
-                    tof = acluster_tof[ievent][icluster]
-                    nlm = acluster_nlocal_maxima[ievent][icluster]
-                    dbc = acluster_distance_to_bad_channel[ievent][icluster]
-                    iso_tpc_01 = acluster_iso_tpc_01[ievent][icluster]
-                    iso_tpc_02 = acluster_iso_tpc_02[ievent][icluster]
-                    iso_tpc_03 = acluster_iso_tpc_03[ievent][icluster]
-                    iso_tpc_04 = acluster_iso_tpc_04[ievent][icluster]
-                    iso_tpc_01_ue = acluster_iso_tpc_01_ue[ievent][icluster]
-                    iso_tpc_02_ue = acluster_iso_tpc_02_ue[ievent][icluster]
-                    iso_tpc_03_ue = acluster_iso_tpc_03_ue[ievent][icluster]
-                    iso_tpc_04_ue = acluster_iso_tpc_04_ue[ievent][icluster]
+                    pt = cluster_pt[icluster]
+                    eta = cluster_eta[icluster]
+                    phi = cluster_phi[icluster]
+                    e_cross = cluster_e_cross[icluster]
+                    e = cluster_e[icluster]
+                    e_max = cluster_e_max[icluster]
+                    ncell = cluster_ncell[icluster]
+                    tof = cluster_tof[icluster]
+                    nlm = cluster_nlocal_maxima[icluster]
+                    dbc = cluster_distance_to_bad_channel[icluster]
+                    cell_id_max = cluster_cell_id_max[icluster]
+                    iso_tpc_01 = cluster_iso_tpc_01[icluster]
+                    iso_tpc_02 = cluster_iso_tpc_02[icluster]
+                    iso_tpc_03 = cluster_iso_tpc_03[icluster]
+                    iso_tpc_04 = cluster_iso_tpc_04[icluster]
+                    iso_tpc_01_ue = cluster_iso_tpc_01_ue[icluster]
+                    iso_tpc_02_ue = cluster_iso_tpc_02_ue[icluster]
+                    iso_tpc_03_ue = cluster_iso_tpc_03_ue[icluster]
+                    iso_tpc_04_ue = cluster_iso_tpc_04_ue[icluster]
                     iso_tpc_01_sub = iso_tpc_01 + iso_tpc_01_ue - (ue_estimate_tpc_const * 0.1 * 0.1 * np.pi)
                     iso_tpc_02_sub = iso_tpc_02 + iso_tpc_02_ue - (ue_estimate_tpc_const * 0.2 * 0.2 * np.pi)
                     iso_tpc_03_sub = iso_tpc_03 + iso_tpc_03_ue - (ue_estimate_tpc_const * 0.3 * 0.3 * np.pi)
                     iso_tpc_04_sub = iso_tpc_04 + iso_tpc_04_ue - (ue_estimate_tpc_const * 0.4 * 0.4 * np.pi)
-                    frixione_tpc_04_02 = acluster_frixione_tpc_04_02[ievent][icluster]
-                    frixione_tpc_04_05 = acluster_frixione_tpc_04_05[ievent][icluster]
-                    frixione_tpc_04_10 = acluster_frixione_tpc_04_10[ievent][icluster]
+                    frixione_tpc_04_02 = cluster_frixione_tpc_04_02[icluster]
+                    frixione_tpc_04_05 = cluster_frixione_tpc_04_05[icluster]
+                    frixione_tpc_04_10 = cluster_frixione_tpc_04_10[icluster]
                     lambda0 = acluster_lambda_square[ievent][icluster][0]
                     nn1 = acluster_s_nphoton[ievent][icluster][1]
-                    nmc_photon = getNMCPhotons(acluster_nmc_truth[ievent][icluster], acluster_mc_truth_index[ievent][icluster], amc_truth_pdg_code[ievent])
-                    isprompt = getIsPrompt(acluster_nmc_truth[ievent][icluster], acluster_mc_truth_index[ievent][icluster],
-                                           amc_truth_pdg_code[ievent], amc_truth_is_prompt_photon[ievent])
+                    nmc_photon = getNMCPhotons(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster], mc_truth_pdg_code)
+                    if mc_truth_is_prompt_photon is None:
+                        isprompt = False
+                    else:
+                        isprompt = getIsPrompt(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster],
+                                               mc_truth_pdg_code, mc_truth_is_prompt_photon)
 
                     if pt < 15:
                         continue
+
+                    # this takes time, so put it after the pT cut
+                    showershapes5x5 = calculateShowerShapes5x5(icluster, e, cell_id_max, cell_e, cell_cluster_index)
 
                     row = {}
                     row['cluster_pt'] = pt
@@ -417,7 +432,12 @@ def main(ntuplefilenames, csvfilename):
                     row['cluster_ecross_e'] = e_cross / e
                     row['cluster_ecross_emax'] = e_cross / e_max
                     row['weights'] = weight
-                    row['centrality_v0m'] = centrality
+                    row['centrality_v0m'] = centrality_v0m
+
+                    row['cluster_5x5contiguouscluster'] = showershapes5x5['5x5contiguouscluster']
+                    row['cluster_5x5contiguous'] = showershapes5x5['5x5contiguous']
+                    row['cluster_5x5cluster'] = showershapes5x5['5x5cluster']
+                    row['cluster_5x5all'] = showershapes5x5['5x5all']
 
                     csvwriter.writerow(row)
                     clustercount = clustercount + 1
