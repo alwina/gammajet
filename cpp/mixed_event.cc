@@ -12,13 +12,14 @@
 #include <iostream>
 #include <fstream>
 #include "H5Cpp.h"
+#include "omp.h"
 
 #define NTRACK_MAX (1U << 14)
 
 #include <vector>
 #include <math.h>
 
-#include "yaml-cpp/yaml.h"
+/* #include "yaml-cpp/yaml.h" */
 
 const int MAX_INPUT_LENGTH = 200;
 
@@ -37,12 +38,12 @@ int main(int argc, char *argv[])
 
   dummyv[0] = strdup("main");
 
-  //Config File
-  YAML::Node config = YAML::LoadFile("Corr_config.yaml");
-  if (!config){
-    fprintf(stderr,"Config YAML not Found. Bailing\n");
-    exit(EXIT_FAILURE);
-  }
+  /* //Config File */
+  /* YAML::Node config = YAML::LoadFile("Corr_config.yaml"); */
+  /* if (!config){ */
+  /*   fprintf(stderr,"Config YAML not Found. Bailing\n"); */
+  /*   exit(EXIT_FAILURE); */
+  /* } */
   double DNN_min = 0;
   double DNN_max = 0;
   double DNN_Bkgd = 0;
@@ -75,140 +76,140 @@ int main(int argc, char *argv[])
 
   bool TPC_Iso_Flag = false;
 
-  // parse config file
-  // check for existence first, then cast as appropriate
-  if (config["DNN_min"]) {
-    DNN_min = config["DNN_min"].as<double>();
-  }
+  /* // parse config file */
+  /* // check for existence first, then cast as appropriate */
+  /* if (config["DNN_min"]) { */
+  /*   DNN_min = config["DNN_min"].as<double>(); */
+  /* } */
 
-  if (config["DNN_max"]) {
-    DNN_max = config["DNN_max"].as<double>();
-  }
+  /* if (config["DNN_max"]) { */
+  /*   DNN_max = config["DNN_max"].as<double>(); */
+  /* } */
 
-  if (config["DNN_BKGD"]) {
-    DNN_Bkgd = config["DNN_BKGD"].as<double>();
-  }
+  /* if (config["DNN_BKGD"]) { */
+  /*   DNN_Bkgd = config["DNN_BKGD"].as<double>(); */
+  /* } */
 
-  if (config["Lambda0_cut"]) {
-    Lambda0_cut = config["Lambda0_cut"].as<double>();
-  }
+  /* if (config["Lambda0_cut"]) { */
+  /*   Lambda0_cut = config["Lambda0_cut"].as<double>(); */
+  /* } */
 
-  if (config["EMax_EClus_min"]) {
-    Emax_min = config["EMax_EClus_min"].as<double>();
-  }
+  /* if (config["EMax_EClus_min"]) { */
+  /*   Emax_min = config["EMax_EClus_min"].as<double>(); */
+  /* } */
 
-  if (config["EMax_EClus_max"]) {
-    Emax_max = config["EMax_EClus_max"].as<double>();
-  }
+  /* if (config["EMax_EClus_max"]) { */
+  /*   Emax_max = config["EMax_EClus_max"].as<double>(); */
+  /* } */
 
-  if (config["pT_min"]) {
-    pT_min = config["pT_min"].as<double>();
-  }
+  /* if (config["pT_min"]) { */
+  /*   pT_min = config["pT_min"].as<double>(); */
+  /* } */
 
-  if (config["pT_max"]) {
-    pT_max = config["pT_max"].as<double>();
-  }
+  /* if (config["pT_max"]) { */
+  /*   pT_max = config["pT_max"].as<double>(); */
+  /* } */
 
-  if (config["Eta_max"]) {
-    Eta_max = config["Eta_max"].as<double>();
-  }
+  /* if (config["Eta_max"]) { */
+  /*   Eta_max = config["Eta_max"].as<double>(); */
+  /* } */
 
-  if (config["Cluster_min"]) {
-    Cluster_min = config["Cluster_min"].as<double>();
-  }
+  /* if (config["Cluster_min"]) { */
+  /*   Cluster_min = config["Cluster_min"].as<double>(); */
+  /* } */
 
-  if (config["Cluster_dist_to_bad_channel"]) {
-    Cluster_DtoBad = config["Cluster_dist_to_bad_channel"].as<double>();
-  }
+  /* if (config["Cluster_dist_to_bad_channel"]) { */
+  /*   Cluster_DtoBad = config["Cluster_dist_to_bad_channel"].as<double>(); */
+  /* } */
 
-  if (config["Cluster_N_Local_Maxima"]) {
-    Cluster_NLocal_Max = config["Cluster_N_Local_Maxima"].as<double>();
-  }
+  /* if (config["Cluster_N_Local_Maxima"]) { */
+  /*   Cluster_NLocal_Max = config["Cluster_N_Local_Maxima"].as<double>(); */
+  /* } */
 
-  if (config["EcrossoverE_min"]) {
-    EcrossoverE_min = config["EcrossoverE_min"].as<double>();
-  }
+  /* if (config["EcrossoverE_min"]) { */
+  /*   EcrossoverE_min = config["EcrossoverE_min"].as<double>(); */
+  /* } */
 
-  if (config["Cluster_Time"]) {
-    cluster_time = config["Cluster_Time"].as<double>();
-  }
+  /* if (config["Cluster_Time"]) { */
+  /*   cluster_time = config["Cluster_Time"].as<double>(); */
+  /* } */
 
-  if (config["iso_max"]) {
-    iso_max = config["iso_max"].as<double>();
-  }
+  /* if (config["iso_max"]) { */
+  /*   iso_max = config["iso_max"].as<double>(); */
+  /* } */
 
-  if (config["noniso_min"]) {
-    noniso_min = config["noniso_min"].as<double>();
-  }
+  /* if (config["noniso_min"]) { */
+  /*   noniso_min = config["noniso_min"].as<double>(); */
+  /* } */
 
-  if (config["noniso_max"]) {
-    noniso_max = config["noniso_max"].as<double>();
-  }
+  /* if (config["noniso_max"]) { */
+  /*   noniso_max = config["noniso_max"].as<double>(); */
+  /* } */
 
-  if (config["do_pileup_cut"]) {
-    do_pile = config["do_pileup_cut"].as<bool>();
-  }
+  /* if (config["do_pileup_cut"]) { */
+  /*   do_pile = config["do_pileup_cut"].as<bool>(); */
+  /* } */
 
-  if (config["N_Phi_Bins"]) {
-    n_phi_bins = config["N_Phi_Bins"].as<int>();
-  }
+  /* if (config["N_Phi_Bins"]) { */
+  /*   n_phi_bins = config["N_Phi_Bins"].as<int>(); */
+  /* } */
 
-  if (config["N_Eta_Bins"]) {
-    n_eta_bins = config["N_Eta_Bins"].as<int>();
-  }
+  /* if (config["N_Eta_Bins"]) { */
+  /*   n_eta_bins = config["N_Eta_Bins"].as<int>(); */
+  /* } */
 
-  if (config["Cluster_isolation_determinant"]) {
-    std::string determinant = config["Cluster_isolation_determinant"].as<std::string>();
+  /* if (config["Cluster_isolation_determinant"]) { */
+  /*   std::string determinant = config["Cluster_isolation_determinant"].as<std::string>(); */
 
-    if (determinant == "cluster_iso_tpc_04") {
-      determiner = CLUSTER_ISO_TPC_04;
-      std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl;
-    }
+  /*   if (determinant == "cluster_iso_tpc_04") { */
+  /*     determiner = CLUSTER_ISO_TPC_04; */
+  /*     std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl; */
+  /*   } */
 
-    else if (determinant == "cluster_iso_its_04") {
-      determiner = CLUSTER_ISO_ITS_04;
-      std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl;
-    }
+  /*   else if (determinant == "cluster_iso_its_04") { */
+  /*     determiner = CLUSTER_ISO_ITS_04; */
+  /*     std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl; */
+  /*   } */
 
-    else if (determinant == "cluster_iso_its_04_sub") {
-      determiner = CLUSTER_ISO_ITS_04_SUB;
-      std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
-    }
+  /*   else if (determinant == "cluster_iso_its_04_sub") { */
+  /*     determiner = CLUSTER_ISO_ITS_04_SUB; */
+  /*     std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl; */
+  /*   } */
 
-    else if (determinant == "cluster_iso_tpc_04_sub") {
-      determiner = CLUSTER_ISO_TPC_04_SUB;
-      TPC_Iso_Flag = true;
-      std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl;
-    }
+  /*     else if (determinant == "cluster_iso_tpc_04_sub") { */
+  /*       determiner = CLUSTER_ISO_TPC_04_SUB; */
+  /*       TPC_Iso_Flag = true; */
+  /*       std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl; */
+  /*     } */
 
-    else if (determinant == "cluster_frixione_tpc_04_02") {
-      determiner = CLUSTER_FRIXIONE_TPC_04_02;
-      std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl;
-    }
+  /*     else if (determinant == "cluster_frixione_tpc_04_02") { */
+  /*       determiner = CLUSTER_FRIXIONE_TPC_04_02; */
+  /*       std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl; */
+  /*     } */
 
-    else if (determinant == "cluster_frixione_its_04_02") {
-      determiner = CLUSTER_FRIXIONE_ITS_04_02;
-      std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl;
-    }
+  /*     else if (determinant == "cluster_frixione_its_04_02") { */
+  /*       determiner = CLUSTER_FRIXIONE_ITS_04_02; */
+  /*       std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl; */
+  /*     } */
 
-    else {
-      std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
-      exit(EXIT_FAILURE);
-    }
-  }
+  /*     else { */
+  /*       std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl; */
+  /*       exit(EXIT_FAILURE); */
+  /*     } */
+  /*   } */
 
-  if (config["Shower_Shape"]) {
-    shower_shape = config["Shower_Shape"].as<std::string>();
-    std::cout << "Shower Shape: " << shower_shape << std::endl;
-  }
+  /*   if (config["Shower_Shape"]) { */
+  /*     shower_shape = config["Shower_Shape"].as<std::string>(); */
+  /*     std::cout << "Shower Shape: " << shower_shape << std::endl; */
+  /*   } */
 
   /*--------------------------------------------------------------
-  Setting up THnSparses
-  hCorrSR: cluster-jet correlations for the signal region
-  hTrigSR: counting the number of clusters in each bin in the signal region
-  hCorrBR: cluster-jet correlations for the bkg region
-  hTrigBR: counting the number of clusters in each bin in the bkg region
-  --------------------------------------------------------------*/
+    Setting up THnSparses
+hCorrSR: cluster-jet correlations for the signal region
+hTrigSR: counting the number of clusters in each bin in the signal region
+hCorrBR: cluster-jet correlations for the bkg region
+hTrigBR: counting the number of clusters in each bin in the bkg region
+--------------------------------------------------------------*/
 
   // dimensions: centrality, cluster pT
   Int_t ndimTrig = 2;
@@ -410,7 +411,7 @@ int main(int argc, char *argv[])
 
   /*------------------------------------------------------------------------
     MIXED EVENTS. 
-  ------------------------------------------------------------------------*/
+    ------------------------------------------------------------------------*/
   TH1I *SR_mixed_event_counter = new TH1I("SR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
   TH1I *BR_mixed_event_counter = new TH1I("BR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
   //GetEntries() of above is all that is needed. Distributions serve as additional check to mixing
@@ -428,19 +429,19 @@ int main(int argc, char *argv[])
   //But mixing tails should cut on v2 (flow) in PbPb
   bool Is_PbPb = false;
   std::string coll_system = argv[3];
-  
+
   if (strcmp(coll_system.c_str(), "PbPb") == 0)
   {
     Is_PbPb = true;
     fprintf(stderr, "\n LEAD LEAD SELECTED \n \n");
   }
-  
+
   size_t mix_start = atoi(argv[4]);
   size_t mix_end = atoi(argv[5]);
 
   /* ---------------------------------------------------------------
-  Using low level hdf5 API for jets
-  ---------------------------------------------------------------*/
+     Using low level hdf5 API for jets
+     ---------------------------------------------------------------*/
   /* See to_hdf5.cc for jet_vars. Useful map below: */
   /* Jet Variariable 0 = jet_ak04tpc_pt_raw */
   /* Jet Variariable 1 = jet_ak04tpc_eta_raw */
@@ -495,164 +496,177 @@ int main(int argc, char *argv[])
 
   //MAIN CORRELATION LOOP
 
-  nentries=2;
+  nentries=10000;
   fprintf(stderr, "\n Looping for main correlation functions \n");
-  for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
-    _tree_event->GetEntry(ievent);
-    fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
-
-    bool first_cluster = true;
-    //if (not(first_cluster)) continue;
-
-    //Event Selection
-    if (TMath::Abs(primary_vertex[2]) > 10) continue;
-    if (primary_vertex[2] == 0.00) continue;
-    if (do_pile && is_pileup_from_spd_5_08) continue;
 
 
-    for (ULong64_t n = 0; n < ncluster; n++) {
-      /* fprintf(stderr,"%d: pT = %f, eta = %f, ncell = %i, e_cross_e = %f, d_to_bad = %f, tof = %f\n",__LINE__, */
-       /*  cluster_pt[n],cluster_eta[n], cluster_ncell[n], cluster_e_cross[n], cluster_distance_to_bad_channel[n]); */ 
-      /* if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons */
-      /* if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector */
-      /* if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells */
-      /* if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters */
-      /* if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels */
-      /* if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima. */
-      /* if (not(abs(cluster_tof[n]) < cluster_time)) continue; */
+    for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
+      _tree_event->GetEntry(ievent);
+      fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
-      /* fprintf(stderr,"%d: PASSED WITH Cluster pT = %f\n",__LINE__,cluster_pt[n]); */
-      
-      float isolation;
-      if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
-      else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04[n];
-      else if (determiner == CLUSTER_ISO_ITS_04_SUB)
-        isolation = cluster_iso_its_04[n] + cluster_iso_its_04_ue[n] - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
-      else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
-        isolation = cluster_iso_tpc_04[n] + cluster_iso_tpc_04_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
-      }
-      else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
-      else isolation = cluster_frixione_its_04_02[n];
+      bool first_cluster = true;
+      //if (not(first_cluster)) continue;
 
-      Isolated = (isolation < iso_max);
-      if (strcmp(shower_shape.data(), "Lambda") == 0) {
-        Signal = ((cluster_lambda_square[n][0] > 0.1) and (cluster_lambda_square[n][0] < Lambda0_cut));
-        Background = (cluster_lambda_square[n][0] > 0.6);
-      }
+      //Event Selection
+      if (TMath::Abs(primary_vertex[2]) > 10) continue;
+      if (primary_vertex[2] == 0.00) continue;
+      if (do_pile && is_pileup_from_spd_5_08) continue;
 
-      else if (strcmp(shower_shape.data(), "DNN") == 0) {
-        Signal = ( (cluster_s_nphoton[n][1] > DNN_min) && (cluster_s_nphoton[n][1] < DNN_max));
-        Background = (cluster_s_nphoton[n][1] > 0.0 && cluster_s_nphoton[n][1] < DNN_Bkgd);
-      }
 
-      else if (strcmp(shower_shape.data(), "EMax") == 0) {
-        Signal = (cluster_e_max[n] / cluster_e[n] > Emax_max);
-        Background = (cluster_e_max[n] / cluster_e[n] < Emax_min);
-      }
+      for (ULong64_t n = 0; n < ncluster; n++) {
+        /* fprintf(stderr,"%d: pT = %f, eta = %f, ncell = %i, e_cross_e = %f, d_to_bad = %f, tof = %f\n",__LINE__, */
+        /*  cluster_pt[n],cluster_eta[n], cluster_ncell[n], cluster_e_cross[n], cluster_distance_to_bad_channel[n]); */ 
+        /* if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons */
+        /* if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector */
+        /* if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells */
+        /* if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters */
+        /* if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels */
+        /* if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima. */
+        /* if (not(abs(cluster_tof[n]) < cluster_time)) continue; */
 
-      //Not used in Mixing
-      /* float bkg_weight = 1.0; */
-      /* float track_weight = 1.0; //Fake Rate, smearing, efficiency */
+        /* fprintf(stderr,"%d: PASSED WITH Cluster pT = %f\n",__LINE__,cluster_pt[n]); */
 
-      if (Background and Isolated) {
-        trigBR[0] = centrality_v0m;
-        trigBR[1] = cluster_pt[n];
-        hTrigBR->Fill(trigBR);
-      }
+        float isolation;
+        if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
+        else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04[n];
+        else if (determiner == CLUSTER_ISO_ITS_04_SUB)
+          isolation = cluster_iso_its_04[n] + cluster_iso_its_04_ue[n] - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
+        else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
+          isolation = cluster_iso_tpc_04[n] + cluster_iso_tpc_04_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
+        }
+        else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
+        else isolation = cluster_frixione_its_04_02[n];
 
-      if (Signal and Isolated) {
-        trigSR[0] = centrality_v0m;
-        trigSR[1] = cluster_pt[n];
-        hTrigSR->Fill(trigSR);
-      }
+        /* Isolated = (isolation < iso_max); */
+        Isolated = true; 
 
-      //Jet Loop
-      for (Long64_t imix = mix_start; imix < mix_end; imix++){
-        Long64_t mix_event = mix_events[imix];
-        /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
+        for (Long64_t imix = mix_start; imix < mix_end; imix++){
+          Long64_t mix_event = mix_events[imix];
+          /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
+          if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings 
+          /* if (strcmp(shower_shape.data(), "Lambda") == 0) { */
+          Lambda0_cut = 0.3;
+          Signal = ((cluster_lambda_square[n][0] > 0.1) and (cluster_lambda_square[n][0] < Lambda0_cut));
+          Background = (cluster_lambda_square[n][0] > 0.6);
+          /* } */
 
-        if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings 
+          /* else if (strcmp(shower_shape.data(), "DNN") == 0) { */
+          /*   Signal = ( (cluster_s_nphoton[n][1] > DNN_min) && (cluster_s_nphoton[n][1] < DNN_max)); */
+          /*   Background = (cluster_s_nphoton[n][1] > 0.0 && cluster_s_nphoton[n][1] < DNN_Bkgd); */
+          /* } */
 
-        //FIXME: Add Delta Cuts on Event Pairing Here
+          /* else if (strcmp(shower_shape.data(), "EMax") == 0) { */
+          /*   Signal = (cluster_e_max[n] / cluster_e[n] > Emax_max); */
+          /*   Background = (cluster_e_max[n] / cluster_e[n] < Emax_min); */
+          /* } */
 
-        //adjust offset for next mixed event
-        jet_offset[0]=mix_event;
-        jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
-        jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
-
-        for (ULong64_t ijet = 0; ijet < njet_max; ijet++) {
-          if (std::isnan(jet_data_out[0][ijet][0])) continue;//hdf5 filled with NaN up to njet_max
-          float jetpt = jet_data_out[0][ijet][0];
-          float jeteta = jet_data_out[0][ijet][1];   
-          float jetphi = jet_data_out[0][ijet][2];   
-          if ( jetpt < 5) continue;
-          if ( jetpt > 50) continue;
-          if ( jeteta> 0.5) continue;
-
-          //FIXME: Move cut values to config file
-
-          //From same_event.cc
-          /* for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) { */
-          /*   if (jet_ak04tpc_pt_raw[ijet] < 5) continue; */
-          /*   if (jet_ak04tpc_pt_raw[ijet] > 50) continue; */
-          /*   if (abs(jet_ak04tpc_eta[ijet]) > 0.5) continue; */
-
-          // Observables: delta phi, jet pT, pT ratio
-          Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jetphi));
-          Float_t ptratio = jetpt / cluster_pt[n];
-
-          if (Signal and Isolated) {
-            corrSR[0] = centrality_v0m;
-            corrSR[1] = cluster_pt[n];
-            corrSR[2] = deltaphi;
-            corrSR[3] = jetpt;
-            corrSR[4] = ptratio;
-            hCorrSR->Fill(corrSR);
-
-            nMixSR[0] = centrality_v0m;
-            nMixSR[1] = cluster_pt[n];
-            hnMixSR->Fill(nMixSR);
-            SR_mixed_event_counter->Fill(mix_event);
-
-          }
+          //Not used in Mixing
+          /* float bkg_weight = 1.0; */
+          /* float track_weight = 1.0; //Fake Rate, smearing, efficiency */
 
           if (Background and Isolated) {
-            corrBR[0] = centrality_v0m;
-            corrBR[1] = cluster_pt[n];
-            corrBR[2] = deltaphi;
-            corrBR[3] = jetpt;
-            corrBR[4] = ptratio;
-            hCorrBR->Fill(corrBR);
-
-            nMixBR[0] = centrality_v0m;
-            nMixBR[1] = cluster_pt[n];
-            hnMixBR->Fill(nMixBR);
-            BR_mixed_event_counter->Fill(mix_event);
+            trigBR[0] = centrality_v0m;
+            trigBR[1] = cluster_pt[n];
+            hTrigBR->Fill(trigBR);
           }
-        }//for ijets
-        first_cluster = false;
-        }//for mixed
-      }//for nclusters
-    } //for nevents
-    //}//end loop over samples
 
-    // Write to fout
-    TFile* fout;
-    fout = new TFile("mixedEvent.root", "RECREATE");
-    std::cout << "Writing to file" << std::endl;
+          if (Signal and Isolated) {
+            trigSR[0] = centrality_v0m;
+            trigSR[1] = cluster_pt[n];
+            hTrigSR->Fill(trigSR);
+          }
 
-    hTrigSR->Write();
-    hCorrSR->Write();
-    hnMixSR->Write();
-    SR_mixed_event_counter->Write();
+          //Jet Loop
 
-    hTrigBR->Write();
-    hCorrBR->Write();
-    hnMixBR->Write();
-    BR_mixed_event_counter->Write();
+          /* #pragma omp parallel */
+          /*   { */
+          /* #pragma omp for schedule(dynamic,1) */
+          mix_end = 10;
+          for (Long64_t imix = mix_start; imix < mix_end; imix++){
+            Long64_t mix_event = mix_events[imix];
+            /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
+            if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings 
+            //FIXME: Add Delta Cuts on Event Pairing Here
 
-    fout->Close();
-    file->Close();
-    std::cout << " ending " << std::endl;
-    return EXIT_SUCCESS;
-  }
+            //adjust offset for next mixed event
+            jet_offset[0]=mix_event;
+            jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
+            jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+
+            for (ULong64_t ijet = 0; ijet < njet_max; ijet++) {
+              if (std::isnan(jet_data_out[0][ijet][0])) continue;//hdf5 filled with NaN up to njet_max
+              float jetpt = jet_data_out[0][ijet][0];
+              float jeteta = jet_data_out[0][ijet][1];   
+              float jetphi = jet_data_out[0][ijet][2];   
+              if ( jetpt < 5) continue;
+              if ( jetpt > 50) continue;
+              if ( jeteta> 0.5) continue;
+
+              //FIXME: Move cut values to config file
+
+              //From same_event.cc
+              /* for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) { */
+              /*   if (jet_ak04tpc_pt_raw[ijet] < 5) continue; */
+              /*   if (jet_ak04tpc_pt_raw[ijet] > 50) continue; */
+              /*   if (abs(jet_ak04tpc_eta[ijet]) > 0.5) continue; */
+
+              // Observables: delta phi, jet pT, pT ratio
+              Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jetphi));
+              Float_t ptratio = jetpt / cluster_pt[n];
+
+              if (Signal and Isolated) {
+                corrSR[0] = centrality_v0m;
+                corrSR[1] = cluster_pt[n];
+                corrSR[2] = deltaphi;
+                corrSR[3] = jetpt;
+                corrSR[4] = ptratio;
+                hCorrSR->Fill(corrSR);
+
+                nMixSR[0] = centrality_v0m;
+                nMixSR[1] = cluster_pt[n];
+                hnMixSR->Fill(nMixSR);
+                SR_mixed_event_counter->Fill(mix_event);
+
+              }
+
+              if (Background and Isolated) {
+                corrBR[0] = centrality_v0m;
+                corrBR[1] = cluster_pt[n];
+                corrBR[2] = deltaphi;
+                corrBR[3] = jetpt;
+                corrBR[4] = ptratio;
+                hCorrBR->Fill(corrBR);
+
+                nMixBR[0] = centrality_v0m;
+                nMixBR[1] = cluster_pt[n];
+                hnMixBR->Fill(nMixBR);
+                BR_mixed_event_counter->Fill(mix_event);
+              }
+            }//for ijets
+            first_cluster = false;
+            }//for mixed
+          }//for nclusters
+        } //for nevents
+        //}//end loop over samples
+      }
+      /* } */
+      // Write to fout
+      TFile* fout;
+      fout = new TFile("mixedEvent.root", "RECREATE");
+      std::cout << "Writing to file" << std::endl;
+
+      hTrigSR->Write();
+      hCorrSR->Write();
+      hnMixSR->Write();
+      SR_mixed_event_counter->Write();
+
+      hTrigBR->Write();
+      hCorrBR->Write();
+      hnMixBR->Write();
+      BR_mixed_event_counter->Write();
+
+      fout->Close();
+      file->Close();
+      std::cout << " ending " << std::endl;
+      return EXIT_SUCCESS;
+}
