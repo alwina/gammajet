@@ -18,66 +18,11 @@
 #include <math.h>
 
 #include "yaml-cpp/yaml.h"
+#include "shared_defs.h"
 
 const int MAX_INPUT_LENGTH = 200;
 
 enum isolationDet {CLUSTER_ISO_TPC_04, CLUSTER_ISO_ITS_04, CLUSTER_ISO_ITS_04_SUB, CLUSTER_ISO_TPC_02_SUB, CLUSTER_ISO_TPC_04_SUB, CLUSTER_FRIXIONE_TPC_04_02, CLUSTER_FRIXIONE_ITS_04_02};
-
-
-Float_t Get_Purity_ErrFunction(Float_t pT_GeV, std::string deviation, bool Is_pp, bool Use_TPC) {
-
-  // fprintf(stderr,"\n USE TPC FLAG = ");
-  // fputs(Use_TPC ? "true \n" : "false \n", stdout);
-
-  // fprintf(stderr,"\n Proton-Proton FLAG = ");
-  // fputs(Is_pp ? "true \n" : "false \n", stdout);
-
-  Float_t purity_val = 0;
-
-  Float_t par[3] = {0.549684905516,
-                    8.44338685256,
-                    13.3454091464
-                   };
-
-  //purity_val = par[0]*TMath::Erf((pT_GeV-par[1])/par[2]);
-  //fprintf(stderr,"\n %d: Purity ITS = %f",__LINE__,purity_val);
-
-  if (Use_TPC) { //pPb
-    par[0] = 0.569429959156;
-    par[1] = 8.1906528936;
-    par[2] = 11.8993694765;
-
-    // purity_val = par[0]*TMath::Erf((pT_GeV-par[1])/par[2]);
-    // fprintf(stderr,"\n %d: Purity TPC = %f",__LINE__,purity_val);
-    // fprintf(stderr,"\n %d: Purity TPC = %f",__LINE__,purity_val);
-
-  }
-
-  if (Is_pp) {
-    // fprintf(stderr,"\n");
-    // fprintf(stderr,"\n PP SELECTED \n");
-    par[0] = 0.500229283252;
-    par[1] = 9.016920902665;
-    par[2] = 11.373299838596;
-  }
-  //order of conditionals ensures pp always overwrights TPC purity
-
-  if (strcmp(deviation.data(), "Plus") == 0) {
-    par[0] = 0.60750016509;
-    par[1] = 7.05184155403;
-    par[2] = 13.6116163603;
-  }
-
-  if (strcmp(deviation.data(), "Minus") == 0) {
-    par[0] = 0.479958593235;
-    par[1] = 9.05392932723;
-    par[2] = 10.2061359452;
-  }
-
-  purity_val = par[0] * TMath::Erf((pT_GeV - par[1]) / par[2]);
-  //fprintf(stderr,"\n %d: Cluster pT = %f, Purity = %f \n",__LINE__,pT_GeV,purity_val);
-  return purity_val;
-}
 
 
 int main(int argc, char *argv[])
@@ -86,11 +31,6 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Format: [command] [config file]\n");
     exit(EXIT_FAILURE);
   }
-  int dummyc = 1;
-  char **dummyv = new char *[1];
-
-  dummyv[0] = strdup("main");
-  bool Is_pp = false;
 
   //Config File
   YAML::Node config = YAML::LoadFile(argv[1]);
@@ -231,65 +171,6 @@ int main(int argc, char *argv[])
     std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
   }
 
-  //Purity Handling
-
-  //Following purities for pT range: 12.5,13.2,14.4,15.8
-  int  N_pT_Ranges = 5;
-  float pT_Ranges[5] = {12.0, 15.0, 20.0, 25.0, 40.0};
-  float purities[4] = {0};
-  float purity_Uncertainties[4] = {0};
-  float Cluster_Purity = 0;
-  float Cluster_Purity_Uncertainty = 0;
-
-  // if (strcmp(shower_shape.data(), "DNN") == 0){
-  //   purities[0] = 0.207;
-  //   purities[1] = 0.255;
-  //   purities[2] = 0.326;
-  //   purities[3] = 0.372;
-  //   purities[4] = 0.447;
-  //   purities[5] = 0.502;
-  //   purities[6] = 0.533; //Extrapolating last bin
-  //   purities[7] = 0.533;
-
-
-  //   purity_Uncertainties[0] = 0.030;
-  //   purity_Uncertainties[1] = 0.037;
-  //   purity_Uncertainties[2] = 0.042;
-  //   purity_Uncertainties[3] = 0.050;
-  //   purity_Uncertainties[4] = 0.056;
-  //   purity_Uncertainties[5] = 0.062;
-  //   purity_Uncertainties[6] = 0.058;
-  //   purity_Uncertainties[7] = 0.058;
-
-  // }
-
-  if (strcmp(shower_shape.data(), "Lambda") == 0) {
-    purities[0] = 0.206;
-    purities[1] = 0.341;
-    purities[2] = 0.471;
-    purities[3] = 0.546;
-
-    purity_Uncertainties[0] = 0.0301;
-    purity_Uncertainties[1] = 0.0305;
-    purity_Uncertainties[2] = 0.0503;
-    purity_Uncertainties[3] = 0.0572;
-
-    if (Is_pp) {
-
-      purities[0] = 0.198;
-      purities[1] = 0.318;
-      purities[2] = 0.470;
-      purities[3] = 0.487;
-
-      purity_Uncertainties[0] = 0.0490;
-      purity_Uncertainties[1] = 0.0400;
-      purity_Uncertainties[2] = 0.0712;
-      purity_Uncertainties[3] = 0.1221;
-
-
-    }
-  }
-
   /*--------------------------------------------------------------
   Setting up THnSparses
   hCorrSR: cluster-jet correlations for the signal region
@@ -396,6 +277,16 @@ int main(int argc, char *argv[])
   //Float_t eg_cross_section;
   //Int_t   eg_ntrial;
 
+  //Cluster Cut Summary
+  fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
+  fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
+  fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
+  fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, srmax);
+  fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
+  fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
+  fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
+  fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
+
   YAML::Node filenames = config["filelists"]["data"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
     std::string root_file = it->as<std::string>();
@@ -487,23 +378,19 @@ int main(int argc, char *argv[])
     Bool_t Isolated = false;
 
     Long64_t nentries = _tree_event->GetEntries();
-    std::cout << " Total Number of entries in TTree: " << nentries << std::endl;
-
-    //Cluster Cut Summary
-    fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
-    fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
-    fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
-    fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, srmax);
-    fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
-    fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
-    fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
-    fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
 
     //MAIN CORRELATION LOOP
-
-    fprintf(stderr, "\n Looping for main correlation functions \n");
     for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
-      //for(Long64_t ievent = 0; ievent < 10000 ; ievent++){
+      // for some reason, loading these 2 events from this ntuple causes a segfault
+      if (root_file == "/global/project/projectdirs/alice/NTuples/PbPb/15o_pass2_cluster15.root") {
+        if (ievent == 7894 || ievent == 7895) {
+          std::cout << std::endl << "skipping event " << ievent;
+          if (ievent == 7895) {
+            std::cout << std::endl;
+          }
+          continue;
+        }
+      }
       _tree_event->GetEntry(ievent);
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
@@ -561,7 +448,7 @@ int main(int argc, char *argv[])
         float track_weight = 1.0; //Fake Rate, smearing, efficiency
 
         if (Background and Isolated) {
-          BR_purity_weight = (1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag) - 1); //(1-p)/p = 1/p - 1
+          BR_purity_weight = (1.0 / getPurity(cluster_pt[n], centrality_v0m, config["purity"]) - 1); //(1-p)/p = 1/p - 1
 
           trigBR[0] = centrality_v0m;
           trigBR[1] = cluster_pt[n];
@@ -569,7 +456,7 @@ int main(int argc, char *argv[])
         }
 
         if (Signal and Isolated) {
-          purity_weight = 1.0 / Get_Purity_ErrFunction(cluster_pt[n], purity_deviation, Is_pp, TPC_Iso_Flag);
+          purity_weight = 1.0 / getPurity(cluster_pt[n], centrality_v0m, config["purity"]);
 
           trigSR[0] = centrality_v0m;
           trigSR[1] = cluster_pt[n];
@@ -614,7 +501,7 @@ int main(int argc, char *argv[])
 
   // Write to fout
   TFile* fout;
-  fout = new TFile("sameEvent.root", "RECREATE");
+  fout = new TFile((TString)config["filelists"]["sameevent"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   hTrigSR->Write();
