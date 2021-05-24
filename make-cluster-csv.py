@@ -10,6 +10,7 @@ import root_numpy as rnp
 import sys
 import time
 import warnings
+import yaml
 
 
 def getSuperModule(cellId):
@@ -467,6 +468,16 @@ def main(ntuplefilenames, csvfilename):
 
 
 if __name__ == '__main__':
-    ntuplefilenames = sys.argv[1:-1]
-    csvfilename = sys.argv[-1]
+    configfilename = sys.argv[1]
+    filetype = sys.argv[2]
+
+    if filetype not in ('data', 'gjmc', 'jjmc'):
+        print('File type {0} not recognized; must be one of data, gjmc, jjmc'.format(filetype))
+        return
+
+    with open(configfilename) as configfile:
+        config = yaml.safe_load(configfile)
+
+    ntuplefilenames = config['filelists'][filetype]
+    csvfilename = config['filelists']['clustercsvs'][filetype]
     main(ntuplefilenames, csvfilename)

@@ -30,6 +30,17 @@ class ShowerShapeParams:
         self.signalColor = '#3B7EA1'
         self.bkgColor = '#FDB515'
 
+    def setFromConfig(self, config):
+        self.ssvar = config['ssvar']
+        self.binEdges = config['tfbins']
+        self.purityRange = (config['srmin'], config['srmax'])
+        self.bkgFitRange = (config['brmin'], config['brmax'])
+        self.tfFitRange = config.get('tffitrange', None)
+        self.axisLabel = config.get('axislabel')
+        self.legendLabel = config.get('legendlabel')
+        self.doubleRatioBinEdges = config['doubleratiobinedges']
+        self.doubleRatioFitRange = config['doubleratiofitrange']
+
     def setDefaultLambda(self):
         self.ssvar = 'cluster_Lambda'
         self.binEdges = np.linspace(0.1, 2, 96)
