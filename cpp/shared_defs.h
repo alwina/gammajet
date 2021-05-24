@@ -10,7 +10,7 @@ float GetPurityBinned(float pt, std::vector<float> binEdges, std::vector<float> 
 			return values[binNumber];
 		}
 	}
-	std::cout << "pT out of range in purity calculation" << std::endl;
+	std::cout << "pT " << pt << " out of range in purity calculation" << std::endl;
 	return 0;
 }
 
@@ -22,7 +22,7 @@ float GetPurityBinnedCentrality(float centrality, float pt, std::vector<float> b
 			return GetPurityBinned(pt, binEdges, values);
 		}
 	}
-	std::cout << "centrality out of range in purity calculation" << std::endl;
+	std::cout << "centrality " << centrality << " out of range in purity calculation" << std::endl;
 	return 0;
 }
 
@@ -42,7 +42,7 @@ float GetPurityErfCentrality(float centrality, float pt, std::map<std::pair<floa
 			return GetPurityErf(pt, params);
 		}
 	}
-	std::cout << "centrality out of range in purity calculation" << std::endl;
+	std::cout << "centrality " << centrality << " out of range in purity calculation" << std::endl;
 	return 0;
 }
 
@@ -60,7 +60,7 @@ float getPurity(float pt, float centrality, YAML::Node purityConfig)
 				const YAML::Node& centvalue = *it;
 				std::pair<float, float> centrange = centvalue["centralityrange"].as<std::pair<float, float>>();
 				std::vector<float> values = centvalue["values"].as<std::vector<float>>();
-				centvalues[centrange] = values;
+				allValues[centrange] = values;
 			}
 
 			return GetPurityBinnedCentrality(centrality, pt, binEdges, allValues);
@@ -81,7 +81,7 @@ float getPurity(float pt, float centrality, YAML::Node purityConfig)
 				erfparams.push_back(params["a"].as<float>());
 				erfparams.push_back(params["b"].as<float>());
 				erfparams.push_back(params["c"].as<float>());
-				centvalues[centrange] = erfparams;
+				allValues[centrange] = erfparams;
 			}
 
 			return GetPurityErfCentrality(centrality, pt, allValues);

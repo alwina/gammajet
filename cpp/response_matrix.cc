@@ -527,6 +527,7 @@ int main(int argc, char *argv[])
     } //for nevents
     //}//end loop over samples
     file->Close();
+    std::cout << std::endl;
   }
 
   // Write to fout

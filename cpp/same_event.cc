@@ -497,6 +497,7 @@ int main(int argc, char *argv[])
       }//for nclusters
     } //for nevents
     file->Close();
+    std::cout << std::endl;
   }
 
   // Write to fout
