@@ -1,16 +1,23 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from params import ptcuttext
+from params import ptcuttext, centralitycuttext
 from template_fit import modifyBkgWeights
 from utils import getNormHistAndErr, divideHistsAndErrs, getCenters, getBinRange
 
 
-def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams):
+# call this first
+def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams, centrange=None):
     isojjmcdf = dfs.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
     antiisojjmcdf = dfs.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
     isodatadf = dfs.fulldatadf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
     antiisodatadf = dfs.fulldatadf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
+
+    if centrange:
+        isojjmcdf = isojjmcdf.query(centralitycuttext(centrange))
+        antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
+        isodatadf = isodatadf.query(centralitycuttext(centrange))
+        antiisodatadf = antiisodatadf.query(centralitycuttext(centrange))
 
     isojjmchist, isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
     antiisojjmchist, antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
@@ -25,10 +32,10 @@ def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams):
     return doubleratio, doubleratioerr
 
 
+# after getDoubleRatioAndError
 # result gets saved into doubleRatioFit
 # this performs the fit, which means it's slow!
-def getDoubleRatioFitAndError(dfs, ptrange, isoParams, ssParams, doubleRatioFit):
-    doubleratio, doubleratioerr = getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams)
+def getDoubleRatioFitAndError(doubleratio, doubleratioerr, ssParams, doubleRatioFit, centrange=None):
     binCenters = getCenters(ssParams.doubleRatioBinEdges)
     fitRange = slice(*getBinRange(ssParams.doubleRatioBinEdges, *ssParams.doubleRatioFitRange))
 
@@ -36,56 +43,55 @@ def getDoubleRatioFitAndError(dfs, ptrange, isoParams, ssParams, doubleRatioFit)
 
 
 # after getDoubleRatioFitAndError has been called
-def plotDoubleRatioAndFit(dfs, ptrange, isoParams, ssParams, doubleRatioFit):
-    doubleratio, doubleratioerr = getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams)
+def plotDoubleRatioAndFit(doubleratio, doubleratioerr, ssParams, doubleRatioFit, centrange=None):
     binCenters = getCenters(ssParams.doubleRatioBinEdges)
     fitRange = slice(*getBinRange(ssParams.doubleRatioBinEdges, *ssParams.doubleRatioFitRange))
 
     plt.errorbar(binCenters, doubleratio, yerr=doubleratioerr, fmt='ko')
-    plt.plot(binCenters, list(map(doubleRatioFit.getFunctionFit()), binCenters), 'r:')
-    plt.plot(binCenters[fitRange], list(map(doubleRatioFit.getFunctionFit()), binCenters[fitRange]), 'r-')
+    plt.plot(binCenters, list(map(doubleRatioFit.getFunctionFit(), binCenters)), 'r:')
+    plt.plot(binCenters[fitRange], list(map(doubleRatioFit.getFunctionFit(), binCenters[fitRange])), 'r-')
     plt.annotate(doubleRatioFit.getResultText(), (0.95, 0.9), xycoords='axes fraction', ha='right', va='top', color='r')
 
 
 # after getDoubleRatioFitAndError has been called
-def getPuritiesWithDoubleRatio(dfs, ptrange, isoParams, ssParams, doubleRatioFit):
-    baseBkgWeights = dfs.getBkgWeights(ptrange, isoParams, ssParams)
+def getPuritiesWithDoubleRatio(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange=None):
+    baseBkgWeights = dfs.getBkgWeights(ptrange, isoParams, ssParams, centrange=centrange)
     purities = {}
 
     modFunction = doubleRatioFit.getFunctionFit()
     bkgWeights = modifyBkgWeights(baseBkgWeights, ssParams.binEdges, modFunction)
-    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights)
+    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights, centrange=centrange)
     purities['fit'] = tf.purity
 
     modFunction = doubleRatioFit.getFunctionErrHigh()
     bkgWeights = modifyBkgWeights(baseBkgWeights, ssParams.binEdges, modFunction)
-    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights)
+    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights, centrange=centrange)
     purities['high'] = tf.purity
 
     modFunction = doubleRatioFit.getFunctionErrLow()
     bkgWeights = modifyBkgWeights(baseBkgWeights, ssParams.binEdges, modFunction)
-    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights)
+    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights, centrange=centrange)
     purities['low'] = tf.purity
 
     return purities
 
 
-def getBkgCorrectionUncertainty(dfs, ptrange, isoParams, ssParams, doubleRatioFit):
-    getDoubleRatioFitAndError(dfs, ptrange, isoParams, ssParams, doubleRatioFit)
-    purities = getPuritiesWithDoubleRatio(dfs, ptrange, isoParams, ssParams, doubleRatioFit)
+def getBkgCorrectionUncertainty(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange=None):
+    getDoubleRatioFitAndError(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange)
+    purities = getPuritiesWithDoubleRatio(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange)
     return np.ptp(list(purities.values())) / 2.0
 
 
-def plotBkgCorrectionComp(dfs, ptrange, isoParams, ssParams):
+def plotBkgCorrectionComp(dfs, ptrange, isoParams, ssParams, centrange=None):
     plt.subplot(121)
-    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams)
+    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, centrange=centrange)
     handles = tf.plotFit()
     plt.legend(handles=handles)
     plt.title('No background template correction')
 
     plt.subplot(122)
     bkgWeights = dfs.getBkgWeights(ptrange, isoParams, ssParams)
-    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights)
+    tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights, centrange=centrange)
     handles = tf.plotFit()
     plt.legend(handles=handles)
     plt.title('With background template correction')

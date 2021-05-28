@@ -52,7 +52,7 @@ def getXerrForPlot(rangesOrEdges):
 def getBinRange(binEdges, valuemin, valuemax):
     binmin = min([i for i, edge in enumerate(binEdges) if edge >= valuemin])
     binmax = max([i for i, edge in enumerate(binEdges) if edge <= valuemax])
-    return binmin, binmax
+    return binmin, binmax + 1
 
 
 def getErr(dist, disterr):
