@@ -496,177 +496,181 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   //MAIN CORRELATION LOOP
 
-  nentries=10000;
+  /* nentries=10000; */
   fprintf(stderr, "\n Looping for main correlation functions \n");
 
 
-    for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
-      _tree_event->GetEntry(ievent);
-      fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
+  for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
+    _tree_event->GetEntry(ievent);
+    fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
-      bool first_cluster = true;
-      //if (not(first_cluster)) continue;
+    bool first_cluster = true;
+    //if (not(first_cluster)) continue;
 
-      //Event Selection
-      if (TMath::Abs(primary_vertex[2]) > 10) continue;
-      if (primary_vertex[2] == 0.00) continue;
-      if (do_pile && is_pileup_from_spd_5_08) continue;
+    //Event Selection
+    if (TMath::Abs(primary_vertex[2]) > 10) continue;
+    if (primary_vertex[2] == 0.00) continue;
+    if (do_pile && is_pileup_from_spd_5_08) continue;
 
 
-      for (ULong64_t n = 0; n < ncluster; n++) {
-        /* fprintf(stderr,"%d: pT = %f, eta = %f, ncell = %i, e_cross_e = %f, d_to_bad = %f, tof = %f\n",__LINE__, */
-        /*  cluster_pt[n],cluster_eta[n], cluster_ncell[n], cluster_e_cross[n], cluster_distance_to_bad_channel[n]); */ 
-        /* if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons */
-        /* if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector */
-        /* if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells */
-        /* if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters */
-        /* if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels */
-        /* if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima. */
-        /* if (not(abs(cluster_tof[n]) < cluster_time)) continue; */
+    for (ULong64_t n = 0; n < ncluster; n++) {
+      /* fprintf(stderr,"%d: pT = %f, eta = %f, ncell = %i, e_cross_e = %f, d_to_bad = %f, tof = %f\n",__LINE__, */
+      /*  cluster_pt[n],cluster_eta[n], cluster_ncell[n], cluster_e_cross[n], cluster_distance_to_bad_channel[n]); */ 
+      /* if ( not(cluster_pt[n] > pT_min and cluster_pt[n] < pT_max)) continue; //select pt of photons */
+      /* if ( not(TMath::Abs(cluster_eta[n]) < Eta_max)) continue;           //cut edges of detector */
+      /* if ( not(cluster_ncell[n] > Cluster_min)) continue;                 //removes clusters with 1 or 2 cells */
+      /* if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters */
+      /* if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels */
+      /* if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima. */
+      /* if (not(abs(cluster_tof[n]) < cluster_time)) continue; */
 
-        /* fprintf(stderr,"%d: PASSED WITH Cluster pT = %f\n",__LINE__,cluster_pt[n]); */
+      /* fprintf(stderr,"%d: PASSED WITH Cluster pT = %f\n",__LINE__,cluster_pt[n]); */
 
-        float isolation;
-        if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
-        else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04[n];
-        else if (determiner == CLUSTER_ISO_ITS_04_SUB)
-          isolation = cluster_iso_its_04[n] + cluster_iso_its_04_ue[n] - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
-        else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
-          isolation = cluster_iso_tpc_04[n] + cluster_iso_tpc_04_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
+      float isolation;
+      if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04[n];
+      else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04[n];
+      else if (determiner == CLUSTER_ISO_ITS_04_SUB)
+        isolation = cluster_iso_its_04[n] + cluster_iso_its_04_ue[n] - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
+      else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
+        isolation = cluster_iso_tpc_04[n] + cluster_iso_tpc_04_ue[n] - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
+      }
+      else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
+      else isolation = cluster_frixione_its_04_02[n];
+
+      /* Isolated = (isolation < iso_max); */
+      Isolated = true; 
+
+      /* for (Long64_t imix = mix_start; imix < mix_end; imix++){ */
+      /*   Long64_t mix_event = mix_events[imix]; */
+        /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
+        /* if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings */ 
+        /* if (strcmp(shower_shape.data(), "Lambda") == 0) { */
+        Lambda0_cut = 0.3;
+        Signal = ((cluster_lambda_square[n][0] > 0.1) and (cluster_lambda_square[n][0] < Lambda0_cut));
+        Background = (cluster_lambda_square[n][0] > 0.6);
+        /* } */
+
+        /* else if (strcmp(shower_shape.data(), "DNN") == 0) { */
+        /*   Signal = ( (cluster_s_nphoton[n][1] > DNN_min) && (cluster_s_nphoton[n][1] < DNN_max)); */
+        /*   Background = (cluster_s_nphoton[n][1] > 0.0 && cluster_s_nphoton[n][1] < DNN_Bkgd); */
+        /* } */
+
+        /* else if (strcmp(shower_shape.data(), "EMax") == 0) { */
+        /*   Signal = (cluster_e_max[n] / cluster_e[n] > Emax_max); */
+        /*   Background = (cluster_e_max[n] / cluster_e[n] < Emax_min); */
+        /* } */
+
+        //Not used in Mixing
+        /* float bkg_weight = 1.0; */
+        /* float track_weight = 1.0; //Fake Rate, smearing, efficiency */
+
+        if (Background and Isolated) {
+          trigBR[0] = centrality_v0m;
+          trigBR[1] = cluster_pt[n];
+          hTrigBR->Fill(trigBR);
         }
-        else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
-        else isolation = cluster_frixione_its_04_02[n];
 
-        /* Isolated = (isolation < iso_max); */
-        Isolated = true; 
+        if (Signal and Isolated) {
+          trigSR[0] = centrality_v0m;
+          trigSR[1] = cluster_pt[n];
+          hTrigSR->Fill(trigSR);
+        }
 
+        //Jet Loop
+
+        /* #pragma omp parallel */
+        /*   { */
+        /* #pragma omp for schedule(dynamic,1) */
+        mix_end = 10;
         for (Long64_t imix = mix_start; imix < mix_end; imix++){
           Long64_t mix_event = mix_events[imix];
-          /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
+          fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event);
           if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings 
-          /* if (strcmp(shower_shape.data(), "Lambda") == 0) { */
-          Lambda0_cut = 0.3;
-          Signal = ((cluster_lambda_square[n][0] > 0.1) and (cluster_lambda_square[n][0] < Lambda0_cut));
-          Background = (cluster_lambda_square[n][0] > 0.6);
-          /* } */
+          //FIXME: Add Delta Cuts on Event Pairing Here
 
-          /* else if (strcmp(shower_shape.data(), "DNN") == 0) { */
-          /*   Signal = ( (cluster_s_nphoton[n][1] > DNN_min) && (cluster_s_nphoton[n][1] < DNN_max)); */
-          /*   Background = (cluster_s_nphoton[n][1] > 0.0 && cluster_s_nphoton[n][1] < DNN_Bkgd); */
-          /* } */
+          //adjust offset for next mixed event
+          jet_offset[0]=mix_event;
+          jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
+          jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
 
-          /* else if (strcmp(shower_shape.data(), "EMax") == 0) { */
-          /*   Signal = (cluster_e_max[n] / cluster_e[n] > Emax_max); */
-          /*   Background = (cluster_e_max[n] / cluster_e[n] < Emax_min); */
-          /* } */
+          for (ULong64_t ijet = 0; ijet < njet_max; ijet++) {
+            if (std::isnan(jet_data_out[0][ijet][0])) continue;//hdf5 filled with NaN up to njet_max
+            float jetpt = jet_data_out[0][ijet][0];
+            float jeteta = jet_data_out[0][ijet][1];   
+            float jetphi = jet_data_out[0][ijet][2];   
+            if ( jetpt < 5) continue;
+            if ( jetpt > 50) continue;
+            if ( jeteta> 0.5) continue;
 
-          //Not used in Mixing
-          /* float bkg_weight = 1.0; */
-          /* float track_weight = 1.0; //Fake Rate, smearing, efficiency */
+            //FIXME: Move cut values to config file
 
-          if (Background and Isolated) {
-            trigBR[0] = centrality_v0m;
-            trigBR[1] = cluster_pt[n];
-            hTrigBR->Fill(trigBR);
-          }
+            //From same_event.cc
+            /* for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) { */
+            /*   if (jet_ak04tpc_pt_raw[ijet] < 5) continue; */
+            /*   if (jet_ak04tpc_pt_raw[ijet] > 50) continue; */
+            /*   if (abs(jet_ak04tpc_eta[ijet]) > 0.5) continue; */
+
+            // Observables: delta phi, jet pT, pT ratio
+            Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jetphi));
+            Float_t ptratio = jetpt / cluster_pt[n];
+
+            if (Signal and Isolated) {
+              corrSR[0] = centrality_v0m;
+              corrSR[1] = cluster_pt[n];
+              corrSR[2] = deltaphi;
+              corrSR[3] = jetpt;
+              corrSR[4] = ptratio;
+              hCorrSR->Fill(corrSR);
+            }
+
+            if (Background and Isolated) {
+              corrBR[0] = centrality_v0m;
+              corrBR[1] = cluster_pt[n];
+              corrBR[2] = deltaphi;
+              corrBR[3] = jetpt;
+              corrBR[4] = ptratio;
+              hCorrBR->Fill(corrBR);
+            }
+          }//for jets
 
           if (Signal and Isolated) {
-            trigSR[0] = centrality_v0m;
-            trigSR[1] = cluster_pt[n];
-            hTrigSR->Fill(trigSR);
+            nMixSR[0] = centrality_v0m;
+            nMixSR[1] = cluster_pt[n];
+            hnMixSR->Fill(nMixSR);
+            SR_mixed_event_counter->Fill(mix_event);
           }
 
-          //Jet Loop
+          if (Background and Isolated) {
+            nMixBR[0] = centrality_v0m;
+            nMixBR[1] = cluster_pt[n];
+            hnMixBR->Fill(nMixBR);
+            BR_mixed_event_counter->Fill(mix_event);
+          }
 
-          /* #pragma omp parallel */
-          /*   { */
-          /* #pragma omp for schedule(dynamic,1) */
-          mix_end = 10;
-          for (Long64_t imix = mix_start; imix < mix_end; imix++){
-            Long64_t mix_event = mix_events[imix];
-            /* fprintf(stderr,"\n %s:%d: Mixed event = %lu",__FILE__,__LINE__,mix_event); */
-            if(mix_event  < 0) continue; //unpaired triggered events set to negative pairings 
-            //FIXME: Add Delta Cuts on Event Pairing Here
+          }//for mixed
+          first_cluster = false;
+        }//for nclusters
+      } //for nevents
+      //}//end loop over samples
+    /* } */
+    /* } */
+    // Write to fout
+    TFile* fout;
+    fout = new TFile("mixedEvent.root", "RECREATE");
+    std::cout << "Writing to file" << std::endl;
 
-            //adjust offset for next mixed event
-            jet_offset[0]=mix_event;
-            jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
-            jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+    hTrigSR->Write();
+    hCorrSR->Write();
+    hnMixSR->Write();
+    SR_mixed_event_counter->Write();
 
-            for (ULong64_t ijet = 0; ijet < njet_max; ijet++) {
-              if (std::isnan(jet_data_out[0][ijet][0])) continue;//hdf5 filled with NaN up to njet_max
-              float jetpt = jet_data_out[0][ijet][0];
-              float jeteta = jet_data_out[0][ijet][1];   
-              float jetphi = jet_data_out[0][ijet][2];   
-              if ( jetpt < 5) continue;
-              if ( jetpt > 50) continue;
-              if ( jeteta> 0.5) continue;
+    hTrigBR->Write();
+    hCorrBR->Write();
+    hnMixBR->Write();
+    BR_mixed_event_counter->Write();
 
-              //FIXME: Move cut values to config file
-
-              //From same_event.cc
-              /* for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) { */
-              /*   if (jet_ak04tpc_pt_raw[ijet] < 5) continue; */
-              /*   if (jet_ak04tpc_pt_raw[ijet] > 50) continue; */
-              /*   if (abs(jet_ak04tpc_eta[ijet]) > 0.5) continue; */
-
-              // Observables: delta phi, jet pT, pT ratio
-              Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jetphi));
-              Float_t ptratio = jetpt / cluster_pt[n];
-
-              if (Signal and Isolated) {
-                corrSR[0] = centrality_v0m;
-                corrSR[1] = cluster_pt[n];
-                corrSR[2] = deltaphi;
-                corrSR[3] = jetpt;
-                corrSR[4] = ptratio;
-                hCorrSR->Fill(corrSR);
-
-                nMixSR[0] = centrality_v0m;
-                nMixSR[1] = cluster_pt[n];
-                hnMixSR->Fill(nMixSR);
-                SR_mixed_event_counter->Fill(mix_event);
-
-              }
-
-              if (Background and Isolated) {
-                corrBR[0] = centrality_v0m;
-                corrBR[1] = cluster_pt[n];
-                corrBR[2] = deltaphi;
-                corrBR[3] = jetpt;
-                corrBR[4] = ptratio;
-                hCorrBR->Fill(corrBR);
-
-                nMixBR[0] = centrality_v0m;
-                nMixBR[1] = cluster_pt[n];
-                hnMixBR->Fill(nMixBR);
-                BR_mixed_event_counter->Fill(mix_event);
-              }
-            }//for ijets
-            first_cluster = false;
-            }//for mixed
-          }//for nclusters
-        } //for nevents
-        //}//end loop over samples
-      }
-      /* } */
-      // Write to fout
-      TFile* fout;
-      fout = new TFile("mixedEvent.root", "RECREATE");
-      std::cout << "Writing to file" << std::endl;
-
-      hTrigSR->Write();
-      hCorrSR->Write();
-      hnMixSR->Write();
-      SR_mixed_event_counter->Write();
-
-      hTrigBR->Write();
-      hCorrBR->Write();
-      hnMixBR->Write();
-      BR_mixed_event_counter->Write();
-
-      fout->Close();
-      file->Close();
-      std::cout << " ending " << std::endl;
-      return EXIT_SUCCESS;
+    fout->Close();
+    file->Close();
+    std::cout << " ending " << std::endl;
+    return EXIT_SUCCESS;
 }
