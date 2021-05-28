@@ -10,6 +10,7 @@ import root_numpy as rnp
 import sys
 import time
 import warnings
+import yaml
 
 
 def getSuperModule(cellId):
@@ -319,6 +320,8 @@ def main(ntuplefilenames, csvfilename):
 
             # loop through events
             for ievent in range(nevents):
+                tree.GetEntry(ievent)
+
                 ncluster = getattr(tree, 'ncluster')
                 cluster_pt = getattr(tree, 'cluster_pt')
                 cluster_eta = getattr(tree, 'cluster_eta')
@@ -347,7 +350,7 @@ def main(ntuplefilenames, csvfilename):
                 mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
                 try:
                     mc_truth_is_prompt_photon = getattr(tree, 'mc_truth_is_prompt_photon')
-                except ValueError:
+                except AttributeError:
                     mc_truth_is_prompt_photon = None
 
                 centrality_v0m = getattr(tree, 'centrality_v0m')
@@ -397,6 +400,10 @@ def main(ntuplefilenames, csvfilename):
                                                mc_truth_pdg_code, mc_truth_is_prompt_photon)
 
                     if pt < 15:
+                        continue
+
+                    # not sure how this happens with the pt cut, but avoiding ZeroDivisionErrors is good
+                    if e == 0 or e_max == 0:
                         continue
 
                     # this takes time, so put it after the pT cut
@@ -467,6 +474,16 @@ def main(ntuplefilenames, csvfilename):
 
 
 if __name__ == '__main__':
-    ntuplefilenames = sys.argv[1:-1]
-    csvfilename = sys.argv[-1]
+    configfilename = sys.argv[1]
+    filetype = sys.argv[2]
+
+    if filetype not in ('data', 'gjmc', 'jjmc'):
+        print('File type {0} not recognized; must be one of data, gjmc, jjmc'.format(filetype))
+        exit()
+
+    with open(configfilename) as configfile:
+        config = yaml.safe_load(configfile)
+
+    ntuplefilenames = config['filelists'][filetype]
+    csvfilename = config['filelists']['clustercsvs'][filetype]
     main(ntuplefilenames, csvfilename)

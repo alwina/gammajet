@@ -52,7 +52,7 @@ def getXerrForPlot(rangesOrEdges):
 def getBinRange(binEdges, valuemin, valuemax):
     binmin = min([i for i, edge in enumerate(binEdges) if edge >= valuemin])
     binmax = max([i for i, edge in enumerate(binEdges) if edge <= valuemax])
-    return binmin, binmax
+    return binmin, binmax + 1
 
 
 def getErr(dist, disterr):
@@ -111,7 +111,7 @@ def getUniformUncertainty(dist):
 
 def th1ToArrays(th1):
     hist, err, binCenters, binWidths = [], [], [], []
-    for binX in range(1, th1.GetNbinsX()):
+    for binX in range(1, th1.GetNbinsX() + 1):
         hist.append(th1.GetBinContent(binX))
         err.append(th1.GetBinError(binX))
         binCenters.append(th1.GetBinCenter(binX))
