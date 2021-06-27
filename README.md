@@ -9,7 +9,7 @@ The starting point is NTuples generated with [this repo](https://github.com/alwi
 To calculate the purity, the ntuples are first converted to CSVs. Those CSVs are then read into pandas dataframes, from which template fits are done. The `DataframeCollection` and `PhotonPurity` classes handle most of this.
 
 ## Correlation calculation
-The same-event correlations, mixed-event correlations, and RooUnfold responses are done with C++ scripts. `cmake` (minimum version 3.10.2) is used to compile these scripts, which have the following requirements
+The same-event correlations, mixed-event correlations, and RooUnfold responses are done with C++ scripts. `cmake` (minimum version 3.10) is used to compile these scripts, which have the following requirements
 - ROOT, for which `$ROOT_DIR` has to be defined and which should then be automatically found with `find_package(ROOT)`
 - [yaml-cpp](https://github.com/jbeder/yaml-cpp), for which `$YAMLCPP` has to be defined
 - HDF5 (mixed_event only), for which `$HDF5_DIR` has to be defined (for some reason, `find_package` fails here)

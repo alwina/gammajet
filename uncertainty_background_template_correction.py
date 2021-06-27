@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from params import ptcuttext, centralitycuttext
 from template_fit import modifyBkgWeights
@@ -7,20 +8,31 @@ from utils import getNormHistAndErr, divideHistsAndErrs, getCenters, getBinRange
 
 
 # call this first
-def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams, centrange=None):
+def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams, centrange=None, useraa=False):
     isojjmcdf = dfs.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
     antiisojjmcdf = dfs.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
     isodatadf = dfs.fulldatadf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
     antiisodatadf = dfs.fulldatadf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
+    isogjmcdf = dfs.fullgjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
+    antiisogjmcdf = dfs.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
 
     if centrange:
         isojjmcdf = isojjmcdf.query(centralitycuttext(centrange))
         antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
         isodatadf = isodatadf.query(centralitycuttext(centrange))
         antiisodatadf = antiisodatadf.query(centralitycuttext(centrange))
+        isogjmcdf = isogjmcdf.query(centralitycuttext(centrange))
+        antiisogjmcdf = antiisogjmcdf.query(centralitycuttext(centrange))
 
-    isojjmchist, isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
-    antiisojjmchist, antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
+    if useraa:
+        isojjmcdf = pd.concat([isojjmcdf, isogjmcdf])
+        antiisojjmcdf = pd.concat([antiisojjmcdf, antiisogjmcdf])
+        isojjmchist, isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges, weightvar='weightswithraa')
+        antiisojjmchist, antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges, weightvar='weightswithraa')
+    else:
+        isojjmchist, isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
+        antiisojjmchist, antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
+
     isodatahist, isodataerr = getNormHistAndErr(isodatadf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
     antiisodatahist, antiisodataerr = getNormHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
 
@@ -35,7 +47,7 @@ def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams, centrange=None):
 # after getDoubleRatioAndError
 # result gets saved into doubleRatioFit
 # this performs the fit, which means it's slow!
-def getDoubleRatioFitAndError(doubleratio, doubleratioerr, ssParams, doubleRatioFit, centrange=None):
+def getDoubleRatioFitAndError(doubleratio, doubleratioerr, ssParams, doubleRatioFit):
     binCenters = getCenters(ssParams.doubleRatioBinEdges)
     fitRange = slice(*getBinRange(ssParams.doubleRatioBinEdges, *ssParams.doubleRatioFitRange))
 
@@ -43,11 +55,16 @@ def getDoubleRatioFitAndError(doubleratio, doubleratioerr, ssParams, doubleRatio
 
 
 # after getDoubleRatioFitAndError has been called
-def plotDoubleRatioAndFit(doubleratio, doubleratioerr, ssParams, doubleRatioFit, centrange=None):
+def plotDoubleRatioAndFit(doubleratio, doubleratioerr, ssParams, doubleRatioFit):
+    binCenters = getCenters(ssParams.doubleRatioBinEdges)
+    plt.errorbar(binCenters, doubleratio, yerr=doubleratioerr, fmt='ko')
+    plotDoubleRatioFitOnly(doubleRatioFit, ssParams)
+
+
+def plotDoubleRatioFitOnly(doubleRatioFit, ssParams):
     binCenters = getCenters(ssParams.doubleRatioBinEdges)
     fitRange = slice(*getBinRange(ssParams.doubleRatioBinEdges, *ssParams.doubleRatioFitRange))
 
-    plt.errorbar(binCenters, doubleratio, yerr=doubleratioerr, fmt='ko')
     plt.plot(binCenters, list(map(doubleRatioFit.getFunctionFit(), binCenters)), 'r:')
     plt.plot(binCenters[fitRange], list(map(doubleRatioFit.getFunctionFit(), binCenters[fitRange])), 'r-')
     plt.annotate(doubleRatioFit.getResultText(), (0.95, 0.9), xycoords='axes fraction', ha='right', va='top', color='r')
@@ -77,7 +94,7 @@ def getPuritiesWithDoubleRatio(dfs, ptrange, isoParams, ssParams, doubleRatioFit
 
 
 def getBkgCorrectionUncertainty(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange=None):
-    getDoubleRatioFitAndError(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange)
+    getDoubleRatioFitAndError(dfs, ptrange, isoParams, ssParams, doubleRatioFit)
     purities = getPuritiesWithDoubleRatio(dfs, ptrange, isoParams, ssParams, doubleRatioFit, centrange)
     return np.ptp(list(purities.values())) / 2.0
 
