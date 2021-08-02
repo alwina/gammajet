@@ -54,7 +54,7 @@ class ShowerShapeParams:
 
     def setVarBinLambda(self):
         self.setDefaultLambda()
-        self.binEdges = np.concatenate((np.linspace(0.1, 0.3, 11), np.linspace(0.32, 1.12, 11), np.linspace(1.2, 2, 6)))
+        self.binEdges = np.concatenate((np.linspace(0.1, 0.64, 28), np.linspace(0.72, 1.12, 6), np.linspace(1.2, 2, 6)))
 
     def setDefaultDNN(self):
         self.ssvar = 'cluster_NN1'

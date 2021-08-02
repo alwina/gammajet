@@ -328,7 +328,7 @@ class BackgroundFit:
 
 
 class ExtendedTemplateFit:
-    def __init__(self, dfs, ptrange, centrange, isoParams, ssParams, usezeta=True, useraa=False, verbosity=0):
+    def __init__(self, dfs, ptrange, centrange, isoParams, ssParams, usezeta=False, useraa=True, usedoubleratio=False, verbosity=0):
         bincut = '{0} and {1}'.format(centralitycuttext(centrange), ptcuttext(ptrange))
         self.ptrange = ptrange
         self.centrange = centrange
@@ -354,6 +354,8 @@ class ExtendedTemplateFit:
             # make combined histogram with anti-isolated MCs using RAA-scaled weights
             antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
             self.antiisomchist, self.antiisomcerr = getNormHistAndErr(antiisomcdf, ssParams.ssvar, ssParams.binEdges, weightvar='weightswithraa')
+            # also scale the isolated dijet MC with RAA
+            self.isojjmchist, self.isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.binEdges, weightvar='weightswithraa')
 
         if ssParams.tfFitRange:
             self.fitRange = slice(*getBinRange(self.binEdges, *ssParams.tfFitRange))
@@ -371,19 +373,34 @@ class ExtendedTemplateFit:
         self.signalColor = ssParams.signalColor
         self.bkgColor = ssParams.bkgColor
         self.verbosity = verbosity
+        self.drfit = None
 
         # flags for how to correct the background template
         self.usezeta = usezeta
         self.useraa = useraa
+        self.usedoubleratio = usedoubleratio
+
+        if usedoubleratio:
+            self.getDoubleRatioFit()
 
         self.doFit()
         self.getPurity()
+
+    def getDoubleRatioFit(self):
+        self.doubleratio, self.doubleratioerr = getDoubleRatioAndError(self.dfs, self.ptrange, self.isoParams, self.ssParams, self.centrange, useraa=self.useraa)
+        self.drfit = SingleParameterLinearFit()
+        getDoubleRatioFitAndError(self.doubleratio, self.doubleratioerr, self.ssParams, self.drfit)
 
     def getBkgCorrectionWeights(self):
         if self.useraa:
             bkgweights, bkgweightserr = divideHistsAndErrs(self.isojjmchist, self.isojjmcerr, self.antiisomchist, self.antiisomcerr)
         else:
             bkgweights, bkgweightserr = divideHistsAndErrs(self.isojjmchist, self.isojjmcerr, self.antiisojjmchist, self.antiisojjmcerr)
+
+        if self.usedoubleratio:
+            bkgweights = modifyBkgWeights(bkgweights, self.binEdges, self.drfit.getFunctionFit())
+            bkgweightserr = modifyBkgWeights(bkgweightserr, self.binEdges, self.drfit.getFunctionFit())
+
         return bkgweights, bkgweightserr
 
     def getBkgTemplate(self, zeta):
@@ -463,11 +480,9 @@ class ExtendedTemplateFit:
         if self.usezeta:
             self.chi2 = Chi2(self.fitf, self.fitzeta)
             self.dof = len(self.isodatahist[self.fitRange]) - 2
-        elif self.useraa:
+        else:
             self.chi2 = Chi2(self.fitf)
             self.dof = len(self.isodatahist[self.fitRange]) - 1
-        else:
-            print('Neither the usezeta nor the useraa flags were set')
 
     def getPurity(self):
         bkgtemplate, _ = self.getBkgTemplate(self.fitzeta)
@@ -527,10 +542,13 @@ class ExtendedTemplateFit:
             plt.bar(self.binCenters, np.multiply(self.fitzeta, self.antiisogjmchist), bottom=np.subtract(self.antiisodatahist, np.multiply(self.fitzeta, self.antiisogjmchist)), width=self.binWidths, align='center',
                     label='Scaled anti-iso GJ MC ($\zeta$={0:2.2})'.format(self.fitzeta), capsize=0, color=self.signalColor, ec=self.signalColor)
             plt.legend()
-        if self.useraa:
+        elif self.useraa:
             plt.bar(self.binCenters, self.antiisomchist, width=self.binWidths, align='center',
                     label=r'$R_{AA}\times$ JJ MC + GJ MC', capsize=0, color=self.bkgColor, ec=self.bkgColor)
             plt.plot(self.binCenters, self.antiisojjmchist, 'k-', drawstyle='steps-mid', label='JJ MC')
+            plt.legend()
+        else:
+            plt.bar(self.binCenters, self.antiisodatahist, width=self.binWidths, align='center', label='Anti-isolated data', capsize=0, color=self.bkgColor, ec=self.bkgColor)
             plt.legend()
 
         # background template correction
@@ -539,25 +557,22 @@ class ExtendedTemplateFit:
         plt.errorbar(self.binCenters, bkgweights, yerr=bkgweighterrs, fmt='ko')
         plt.ylabel('Bkg template\ncorrection')
         if self.useraa:
-            bkgtempcorrdesc = r'Iso JJ MC / ($R_\mathrm{AA} \times$ Anti-iso JJ MC + Anti-iso GJ MC)'
+            bkgtempcorrdesc = r'$R_\mathrm{AA} \times$ Iso JJ MC / ($R_\mathrm{AA} \times$ Anti-iso JJ MC + Anti-iso GJ MC)'
         else:
             bkgtempcorrdesc = 'Iso JJ MC / Anti-iso JJ MC'
         upperRightText(bkgtempcorrdesc)
 
         # double ratio
         plt.subplot(313)
-        doubleratio, doubleratioerr = getDoubleRatioAndError(self.dfs, self.ptrange, self.isoParams, self.ssParams, self.centrange, useraa=self.useraa)
-        drfit = SingleParameterLinearFit()
-        getDoubleRatioFitAndError(doubleratio, doubleratioerr, self.ssParams, drfit)
-
-        doubleratio[doubleratioerr == 0] = np.nan
-        plotDoubleRatioAndFit(doubleratio, doubleratioerr, self.ssParams, drfit)
-        if self.useraa:
-            plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{MC}}$')
-        else:
-            plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{dijet MC}}$')
-        plt.axvspan(self.doubleRatioFitRange[0], self.doubleRatioFitRange[1], color=self.bkgColor, alpha=0.2)
-        plt.xlabel(self.xlabel)
+        if self.drfit is not None:
+            self.doubleratio[self.doubleratioerr == 0] = np.nan
+            plotDoubleRatioAndFit(self.doubleratio, self.doubleratioerr, self.ssParams, self.drfit)
+            if self.useraa:
+                plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{MC}}$')
+            else:
+                plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{dijet MC}}$')
+            plt.axvspan(self.doubleRatioFitRange[0], self.doubleRatioFitRange[1], color=self.bkgColor, alpha=0.2)
+            plt.xlabel(self.xlabel)
 
     def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
         fig = plt.figure()

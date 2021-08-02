@@ -3,8 +3,14 @@ import numpy as np
 import pandas as pd
 
 from params import ptcuttext, centralitycuttext
-from template_fit import modifyBkgWeights
 from utils import getNormHistAndErr, divideHistsAndErrs, getCenters, getBinRange
+
+
+# copy this here to avoid circular dependencies
+def modifyBkgWeights(weights, binEdges, modFunction):
+    binCenters = getCenters(binEdges)
+    mods = list(map(modFunction, binCenters))
+    return np.multiply(weights, mods)
 
 
 # call this first
