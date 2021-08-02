@@ -65,9 +65,6 @@ int main(int argc, char *argv[])
   float track_pT_max = 0.0;
   int Track_Cut_Bit = 0;
   int track_chi_max = 0;
-  double iso_max = 0;
-  double noniso_min = 0;
-  double noniso_max = 0;
   //double deta_max = 0;
   isolationDet determiner = CLUSTER_ISO_ITS_04;
   int n_eta_bins = 0;
@@ -132,18 +129,6 @@ int main(int argc, char *argv[])
 
   /* if (config["Cluster_Time"]) { */
   /*   cluster_time = config["Cluster_Time"].as<double>(); */
-  /* } */
-
-  /* if (config["iso_max"]) { */
-  /*   iso_max = config["iso_max"].as<double>(); */
-  /* } */
-
-  /* if (config["noniso_min"]) { */
-  /*   noniso_min = config["noniso_min"].as<double>(); */
-  /* } */
-
-  /* if (config["noniso_max"]) { */
-  /*   noniso_max = config["noniso_max"].as<double>(); */
   /* } */
 
   /* if (config["do_pileup_cut"]) { */
@@ -537,7 +522,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
       else isolation = cluster_frixione_its_04_02[n];
 
-      /* Isolated = (isolation < iso_max); */
+      /* Isolated = GetIsIsolated(isolation, centrality_v0m, config["isolation"]); */
       Isolated = true; 
 
       /* for (Long64_t imix = mix_start; imix < mix_end; imix++){ */

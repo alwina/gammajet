@@ -2,6 +2,30 @@
 #include "yaml-cpp/yaml.h"
 
 /*--------------------------------------------------------------
+Isolation calculations with and without centrality-dependence
+--------------------------------------------------------------*/
+bool GetIsIsolated(float isolation, float centrality, YAML::Node isoConfig) {
+	// centrality-dependent isolation
+	if (isoConfig["centralityvalues"]) {
+		YAML::Node centvalues = isoConfig["centralityvalues"];
+		for (YAML::const_iterator it = centvalues.begin(); it != centvalues.end(); it++) {
+			const YAML::Node& centvalue = *it;
+			std::pair<float, float> centrange = centvalue["centralityrange"].as<std::pair<float, float>>();
+			if (centrality >= centrange.first && centrality < centrange.second) {
+				return isolation < centvalue["isocut"].as<float>();
+			}
+		}
+		// out of centrality range
+		std::cout << "centrality " << centrality << " out of range in isolation calculation" << std::endl;
+		return false;
+	// flat isolation
+	} else {
+		float isocut = isoConfig["isocut"].as<float>();
+		return isolation < isocut;
+	}
+}
+
+/*--------------------------------------------------------------
 Purity function definitions with and without centrality-dependence
 --------------------------------------------------------------*/
 float GetPurityBinned(float pt, std::vector<float> binEdges, std::vector<float> values) {

@@ -53,9 +53,6 @@ int main(int argc, char *argv[])
 
   bool do_pile = false;
 
-  double iso_max = 0;
-  double noniso_min = 0;
-  double noniso_max = 0;
   //double deta_max = 0;
   isolationDet determiner = CLUSTER_ISO_ITS_04;
   std::string shower_shape = "DNN";
@@ -102,12 +99,6 @@ int main(int argc, char *argv[])
 
   if (config["clustercuts"]["data"]["cluster_tof"]) {
     cluster_time = config["clustercuts"]["data"]["cluster_tof"]["max"].as<double>();
-  }
-
-  if (config["isolation"]) {
-    iso_max = config["isolation"]["isocut"].as<double>();
-    noniso_min = config["isolation"]["antiisocutlow"].as<double>();
-    noniso_max = config["isolation"]["antiisocuthigh"].as<double>();
   }
 
   if (config["jetcuts"]) {
@@ -428,7 +419,7 @@ int main(int argc, char *argv[])
         else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
         else isolation = cluster_frixione_its_04_02[n];
 
-        Isolated = (isolation < iso_max);
+        Isolated = GetIsIsolated(isolation, centrality_v0m, config["isolation"]);
 
         float shower = -1;
         if (shower_shape == "cluster_Lambda") {
