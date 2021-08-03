@@ -172,6 +172,20 @@ def main(ntuplefilenames, csvfilename):
         totalevents = 0
 
         ntuplefilenames.sort()
+        # initial loop to count nevents per pthat bin, because that's what we actually need for weights
+        pthat_nevents = {}
+        for ntuplefilename in ntuplefilenames:
+            if 'pthat' not in ntuplefilename:
+                continue
+            pthat = ntuplefilename.split('pthat')[1][0]
+            if pthat not in pthat_nevents:
+                pthat_nevents[pthat] = 0
+            rootfile = ROOT.TFile.Open(ntuplefilename, 'READ')
+            tree = rootfile.Get('AliAnalysisTaskNTGJ/_tree_event')
+            nevents = tree.GetEntries()
+            pthat_nevents[pthat] = pthat_nevents[pthat] + nevents
+            rootfile.Close()
+
         for (ifile, ntuplefilename) in enumerate(ntuplefilenames):
             print('{0} Processing {1} ({2}/{3})'.format(datetime.datetime.now(), os.path.basename(ntuplefilename), ifile + 1, len(ntuplefilenames)))
 
@@ -190,8 +204,8 @@ def main(ntuplefilenames, csvfilename):
             aeg_ntrial = rnp.tree2array(tree, branches='eg_ntrial')
             if 'pthat' in ntuplefilename:
                 avg_eg_ntrial = np.mean(aeg_ntrial)
-                nevents = len(aeg_ntrial)
-                aweights = np.divide(aeg_cross_section, avg_eg_ntrial * nevents)
+                pthatnevents = pthat_nevents[ntuplefilename.split('pthat')[1][0]]
+                aweights = np.divide(aeg_cross_section, avg_eg_ntrial * pthatnevents)
             else:
                 aweights = np.ones(nevents)
 
