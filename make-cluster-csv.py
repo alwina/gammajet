@@ -152,6 +152,28 @@ def getIsPrompt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code, mc
     return False
 
 
+def getParentPi0Pt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt):
+    parentpi0pt = -1
+    for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
+        mcindex = cluster_mc_truth_index[i]
+        # if this is the dummy index, ignore it
+        if mcindex == 65535:
+            continue
+        # if the parent is not a pi0, ignore it
+        # not sure if pi0 can have negative pdg code, but check just in case
+        if abs(mc_truth_first_parent_pdg_code[mcindex]) != 111:
+            continue
+        # for now, take the min pt of the pi0s we see
+        # unclear how often we end up with more than one, but just in case,
+        # we'll be consistent about which one we take
+        if parentpi0pt == -1:
+            parentpi0pt = mc_truth_first_parent_pt[mcindex]
+        else:
+            parentpi0pt = min(parentpi0pt, mc_truth_first_parent_pt[mcindex])
+
+    return parentpi0pt
+
+
 def main(ntuplefilenames, csvfilename):
     warnings.simplefilter('ignore', RuntimeWarning)
     start = time.time()
@@ -160,7 +182,7 @@ def main(ntuplefilenames, csvfilename):
         fieldnames = ['cluster_pt', 'cluster_eta', 'cluster_phi', 'cluster_e_cross', 'cluster_e', 'cluster_e_max', 'cluster_ncell',
                       'cluster_tof', 'cluster_distance_to_bad_channel', 'cluster_Lambda', 'cluster_NN1',
                       'cluster_ecross_e', 'cluster_ecross_emax', 'cluster_nlocal_maxima', 'cluster_nmc_photon',
-                      'cluster_mc_is_prompt_photon',
+                      'cluster_mc_is_prompt_photon', 'cluster_mc_parentpi0pt',
                       'cluster_iso_tpc_01', 'cluster_iso_tpc_02', 'cluster_iso_tpc_03', 'cluster_iso_tpc_04',
                       'cluster_iso_tpc_01_sub', 'cluster_iso_tpc_02_sub', 'cluster_iso_tpc_03_sub', 'cluster_iso_tpc_04_sub',
                       'cluster_frixione_tpc_04_02', 'cluster_frixione_tpc_04_05', 'cluster_frixione_tpc_04_10',
@@ -239,6 +261,8 @@ def main(ntuplefilenames, csvfilename):
 
                 cluster_nmc_truth = getattr(tree, 'cluster_nmc_truth')
                 mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
+                mc_truth_first_parent_pdg_code = getattr(tree, 'mc_truth_first_parent_pdg_code')
+                mc_truth_first_parent_pt = getattr(tree, 'mc_truth_first_parent_pt')
                 try:
                     mc_truth_is_prompt_photon = getattr(tree, 'mc_truth_is_prompt_photon')
                 except AttributeError:
@@ -290,6 +314,12 @@ def main(ntuplefilenames, csvfilename):
                         isprompt = getIsPrompt(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster],
                                                mc_truth_pdg_code, mc_truth_is_prompt_photon)
 
+                    if isprompt:
+                        parentpi0pt = -1
+                    else:
+                        parentpi0pt = getParentPi0Pt(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster],
+                                                     mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt)
+
                     if pt < 15:
                         continue
 
@@ -327,6 +357,7 @@ def main(ntuplefilenames, csvfilename):
                     row['cluster_NN1'] = nn1
                     row['cluster_nmc_photon'] = nmc_photon
                     row['cluster_mc_is_prompt_photon'] = isprompt
+                    row['cluster_mc_parentpi0pt'] = parentpi0pt
                     row['cluster_ecross_e'] = e_cross / e
                     row['cluster_ecross_emax'] = e_cross / e_max
                     row['weights'] = weight
