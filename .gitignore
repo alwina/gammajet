@@ -5,6 +5,7 @@ csv/
 *.ipynb
 plots/
 
+*.pkl
 *.root
 *.hdf5
 cpp/build/

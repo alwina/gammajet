@@ -1,10 +1,11 @@
+from enum import Enum
 import matplotlib.pyplot as plt
 import numpy as np
 import ROOT
 import root_numpy as rnp
 
 from unfolder import Unfolder
-from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToArrays
+from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToArrays, sliceAndProjectTHnSparse
 
 
 # instructions for use
@@ -15,6 +16,8 @@ from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToA
 # 5. call getSignalCorrelation
 # 6. optionally, do stuff with the unfolder
 class GammaJetCorrelation:
+    """Manipulate ROOT objects for same- and mixed-event correlations to get various
+    stages of subtracted correlations and generate plots"""
     def __init__(self, observable):
         self.observable = observable
         self.unfolder = Unfolder()
@@ -65,9 +68,9 @@ class GammaJetCorrelation:
         if self.binsMatch(brth1):
             self.mebrth1 = brth1
 
-        # scale by number of triggers and number of events
-        self.mesrth1.Scale(1.0 / (ntrigsr * srnmix))
-        self.mebrth1.Scale(1.0 / (ntrigbr * brnmix))
+        # scale by number of events, which already also counts number of triggers
+        self.mesrth1.Scale(1.0 / srnmix)
+        self.mebrth1.Scale(1.0 / brnmix)
         self.mesrntrig = ntrigsr
         self.mebrntrig = ntrigbr
         self.srnmix = srnmix
@@ -132,3 +135,113 @@ class GammaJetCorrelation:
                          yerr=err, xerr=self.xerr, **kwargs)
         else:
             plt.errorbar(self.centers, np.divide(hist, self.widths), yerr=err, xerr=self.xerr, **kwargs)
+
+
+class AxisNum(Enum):
+    """Enum describing what each THnSparse axis represents"""
+    centrality = 0
+    clusterpt = 1
+    deltaphi = 2
+    jetpt = 3
+    ptratio = 4
+
+
+def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileME, rootfileRM=''):
+    """
+    Parse ROOT files and generate GammaJetCorrelation objects for each centrality range, ptrange, and observable
+
+    centranges: list of tuples of centrality ranges
+    photonptranges: list of tuples of photon pT ranges
+    observableInfo: dictionary of observable info {name: {info}}, generally read from config yaml
+    rootfileSE: name of ROOT file for same-event correlation
+    rootfileME: name of ROOT file for mixed-event correlation
+    rootfileRM: name of ROOT file for RooUnfoldResponse object (optional)
+    """
+    # set up the dictionary for all correlation objects
+    allCorr = {}
+
+    # parsing ROOT files - extracting THnSparses
+    rootfile = ROOT.TFile.Open(rootfileSE)
+    sehTrigSR = rootfile.Get('hTrigSR')
+    sehTrigBR = rootfile.Get('hTrigBR')
+    sehCorrSR = rootfile.Get('hCorrSR')
+    sehCorrBR = rootfile.Get('hCorrBR')
+    rootfile.Close()
+
+    rootfile = ROOT.TFile.Open(rootfileME)
+    mehTrigSR = rootfile.Get('hTrigSR')
+    mehTrigBR = rootfile.Get('hTrigBR')
+    mehCorrSR = rootfile.Get('hCorrSR')
+    mehCorrBR = rootfile.Get('hCorrBR')
+    mehnMixSR = rootfile.Get('hnMixSR')
+    mehnMixBR = rootfile.Get('hnMixBR')
+    rootfile.Close()
+
+    if rootfileRM:
+        rootfile = ROOT.TFile.Open(rootfileRM)
+        # TO-DO: split by centrality, pT
+        rooUnfoldResponses = {}
+        for observable in observableInfo:
+            rooUnfoldResponses[observable] = rootfile.Get('{0}Response'.format(observable))
+        rootfile.Close()
+
+    # make all correlation objects
+    for centrange in centranges:
+        allCorr[centrange] = {}
+        for photonptrange in photonptranges:
+            allCorr[centrange][photonptrange] = {}
+            slices = []
+            slices.append((AxisNum.centrality.value, centrange[0], centrange[1]))
+            slices.append((AxisNum.clusterpt.value, photonptrange[0], photonptrange[1]))
+
+            # get the scale factor for each bin
+            hTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            nTrigSESR = hTrigSESR.Integral()
+
+            hTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            nTrigSEBR = hTrigSEBR.Integral()
+
+            hTrigMESR = sliceAndProjectTHnSparse(mehTrigSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            nTrigMESR = hTrigMESR.Integral()
+
+            hTrigMEBR = sliceAndProjectTHnSparse(mehTrigBR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            nTrigMEBR = hTrigMEBR.Integral()
+
+            # also count number of mixed events, which includes the number of triggers
+            hnMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            nMixSR = hnMixSR.Integral()
+
+            hnMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            nMixBR = hnMixBR.Integral()
+
+            for observable in observableInfo:
+                # set up the correlation object
+                gjCorr = GammaJetCorrelation(observable)
+
+                # project and scale the same-event
+                srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices, AxisNum[observable].value)
+                brTH1 = sliceAndProjectTHnSparse(sehCorrBR, slices, AxisNum[observable].value)
+                gjCorr.setSameEvent(srTH1, brTH1, nTrigSESR, nTrigSEBR)
+
+                # project and scale the mixed-event
+                srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices, AxisNum[observable].value)
+                brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices, AxisNum[observable].value)
+                gjCorr.setMixedEvent(srTH1, brTH1, nTrigMESR, nTrigMEBR, nMixSR, nMixBR)
+
+                # rebin
+                gjCorr.useNbins(observableInfo[observable]['nbins'])
+
+                # subtract mixed-event from same-event
+                gjCorr.subtractMixedEvent()
+
+                # subtract BR from SR
+                gjCorr.getSignalCorrelation()
+
+                # set response matrix if it exists
+                # TO-DO: split by centrality, pT
+                gjCorr.setResponseMatrix(rooUnfoldResponses[observable])
+
+                # add to dictionary
+                allCorr[centrange][photonptrange][observable] = gjCorr
+
+    return allCorr

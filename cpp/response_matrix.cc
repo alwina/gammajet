@@ -526,9 +526,9 @@ int main(int argc, char *argv[])
   fout = new TFile((TString)config["filelists"]["responsematrix"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
-  deltaphiResponse.Write();
-  jetptResponse.Write();
-  ptratioResponse.Write();
+  deltaphiResponse.Write("deltaphiResponse");
+  jetptResponse.Write("jetptResponse");
+  ptratioResponse.Write("ptratioResponse");
 
   fout->Close();
   std::cout << " ending " << std::endl;
