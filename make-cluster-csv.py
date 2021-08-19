@@ -152,6 +152,36 @@ def getIsPrompt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code, mc
     return False
 
 
+def getTruthPtAndComponents(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code, mc_truth_is_prompt_photon, mc_truth_pt):
+    truthpt = 0
+    truthcomponents = 0
+    for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
+        mcindex = cluster_mc_truth_index[i]
+        # if this is the dummy index, ignore it
+        if mcindex == 65535:
+            continue
+        # if this is not a photon or electron, ignore it
+        if mc_truth_pdg_code[mcindex] not in (11, -11, 22):
+            continue
+        # if it is not from a prompt photon, ignore it
+        if not mc_truth_is_prompt_photon[mcindex]:
+            continue
+
+        # account for the truth particles in this cluster: 1 = photon, 100 = electron, 10000 = positron
+        # surely I could do 1/10/100, but juuuuuust in case
+        if mc_truth_pdg_code[mcindex] == 22:
+            truthcomponents += 1
+        elif mc_truth_pdg_code[mcindex] == 11:
+            truthcomponents += 100
+        elif mc_truth_pdg_code[mcindex] == -11:
+            truthcomponents += 10000
+
+        # and then add the truth pt to the total
+        truthpt += mc_truth_pt[mcindex]
+
+    return truthpt, truthcomponents
+
+
 def getParentPi0Pt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt):
     parentpi0pt = -1
     for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
@@ -182,7 +212,7 @@ def main(ntuplefilenames, csvfilename):
         fieldnames = ['cluster_pt', 'cluster_eta', 'cluster_phi', 'cluster_e_cross', 'cluster_e', 'cluster_e_max', 'cluster_ncell',
                       'cluster_tof', 'cluster_distance_to_bad_channel', 'cluster_Lambda', 'cluster_NN1',
                       'cluster_ecross_e', 'cluster_ecross_emax', 'cluster_nlocal_maxima', 'cluster_nmc_photon',
-                      'cluster_mc_is_prompt_photon', 'cluster_mc_parentpi0pt',
+                      'cluster_mc_is_prompt_photon', 'cluster_mc_parentpi0pt', 'cluster_mc_truth_pt', 'cluster_mc_truth_components',
                       'cluster_iso_tpc_01', 'cluster_iso_tpc_02', 'cluster_iso_tpc_03', 'cluster_iso_tpc_04',
                       'cluster_iso_tpc_01_sub', 'cluster_iso_tpc_02_sub', 'cluster_iso_tpc_03_sub', 'cluster_iso_tpc_04_sub',
                       'cluster_frixione_tpc_04_02', 'cluster_frixione_tpc_04_05', 'cluster_frixione_tpc_04_10',
@@ -261,6 +291,7 @@ def main(ntuplefilenames, csvfilename):
 
                 cluster_nmc_truth = getattr(tree, 'cluster_nmc_truth')
                 mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
+                mc_truth_pt = getattr(tree, 'mc_truth_pt')
                 mc_truth_first_parent_pdg_code = getattr(tree, 'mc_truth_first_parent_pdg_code')
                 mc_truth_first_parent_pt = getattr(tree, 'mc_truth_first_parent_pt')
                 try:
@@ -315,8 +346,15 @@ def main(ntuplefilenames, csvfilename):
                                                mc_truth_pdg_code, mc_truth_is_prompt_photon)
 
                     if isprompt:
+                        truth_pt, mc_truth_components = getTruthPtAndComponents(cluster_nmc_truth[icluster],
+                                                                                acluster_mc_truth_index[ievent][icluster],
+                                                                                mc_truth_pdg_code,
+                                                                                mc_truth_is_prompt_photon,
+                                                                                mc_truth_pt)
                         parentpi0pt = -1
                     else:
+                        truth_pt = -1
+                        mc_truth_components = -1
                         parentpi0pt = getParentPi0Pt(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster],
                                                      mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt)
 
@@ -358,6 +396,8 @@ def main(ntuplefilenames, csvfilename):
                     row['cluster_nmc_photon'] = nmc_photon
                     row['cluster_mc_is_prompt_photon'] = isprompt
                     row['cluster_mc_parentpi0pt'] = parentpi0pt
+                    row['cluster_mc_truth_pt'] = truth_pt
+                    row['cluster_mc_truth_components'] = mc_truth_components
                     row['cluster_ecross_e'] = e_cross / e
                     row['cluster_ecross_emax'] = e_cross / e_max
                     row['weights'] = weight
