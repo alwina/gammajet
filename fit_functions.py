@@ -18,6 +18,10 @@ class FitFunction:
         pass
 
     def getFunctionErrHigh(self):
+        """
+        Returns the function when varying all fit parameters up by their fit errors
+        does not take into account any covariance
+        """
         functionParams = {}
 
         for param in self.fitParams:
@@ -26,6 +30,10 @@ class FitFunction:
         return self.getFunction(**functionParams)
 
     def getFunctionErrLow(self):
+        """
+        Returns the function when varying all fit parameters down by their fit errors
+        does not take into account any covariance
+        """
         functionParams = {}
 
         for param in self.fitParams:
@@ -34,9 +42,11 @@ class FitFunction:
         return self.getFunction(**functionParams)
 
     def getFunctionFit(self):
+        """Returns the function with the fit parameters"""
         return self.getFunction(**self.fitParams)
 
     def calculateChi2(self, model, y, yerr, xerr=None):
+        """Generic function for calculating chi2"""
         if xerr is None:
             xerr = np.zeros_like(yerr)
         numerator = np.square(np.subtract(y, model))

@@ -27,6 +27,8 @@ def quadSumPairwise(x, y):
         return np.sqrt(np.sum(np.square([x, y]), axis=0))
 
 
+# ranges are lists of tuples, e.g. [(1, 2), (2, 3)]
+# edges are a 1D list, e.g. [1, 2, 3]
 def getRanges(rangesOrEdges):
     if len(np.array(rangesOrEdges).shape) == 1:
         ranges = list(zip(rangesOrEdges[:-1], rangesOrEdges[1:]))
@@ -83,12 +85,15 @@ def getNormHistAndErr(df, var, binEdges, weightvar='weights'):
 
 
 def divideHistsAndErrs(hist1, err1, hist2, err2):
+    # start with NaN so that any 0s in hist2 give NaN
     hist = np.full_like(hist1, np.nan)
     np.divide(hist1, hist2, out=hist, where=hist2 != 0)
 
+    # start with 0s
     relerr1 = np.zeros_like(hist1)
     np.divide(err1, hist1, out=relerr1, where=err1 != 0)
 
+    # start with 0s
     relerr2 = np.zeros_like(hist2)
     np.divide(err2, hist2, out=relerr2, where=err2 != 0)
 
@@ -150,6 +155,14 @@ def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
 
 
 def Chi2Histograms(df1, df2, var, bins):
+    """
+    Calculates chi2 between for a given variable between 2 dataframes
+
+    df1: dataframe for comparison
+    df2: dataframe for comparison
+    var: name of variable to compare
+    bins: bin edges for histograms
+    """
     hist1, err1 = getNormHistAndErr(df1, var, bins)
     hist2, err2 = getNormHistAndErr(df2, var, bins)
 

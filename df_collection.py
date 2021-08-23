@@ -38,7 +38,7 @@ def applyCuts(inputdf, cuts, verbose=True):
 
 # To be built only from CSVs; creating the CSVs from the ntuples is a separate task
 class DataframeCollection:
-    def __init__(self, system='', datafilepattern='', gjmcfilepattern='', jjmcfilepattern='', csvdir='csv'):
+    def __init__(self, system='', datafilepattern='', gjmcfilepattern='', jjmcfilepattern='', csvdir=''):
         self.system = system
 
         datafilenames = []

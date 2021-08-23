@@ -194,7 +194,7 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
             slices.append((AxisNum.centrality.value, centrange[0], centrange[1]))
             slices.append((AxisNum.clusterpt.value, photonptrange[0], photonptrange[1]))
 
-            # get the scale factor for each bin
+            # get the number of triggers for each bin
             hTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
             nTrigSESR = hTrigSESR.Integral()
 
