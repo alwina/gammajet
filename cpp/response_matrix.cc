@@ -35,8 +35,16 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  //Config File
-  YAML::Node config = YAML::LoadFile(argv[1]);
+  // load config files
+  // each config points to the next
+  std::vector<YAML::Node> allconfigs;
+  YAML::Node configrunperiod = YAML::LoadFile(argv[1]);
+  allconfigs.push_back(configrunperiod);
+  YAML::Node configsystem = YAML::LoadFile(configrunperiod["systemconfig"].as<std::string>());
+  allconfigs.push_back(configsystem);
+  YAML::Node configglobal = YAML::LoadFile(configsystem["globalconfig"].as<std::string>());
+  allconfigs.push_back(configglobal);
+
   double srmin = 0;
   double srmax = 0;
   double brmin = 0;
@@ -63,110 +71,134 @@ int main(int argc, char *argv[])
 
   bool TPC_Iso_Flag = false;
 
-  // parse config file
-  // check for existence first, then cast as appropriate
-  if (config["showershape"]) {
-    srmin = config["showershape"]["srmin"].as<double>();
-    srmax = config["showershape"]["srmax"].as<double>();
-    brmin = config["showershape"]["brmin"].as<double>();
-    brmax = config["showershape"]["brmax"].as<double>();
+  YAML::Node purityconfig;
+  YAML::Node isoconfig;
 
-    shower_shape = config["showershape"]["ssvar"].as<std::string>();
-    std::cout << "Shower Shape: " << shower_shape << std::endl;
-  }
+  bool keepFakes;
+  bool keepMisses;
 
-  if (config["clustercuts"]["all"]["cluster_pt"]) {
-    pT_min = config["clustercuts"]["all"]["cluster_pt"]["min"].as<double>();
-    pT_max = config["clustercuts"]["all"]["cluster_pt"]["max"].as<double>();
-  }
+  // go through the configs backwards; that way more specific settings
+  // can override those from the more general configs
+  for (auto it = allconfigs.rbegin(); it != allconfigs.rend(); ++it)
+  {
+    YAML::Node config = *it;
 
-  if (config["clustercuts"]["all"]["cluster_eta"]) {
-    Eta_max = config["clustercuts"]["all"]["cluster_eta"]["max"].as<double>();
-  }
+    // parse config file
+    // check for existence first, then cast as appropriate
+    if (config["showershape"]) {
+      srmin = config["showershape"]["srmin"].as<double>();
+      srmax = config["showershape"]["srmax"].as<double>();
+      brmin = config["showershape"]["brmin"].as<double>();
+      brmax = config["showershape"]["brmax"].as<double>();
 
-  if (config["clustercuts"]["all"]["cluster_ncell"]) {
-    Cluster_min = config["clustercuts"]["all"]["cluster_ncell"]["incmin"].as<double>();
-  }
-
-  if (config["clustercuts"]["all"]["cluster_distance_to_bad_channel"]) {
-    Cluster_DtoBad = config["clustercuts"]["all"]["cluster_distance_to_bad_channel"]["incmin"].as<double>();
-  }
-
-  if (config["clustercuts"]["all"]["cluster_nlocal_maxima"]) {
-    Cluster_NLocal_Max = config["clustercuts"]["all"]["cluster_nlocal_maxima"]["max"].as<double>();
-  }
-
-  if (config["clustercuts"]["all"]["cluster_ecross_emax"]) {
-    EcrossoverE_min = config["clustercuts"]["all"]["cluster_ecross_emax"]["min"].as<double>();
-  }
-
-  if (config["jetcuts"]) {
-    jet_pt_min = config["jetcuts"]["jet_ak04tpc_pt_raw"]["min"].as<double>();
-    jet_pt_max = config["jetcuts"]["jet_ak04tpc_pt_raw"]["max"].as<double>();
-    jet_eta_max = config["jetcuts"]["jet_ak04tpc_eta"]["max"].as<double>();
-  }
-
-  if (config["do_pileup_cut"]) {
-    do_pile = config["do_pileup_cut"].as<bool>();
-  }
-
-  if (config["isolation"]) {
-    std::string determinant = config["isolation"]["isovar"].as<std::string>();
-
-    if (determinant == "cluster_iso_tpc_04") {
-      determiner = CLUSTER_ISO_TPC_04;
-      std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl;
+      shower_shape = config["showershape"]["ssvar"].as<std::string>();
+      std::cout << "Shower Shape: " << shower_shape << std::endl;
     }
 
-    else if (determinant == "cluster_iso_its_04") {
-      determiner = CLUSTER_ISO_ITS_04;
-      std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl;
+    if (config["clustercuts"]["all"]["cluster_pt"]) {
+      pT_min = config["clustercuts"]["all"]["cluster_pt"]["min"].as<double>();
+      pT_max = config["clustercuts"]["all"]["cluster_pt"]["max"].as<double>();
     }
 
-    else if (determinant == "cluster_iso_its_04_sub") {
-      determiner = CLUSTER_ISO_ITS_04_SUB;
-      std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
+    if (config["clustercuts"]["all"]["cluster_eta"]) {
+      Eta_max = config["clustercuts"]["all"]["cluster_eta"]["max"].as<double>();
     }
 
-    else if (determinant == "cluster_iso_tpc_02_sub") {
-      determiner = CLUSTER_ISO_TPC_02_SUB;
-      TPC_Iso_Flag = true;
-      std::cout << "Isolation Variable: cluster_iso_tpc_02_sub" << std::endl;
+    if (config["clustercuts"]["all"]["cluster_ncell"]) {
+      Cluster_min = config["clustercuts"]["all"]["cluster_ncell"]["incmin"].as<double>();
     }
 
-    else if (determinant == "cluster_iso_tpc_04_sub") {
-      determiner = CLUSTER_ISO_TPC_04_SUB;
-      TPC_Iso_Flag = true;
-      std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl;
+    if (config["clustercuts"]["all"]["cluster_distance_to_bad_channel"]) {
+      Cluster_DtoBad = config["clustercuts"]["all"]["cluster_distance_to_bad_channel"]["incmin"].as<double>();
     }
 
-    else if (determinant == "cluster_frixione_tpc_04_02") {
-      determiner = CLUSTER_FRIXIONE_TPC_04_02;
-      std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl;
+    if (config["clustercuts"]["all"]["cluster_nlocal_maxima"]) {
+      Cluster_NLocal_Max = config["clustercuts"]["all"]["cluster_nlocal_maxima"]["max"].as<double>();
     }
 
-    else if (determinant == "cluster_frixione_its_04_02") {
-      determiner = CLUSTER_FRIXIONE_ITS_04_02;
-      std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl;
+    if (config["clustercuts"]["all"]["cluster_ecross_emax"]) {
+      EcrossoverE_min = config["clustercuts"]["all"]["cluster_ecross_emax"]["min"].as<double>();
     }
 
-    else {
-      std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
-      exit(EXIT_FAILURE);
+    if (config["clustercuts"]["data"]["cluster_tof"]) {
+      cluster_time = config["clustercuts"]["data"]["cluster_tof"]["max"].as<double>();
     }
-  }
 
-  if (config["Purity_Dev"]) {
-    purity_deviation = config["Purity_Dev"].as<std::string>();
-    std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
+    if (config["jetcuts"]) {
+      jet_pt_min = config["jetcuts"]["jet_ak04tpc_pt_raw"]["min"].as<double>();
+      jet_pt_max = config["jetcuts"]["jet_ak04tpc_pt_raw"]["max"].as<double>();
+      jet_eta_max = config["jetcuts"]["jet_ak04tpc_eta"]["max"].as<double>();
+    }
+
+    if (config["do_pileup_cut"]) {
+      do_pile = config["do_pileup_cut"].as<bool>();
+    }
+
+    if (config["isolation"]) {
+      isoconfig = config["isolation"];
+      std::string determinant = config["isolation"]["isovar"].as<std::string>();
+
+      if (determinant == "cluster_iso_tpc_04") {
+        determiner = CLUSTER_ISO_TPC_04;
+        std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl;
+      }
+
+      else if (determinant == "cluster_iso_its_04") {
+        determiner = CLUSTER_ISO_ITS_04;
+        std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl;
+      }
+
+      else if (determinant == "cluster_iso_its_04_sub") {
+        determiner = CLUSTER_ISO_ITS_04_SUB;
+        std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
+      }
+
+      else if (determinant == "cluster_iso_tpc_02_sub") {
+        determiner = CLUSTER_ISO_TPC_02_SUB;
+        TPC_Iso_Flag = true;
+        std::cout << "Isolation Variable: cluster_iso_tpc_02_sub" << std::endl;
+      }
+
+      else if (determinant == "cluster_iso_tpc_04_sub") {
+        determiner = CLUSTER_ISO_TPC_04_SUB;
+        TPC_Iso_Flag = true;
+        std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl;
+      }
+
+      else if (determinant == "cluster_frixione_tpc_04_02") {
+        determiner = CLUSTER_FRIXIONE_TPC_04_02;
+        std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl;
+      }
+
+      else if (determinant == "cluster_frixione_its_04_02") {
+        determiner = CLUSTER_FRIXIONE_ITS_04_02;
+        std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl;
+      }
+
+      else {
+        std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    if (config["Purity_Dev"]) {
+      purity_deviation = config["Purity_Dev"].as<std::string>();
+      std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
+    }
+
+    if (config["purity"]) {
+      purityconfig = config["purity"];
+    }
+
+    if (config["responsematrix"]) {
+      keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
+      keepFakes = config["responsematrix"]["keepfakes"].as<bool>();
+    }
   }
 
   /*--------------------------------------------------------------
   Setting up RooUnfoldResponse objects
   --------------------------------------------------------------*/
-  bool keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
-  bool keepFakes = config["responsematrix"]["keepfakes"].as<bool>();;
-
   RooUnfoldResponse deltaphiResponse(10, 0, M_PI, 10, 0, M_PI);
   RooUnfoldResponse jetptResponse(9, 5, 50, 9, 5, 50);
   RooUnfoldResponse ptratioResponse(10, 0, 2, 10, 0, 2);
@@ -261,7 +293,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
   fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
 
-  YAML::Node filenames = config["filelists"]["gjmc"];
+  YAML::Node filenames = configrunperiod["filelists"]["data"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
     std::string root_file = it->as<std::string>();
     std::cout << "Opening " << root_file << std::endl;
@@ -456,7 +488,7 @@ int main(int argc, char *argv[])
         else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02[n];
         else isolation = cluster_frixione_its_04_02[n];
 
-        Isolated = GetIsIsolated(isolation, centrality_v0m, config["isolation"]);
+        Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
 
         float shower = -1;
         if (shower_shape == "cluster_Lambda") {
@@ -523,7 +555,7 @@ int main(int argc, char *argv[])
 
   // Write to fout
   TFile* fout;
-  fout = new TFile((TString)config["filelists"]["responsematrix"].as<std::string>(), "RECREATE");
+  fout = new TFile((TString) configrunperiod["filelists"]["responsematrix"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   deltaphiResponse.Write("deltaphiResponse");
