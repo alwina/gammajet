@@ -28,6 +28,24 @@ const int MAX_INPUT_LENGTH = 200;
 enum isolationDet {CLUSTER_ISO_TPC_04, CLUSTER_ISO_ITS_04, CLUSTER_ISO_ITS_04_SUB, CLUSTER_ISO_TPC_02_SUB, CLUSTER_ISO_TPC_04_SUB, CLUSTER_FRIXIONE_TPC_04_02, CLUSTER_FRIXIONE_ITS_04_02};
 
 
+// need to make a response matrix per centrality
+int getCentBinNumber(float centrality, YAML::Node centralityranges)
+{
+  int ncentralityranges = centralityranges.size();
+  int binNumber = -1;
+  
+  for (int icent = 0; icent < ncentralityranges; icent++) {
+    std::pair<float, float> centrange = centralityranges[icent].as<std::pair<float, float>>();
+    if (centrality >= centrange.first && centrality < centrange.second) {
+      binNumber = icent;
+      break;
+    }
+  }
+
+  return binNumber;
+}
+
+
 int main(int argc, char *argv[])
 {
   if (argc < 1) {
@@ -56,7 +74,6 @@ int main(int argc, char *argv[])
   float Cluster_DtoBad = 0;
   UChar_t Cluster_NLocal_Max = 0;
   double EcrossoverE_min = 0;
-  double cluster_time = 20;
 
   double jet_pt_min = 0;
   double jet_pt_max = 500;
@@ -73,7 +90,9 @@ int main(int argc, char *argv[])
 
   YAML::Node purityconfig;
   YAML::Node isoconfig;
+  YAML::Node centralityranges;
 
+  int ncentralityranges;
   bool keepFakes;
   bool keepMisses;
 
@@ -118,10 +137,6 @@ int main(int argc, char *argv[])
 
     if (config["clustercuts"]["all"]["cluster_ecross_emax"]) {
       EcrossoverE_min = config["clustercuts"]["all"]["cluster_ecross_emax"]["min"].as<double>();
-    }
-
-    if (config["clustercuts"]["data"]["cluster_tof"]) {
-      cluster_time = config["clustercuts"]["data"]["cluster_tof"]["max"].as<double>();
     }
 
     if (config["jetcuts"]) {
@@ -194,14 +209,29 @@ int main(int argc, char *argv[])
       keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
       keepFakes = config["responsematrix"]["keepfakes"].as<bool>();
     }
+
+    if (config["centralityranges"]) {
+      centralityranges = config["centralityranges"];
+      ncentralityranges = centralityranges.size();
+    }
   }
 
   /*--------------------------------------------------------------
   Setting up RooUnfoldResponse objects
   --------------------------------------------------------------*/
-  RooUnfoldResponse deltaphiResponse(10, 0, M_PI, 10, 0, M_PI);
-  RooUnfoldResponse jetptResponse(9, 5, 50, 9, 5, 50);
-  RooUnfoldResponse ptratioResponse(10, 0, 2, 10, 0, 2);
+  std::vector<RooUnfoldResponse> deltaphiResponses;
+  std::vector<RooUnfoldResponse> jetptResponses;
+  std::vector<RooUnfoldResponse> ptratioResponses;
+
+  for (int i = 0; i < ncentralityranges; i++) {
+    RooUnfoldResponse deltaphiResponse(10, 0, M_PI, 10, 0, M_PI);
+    RooUnfoldResponse jetptResponse(9, 5, 50, 9, 5, 50);
+    RooUnfoldResponse ptratioResponse(10, 0, 2, 10, 0, 2);
+    
+    deltaphiResponses.push_back(deltaphiResponse);
+    jetptResponses.push_back(jetptResponse);
+    ptratioResponses.push_back(ptratioResponse);
+  }
 
   /*--------------------------------------------------------------
   Setting up local variables to be linked with ROOT branches
@@ -293,7 +323,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
   fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
 
-  YAML::Node filenames = configrunperiod["filelists"]["data"];
+  YAML::Node filenames = configrunperiod["filelists"]["gjmc"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
     std::string root_file = it->as<std::string>();
     std::cout << "Opening " << root_file << std::endl;
@@ -506,6 +536,9 @@ int main(int argc, char *argv[])
 
         if (not(Signal)) continue;
 
+        // get the centrality bin number
+        int centbin = getCentBinNumber(centrality_v0m, centralityranges);
+
         // Filling the response matrices
         for (auto matchedIndex : matchedJetIndices) {
           int itruth = matchedIndex.first;
@@ -519,24 +552,24 @@ int main(int argc, char *argv[])
           float deltaphi_truth = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - j_truth_phi));
           float deltaphi_reco = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - j_reco_phi));
 
-          deltaphiResponse.Fill(deltaphi_reco, deltaphi_truth);
-          jetptResponse.Fill(j_reco_pt, j_truth_pt);
-          ptratioResponse.Fill(j_reco_pt / cluster_pt[n], j_truth_pt / cluster_pt[n]);
+          deltaphiResponses[centbin].Fill(deltaphi_reco, deltaphi_truth);
+          jetptResponses[centbin].Fill(j_reco_pt, j_truth_pt);
+          ptratioResponses[centbin].Fill(j_reco_pt / cluster_pt[n], j_truth_pt / cluster_pt[n]);
         }
 
         if (keepMisses) {
           for (int itruth : unmatchedTruth) {
-            deltaphiResponse.Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_charged_truth_ak04_phi[itruth])));
-            jetptResponse.Miss(jet_charged_truth_ak04_pt[itruth]);
-            ptratioResponse.Miss(jet_charged_truth_ak04_pt[itruth] / cluster_pt[n]);
+            deltaphiResponses[centbin].Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_charged_truth_ak04_phi[itruth])));
+            jetptResponses[centbin].Miss(jet_charged_truth_ak04_pt[itruth]);
+            ptratioResponses[centbin].Miss(jet_charged_truth_ak04_pt[itruth] / cluster_pt[n]);
           }
         }
 
         if (keepFakes) {
           for (int ireco : unmatchedReco) {
-            deltaphiResponse.Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ireco])));
-            jetptResponse.Fake(jet_ak04tpc_pt_raw[ireco]);
-            ptratioResponse.Fake(jet_ak04tpc_pt_raw[ireco] / cluster_pt[n]);
+            deltaphiResponses[centbin].Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ireco])));
+            jetptResponses[centbin].Fake(jet_ak04tpc_pt_raw[ireco]);
+            ptratioResponses[centbin].Fake(jet_ak04tpc_pt_raw[ireco] / cluster_pt[n]);
           }
         }
 
@@ -558,9 +591,15 @@ int main(int argc, char *argv[])
   fout = new TFile((TString) configrunperiod["filelists"]["responsematrix"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
-  deltaphiResponse.Write("deltaphiResponse");
-  jetptResponse.Write("jetptResponse");
-  ptratioResponse.Write("ptratioResponse");
+  for (int i = 0; i < ncentralityranges; i++) {
+    std::string dname = "deltaphiResponse" + std::to_string(i);
+    std::string jname = "jetptResponse" + std::to_string(i);
+    std::string pname = "ptratioResponse" + std::to_string(i);
+
+    deltaphiResponses[i].Write(dname.c_str());
+    jetptResponses[i].Write(jname.c_str());
+    ptratioResponses[i].Write(pname.c_str());
+  }
 
   fout->Close();
   std::cout << " ending " << std::endl;
