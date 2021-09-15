@@ -41,9 +41,12 @@ int main(int argc, char *argv[])
   std::vector<YAML::Node> allconfigs;
   YAML::Node configrunperiod = YAML::LoadFile(argv[1]);
   allconfigs.push_back(configrunperiod);
+  fprintf(stderr,"%d GOT HERE %d \n",__LINE__,__LINE__);
   YAML::Node configsystem = YAML::LoadFile(configrunperiod["systemconfig"].as<std::string>());
+  fprintf(stderr,"%d GOT HERE %d \n",__LINE__,__LINE__);
   allconfigs.push_back(configsystem);
   YAML::Node configglobal = YAML::LoadFile(configsystem["globalconfig"].as<std::string>());
+  fprintf(stderr,"%d GOT HERE %d \n",__LINE__,__LINE__);
   allconfigs.push_back(configglobal);
 
   double srmin = 0;
@@ -576,6 +579,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         hTrigSR->Fill(trigSR);
       }
 
+      fprintf(stderr,"\n %d: Cluster pT = %1.2f \n",__LINE__,cluster_pt);
+
       //Mixed Event Loop
       for (Long64_t imix = 0; imix <nmix; imix++){
         Long64_t mix_event =  mix_data_out[0][0][imix];
@@ -627,6 +632,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
             corrSR[2] = deltaphi;
             corrSR[3] = jetpt;
             corrSR[4] = ptratio;
+            fprintf(stderr,"%i: cent = %f, pt = %f, deltaphi = %f, jetpt = %f, ptratio = %f\n",__LINE__,centrality_v0m,cluster_pt, deltaphi,jetpt,ptratio);
             hCorrSR->Fill(corrSR, purity_weight);
           }
 
