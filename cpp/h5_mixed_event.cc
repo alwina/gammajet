@@ -201,7 +201,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 --------------------------------------------------------------*/
 
   // dimensions: centrality, cluster pT
-  Int_t ndimTrig = 2;
+  const Int_t ndimTrig = 2;
   Int_t nbinsTrig[ndimTrig] = {10, 50};
   Double_t minbinsTrig[ndimTrig] = {0, 15};
   Double_t maxbinsTrig[ndimTrig] = {100, 40};
@@ -218,7 +218,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
 
   // dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio
-  Int_t ndimCorr = 5;
+  const Int_t ndimCorr = 5;
   Int_t nbinsCorr[ndimCorr] = {10, 50, 120, 120, 120};
   Double_t minbinsCorr[ndimCorr] = {0, 15, 0, 0, 0};
   Double_t maxbinsCorr[ndimCorr] = {100, 40, M_PI, 50, 2};
