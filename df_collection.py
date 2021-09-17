@@ -1,4 +1,5 @@
 import glob
+import math
 import os
 import time
 
@@ -34,6 +35,66 @@ def applyCuts(inputdf, cuts, verbose=True):
         if verbose:
             print('{0}: {1}'.format(cut, df.shape[0]))
     return df
+
+
+def parseCut(cutvar, cuttype, cutval):
+    if cuttype == 'min':
+        cuttext = '{0} > {1}'.format(cutvar, cutval)
+    elif cuttype == 'max':
+        cuttext = '{0} < {1}'.format(cutvar, cutval)
+    elif cuttype == 'incmin':
+        cuttext = '{0} >= {1}'.format(cutvar, cutval)
+    elif cuttype == 'incmax':
+        cuttext = '{0} <= {1}'.format(cutvar, cutval)
+    elif cuttype == 'equals':
+        cuttext = '{0} == {1}'.format(cutvar, cutval)
+    else:
+        print('Cut type {0} not recognized'.format(cutval))
+        cuttext = ''
+
+    return cuttext
+
+
+def getDataframeCollection(config):
+    datacuts = []
+    gjmccuts = []
+    jjmccuts = []
+
+    for cutvar, cutvals in config['clustercuts']['all'].iteritems():
+        for cuttype, cutval in cutvals.iteritems():
+            cuttext = parseCut(cutvar, cuttype, cutval)
+
+            datacuts.append(cuttext)
+            gjmccuts.append(cuttext)
+            jjmccuts.append(cuttext)
+
+    if 'data' in config['clustercuts']:
+        for cutvar, cutvals in config['clustercuts']['data'].iteritems():
+            for cuttype, cutval in cutvals.iteritems():
+                cuttext = parseCut(cutvar, cuttype, cutval)
+                datacuts.append(cuttext)
+
+    if 'gjmc' in config['clustercuts']:
+        for cutvar, cutvals in config['clustercuts']['gjmc'].iteritems():
+            for cuttype, cutval in cutvals.iteritems():
+                cuttext = parseCut(cutvar, cuttype, cutval)
+                gjmccuts.append(cuttext)
+
+    if 'jjmc' in config['clustercuts']:
+        for cutvar, cutvals in config['clustercuts']['jjmc'].iteritems():
+            for cuttype, cutval in cutvals.iteritems():
+                cuttext = parseCut(cutvar, cuttype, cutval)
+                jjmccuts.append(cuttext)
+
+    cuts = {}
+    cuts['data'] = datacuts
+    cuts['gjmc'] = gjmccuts
+    cuts['jjmc'] = jjmccuts
+
+    dfs = DataframeCollection(config['longname'], config['filelists']['clustercsvs']['data'], config['filelists']['clustercsvs']['gjmc'], config['filelists']['clustercsvs']['jjmc'])
+    dfs.applyCuts(cuts)
+
+    return dfs
 
 
 # To be built only from CSVs; creating the CSVs from the ntuples is a separate task
