@@ -57,8 +57,10 @@ class GammaJetCorrelation:
             self.sebrth1 = brth1
 
         # scale by number of triggers
-        self.sesrth1.Scale(1.0 / ntrigsr)
-        self.sebrth1.Scale(1.0 / ntrigbr)
+        if ntrigsr != 0:
+            self.sesrth1.Scale(1.0 / ntrigsr)
+        if ntrigbr != 0:
+            self.sebrth1.Scale(1.0 / ntrigbr)
         self.sesrntrig = ntrigsr
         self.sebrntrig = ntrigbr
 
@@ -69,8 +71,10 @@ class GammaJetCorrelation:
             self.mebrth1 = brth1
 
         # scale by number of events, which already also counts number of triggers
-        self.mesrth1.Scale(1.0 / srnmix)
-        self.mebrth1.Scale(1.0 / brnmix)
+        if srnmix != 0:
+            self.mesrth1.Scale(1.0 / srnmix)
+        if brnmix != 0:
+            self.mebrth1.Scale(1.0 / brnmix)
         self.mesrntrig = ntrigsr
         self.mebrntrig = ntrigbr
         self.srnmix = srnmix

@@ -64,7 +64,9 @@ def getErr(dist, disterr):
         return np.array(disterr, dtype='f')
 
 
-def getHistAndErr(df, var, binEdges, weightvar='weights'):
+def getHistAndErr(inputdf, var, binEdges, weightvar='weights'):
+    # handle the situation where the weights might be NaN for whatever reason
+    df = inputdf.query(weightvar + '==' + weightvar)
     hist = np.histogram(df[var], bins=binEdges, weights=df[weightvar])[0]
     errs = []
     for left, right in zip(binEdges[:-1], binEdges[1:]):

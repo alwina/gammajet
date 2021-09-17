@@ -67,14 +67,20 @@ class TemplateFit:
             totalerr = quadSumPairwise(self.dataerr, self.N * (1 - f) * self.bkgerr)
             return np.sum(np.power(np.divide(self.data - model, totalerr, where=np.array(totalerr) != 0), 2.0)[self.fitRange])
 
-        for initf in np.arange(0.10, 1.00, 0.10):
+        for initf in [0.1, 0.2, 0.4, 0.8, 0.05, 0.02, 0.01, 0.005]:
             mt = iminuit.Minuit(Chi2, f=initf, error_f=0.01, limit_f=(0.0, 1.0), errordef=1, print_level=self.verbosity)
             mt.migrad()
-            if mt.migrad_ok():
+
+            if not np.isnan(mt.values['f']) and mt.migrad_ok():
                 break
 
-        if not mt.migrad_ok():
+        if np.isnan(mt.values['f']) or not mt.migrad_ok():
             print('Warning: template fit did not converge')
+            print('Data:', self.data)
+            print('Signal:', self.signal)
+            print('Bkg:', self.bkg)
+            print('Data err:', self.dataerr)
+            print('Bkg err:', self.bkgerr)
 
         self.fitf = mt.values['f']
         self.fitferr = mt.errors['f']
@@ -449,14 +455,20 @@ class ExtendedTemplateFit:
                 totalerr = quadSumPairwise(self.isodataerr, self.N * (1 - f) * bkgtemplateerr)
                 return np.sum(np.power(np.divide(self.isodatahist - model, totalerr, where=np.array(totalerr) != 0), 2.0)[self.fitRange])
 
-            for initf in np.arange(0.1, 1.0, 0.1):
+            for initf in [0.1, 0.2, 0.4, 0.8, 0.05, 0.02, 0.01, 0.005]:
                 mt = iminuit.Minuit(Chi2, f=initf, error_f=0.01, limit_f=(0.0, 1.0), errordef=1, print_level=self.verbosity)
                 mt.migrad()
-                if mt.migrad_ok() and not np.isnan(mt.values['f']):
+
+                if not np.isnan(mt.values['f']) and mt.migrad_ok():
                     break
 
-        if not mt.migrad_ok() or np.isnan(mt.values['f']):
-            print('Warning: fit did not converge')
+        if np.isnan(mt.values['f']) or not mt.migrad_ok():
+            print('Warning: template fit did not converge')
+            print('Data:', self.isodatahist)
+            print('Signal:', self.isogjmchist)
+            print('Anti-iso data:', self.antiisodatahist)
+            print('Iso dijet MC:', self.isojjmchist)
+            print('Anti-iso MC:', self.antiisomchist)
 
         self.fitf = mt.values['f']
         self.fitferr = mt.errors['f']
