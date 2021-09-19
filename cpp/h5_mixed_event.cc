@@ -41,12 +41,9 @@ int main(int argc, char *argv[])
   std::vector<YAML::Node> allconfigs;
   YAML::Node configrunperiod = YAML::LoadFile(argv[1]);
   allconfigs.push_back(configrunperiod);
-  fprintf(stderr,"%d GOT HERE %d \n",__LINE__,__LINE__);
   YAML::Node configsystem = YAML::LoadFile(configrunperiod["systemconfig"].as<std::string>());
-  fprintf(stderr,"%d GOT HERE %d \n",__LINE__,__LINE__);
   allconfigs.push_back(configsystem);
   YAML::Node configglobal = YAML::LoadFile(configsystem["globalconfig"].as<std::string>());
-  fprintf(stderr,"%d GOT HERE %d \n",__LINE__,__LINE__);
   allconfigs.push_back(configglobal);
 
   double srmin = 0;
@@ -232,11 +229,26 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   /*---------------------------------------------------------------
     Mixed Event Book Keeping
-  ---------------------------------------------------------------*/
+    ---------------------------------------------------------------*/
   TH1I *SR_mixed_event_counter = new TH1I("SR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
   TH1I *BR_mixed_event_counter = new TH1I("BR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
   //GetEntries() of above is all that is needed. Distributions serve as additional check to mixing
 
+  TH1D* z_vertices_triggered = new TH1D("Primary_Vertex_triggered", "Z-vertex (triggered)", 240, -12, 12);
+  TH1D* z_vertices_MinBias = new TH1D("Primary_Vertex_MinBias", "Z-vertex (MinBias)", 240, -12, 12);
+  TH1D* delta_z_vertices = new TH1D("Delta_Primary_Vertex", "#Delta V_z Distribution", 240, -12, 12);
+
+  TH1D* multiplicity_triggered = new TH1D("multiplicity_triggered", "multiplicity (triggered)", 1000, 0, 1000);
+  TH1D* multiplicity_MinBias = new TH1D("Multplicity_MinBias", "multiplicity (MinBias)", 500, 0, 1000);
+  TH1D* delta_multiplicity = new TH1D("Delta_multiplicity", "#Delta Multiplicit Distribution", 500, 0, 1000);
+
+  TH1D* flow_triggered = new TH1D("Flow_triggered", "Flow (triggered)", 500, -2, 2);
+  TH1D* flow_MinBias = new TH1D("Flow_MinBias", "Flow (MinBias)", 500, -2, 2);
+  TH1D* delta_flow= new TH1D("Delta_Flow", "#Delta Flow Distribution", 500, 0, 4);
+
+  TH1D* centrality_triggered = new TH1D("centrality_triggered", "centrality (triggered)", 200, 0, 100);
+  TH1D* centrality_MinBias = new TH1D("centrality_MinBias", "centrality (MinBias)", 200, 0, 100);
+  TH1D* delta_centrality = new TH1D("Delta_centrality", "#Delta centrality Distribution", 200, 0, 100);
 
 
   //Cluster Cut Summary
@@ -250,8 +262,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
 
   /*---------------------------------------------------------------
-   Using low level hdf5 API for clusters and jets
-  ---------------------------------------------------------------*/
+    Using low level hdf5 API for data 
+    ---------------------------------------------------------------*/
   //Procedure goes something like this:
   //1. Get Datasets from the appropriate triggered or MB hdf5 file
   //2. Get Dataspaces from datasets, and record dimensions locally 
@@ -262,7 +274,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //7. Iterate through hdf5 file by incrementing offset
 
   //Terms:
-  //hyperslap: an n-dimensional "chunk" of the hdf5 data (disk or memory)
+  //hyperslab: an n-dimensional "chunk" of the hdf5 data (disk or memory)
   //offset: the n-dimensional starting point of the hyperslab.
   //dataspace: defines size and shape of dataset or attribute
 
@@ -274,13 +286,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //Triggered and MB hdf5 files
   const H5std_string triggered_hdf5_file_name(argv[2]);
   fprintf(stderr,(TString)argv[2]);
+  H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY ); 
 
   const H5std_string MB_hdf5_file_name(argv[3]);
   fprintf(stderr,(TString)argv[3]);
-
-  //Define triggered and min-bias H5File's
-  H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY ); 
-  H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY ); //file name from argv[2]
+  H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY );
 
   //get cluster dataset from TRIGGERED file
   const H5std_string cluster_ds_name( "cluster" );
@@ -297,15 +307,15 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //get Jet Dateset from MIN-BIAS file
   const H5std_string jet_ds_name( "jet" );
   DataSet jet_dataset = MB_h5_file.openDataSet( jet_ds_name );
-  /* DataSet mb_event_dataset = MB_h5_file.openDataSet( event_ds_name ); */
-  //FIXME:Add MB event information so Delta-pairing cuts can be made
+  //MINBIAS EVENT DATA
+  DataSet mb_event_dataset = MB_h5_file.openDataSet( event_ds_name );
 
   //Get DataSpaces from datasets
   DataSpace cluster_dataspace = cluster_dataset.getSpace();
   DataSpace event_dataspace = event_dataset.getSpace();
   DataSpace mix_dataspace = mix_dataset.getSpace();
   DataSpace jet_dataspace = jet_dataset.getSpace();
-  /* DataSpace mb_event_dataspace = event_dataset.getSpace(); */
+  DataSpace mb_event_dataspace = mb_event_dataset.getSpace(); 
 
   //Load the dimensions of datasets from file, to be used in dataspace/hyperslab
   //first get the number of dimensions with ExtentNdims
@@ -333,26 +343,40 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   UInt_t njet_ak04tpc = jetdims[1];
   UInt_t Njet_Vars = jetdims[2];
 
+  const int mb_event_rank = mb_event_dataspace.getSimpleExtentNdims();
+  hsize_t mb_eventdims[mb_event_rank];
+  mb_event_dataspace.getSimpleExtentDims(mb_eventdims, NULL);
+
   fprintf(stderr, "\n%s:%d: number of cluster variables = %i\n", __FILE__, __LINE__, Ncluster_Vars);
   fprintf(stderr, "\n%s:%d: number of mixed events from file = %i\n", __FILE__, __LINE__, nmix);
   fprintf(stderr, "\n%s:%d: number of event variables = %i\n", __FILE__, __LINE__, Nevent_Vars);
   fprintf(stderr, "\n%s:%d: number of jet variables = %i\n", __FILE__, __LINE__, Njet_Vars);
 
+  //Block size should be determined by chunk size in to_hdf5. Usually 2000
+
+  const int block_size = 2000;
+
   //Local arrays the hyperslabs will be fed into, and ultimatley used in LOOPS
-  float cluster_data_out[1][ncluster_max][Ncluster_Vars];
-  float mix_data_out[1][1][nmix];
-  float event_data_out[1][Nevent_Vars];
-  float jet_data_out[1][njet_ak04tpc][Njet_Vars];
+  float cluster_data_out[block_size][ncluster_max][Ncluster_Vars];
+  float mix_data_out[block_size][nmix];
+  float event_data_out[block_size][Nevent_Vars];
+
+  float jet_data_out[block_size][njet_ak04tpc][Njet_Vars];
+  float mb_event_data_out[block_size][Nevent_Vars];
 
   //Define hyperslab size and offset to be read from FILE;
   hsize_t event_offset[2] = {0, 0};
-  hsize_t event_count[2] = {1, Nevent_Vars};
+  hsize_t event_count[2] = {block_size, Nevent_Vars};
   hsize_t cluster_offset[3] = {0, 0, 0};
-  hsize_t cluster_count[3] = {1, ncluster_max, Ncluster_Vars};
+  hsize_t cluster_count[3] = {block_size, ncluster_max, Ncluster_Vars};
   hsize_t mix_offset[2] = {0, 0};
-  hsize_t mix_count[2] = {1, nmix};
+  hsize_t mix_count[2] = {block_size, nmix};
+  //MB
+  //FIXME: Get MinBias to use block logic as well
   hsize_t jet_offset[3] = {0, 0, 0};
-  hsize_t jet_count[3] = {1, njet_ak04tpc, Njet_Vars};
+  hsize_t jet_count[3] = {block_size, njet_ak04tpc, Njet_Vars};
+  hsize_t mb_event_offset[2] = {0, 0};
+  hsize_t mb_event_count[2] = {block_size, Nevent_Vars};
 
   /* The Offset is how we iterate over the entire hdf5 file. */
   /* For example, To obtain data for event 68, set the */
@@ -360,14 +384,18 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
   cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
   mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
+
   jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
+  mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
   fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "select Hyperslab OK");
 
   //Define the memory dataspace in which to place hyperslab
   DataSpace event_memspace(event_rank, eventdims );
   DataSpace cluster_memspace(cluster_rank, clusterdims );
   DataSpace mix_memspace(mix_rank, mixdims );
+
   DataSpace jet_memspace(jet_rank, jetdims );
+  DataSpace mb_event_memspace(mb_event_rank, mb_eventdims );
 
   //Define DataSpace offset for hypreslab starting at begining:
   //We want to read the entire "chunk" of the DataSpace to an array
@@ -376,27 +404,35 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   hsize_t cluster_offset_out[3] = {0};
   hsize_t mix_offset_out[2] = {0};
   hsize_t jet_offset_out[3] = {0};
+  hsize_t mb_event_offset_out[2] = {0};
 
   //define dimensions of hyperslab in memory (aka memspace)
-  hsize_t event_count_out[2] = {1, Nevent_Vars};
-  hsize_t cluster_count_out[3] = {1, ncluster_max, Ncluster_Vars};
-  hsize_t mix_count_out[2] = {1, nmix};
-  hsize_t jet_count_out[3] = {1, njet_ak04tpc, Njet_Vars};
+  hsize_t event_count_out[2] = {block_size, Nevent_Vars};
+  hsize_t cluster_count_out[3] = {block_size, ncluster_max, Ncluster_Vars};
+  hsize_t mix_count_out[2] = {block_size, nmix};
+  //FIXME: Get MinBias to Use block logic
+  hsize_t jet_count_out[3] = {block_size, njet_ak04tpc, Njet_Vars};
+  hsize_t mb_event_count_out[2] = {block_size, Nevent_Vars};
 
-  //Apply the offset and dimensions from the previous two blocks to the memspace
+  //Apply the offset and dimensions from the previous two code blocks to the memspace
   event_memspace.selectHyperslab( H5S_SELECT_SET, event_count_out, event_offset_out );
   cluster_memspace.selectHyperslab( H5S_SELECT_SET, cluster_count_out, cluster_offset_out );
   mix_memspace.selectHyperslab( H5S_SELECT_SET, mix_count_out, mix_offset_out );
   jet_memspace.selectHyperslab( H5S_SELECT_SET, jet_count_out, jet_offset_out );
+  mb_event_memspace.selectHyperslab( H5S_SELECT_SET, mb_event_count_out, mb_event_offset_out );
 
   //FINALLY use the well-defined memspace to read data from the dataspace, INTO the local array
   event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
   cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
   mix_dataset.read( mix_data_out, PredType::NATIVE_FLOAT, mix_memspace, mix_dataspace );
   jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+  mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
+
+  //First [block_size] number of events have just been read into local arrays
 
   fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "datasets succesfully read into array");
 
+  //FIXME: Add HDF5 Files to config files
   /* 
      YAML::Node filenames = config["filelists"]["data"];
      for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
@@ -428,166 +464,199 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
 
   //MAIN CORRELATION LOOP
-/* #pragma omp parallel for */
-  nentries=1000;
-  for (Long64_t ievent = 0; ievent < nentries; ievent++) {
+  nentries=10000;
+  /* #pragma omp parallel for */
+  for (Long64_t imix = 0; imix <nmix; imix++){
+    fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d",
+        __FILE__,__LINE__,imix,omp_get_thread_num());
 
-    //Increment hdf5 event, cluster, and mixed-pair offsets
+    //Grab 2000 Mixed Events at a time
+    //Takes advantage of block structure used in pairing
+    mb_event_offset[0]= imix * block_size;
+    mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
+    mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
 
-    //FIXME: add block logic (ievent%2000==0) for much faster I/O
-    event_offset[0]=ievent;
-    event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
-    event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
+    //FIXME: experiment with read outside of cluster loop. Would mean htrig histos need re-working as well
+    jet_offset[0]= imix * block_size;
+    jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
+    jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
 
-    cluster_offset[0]=ievent;
-    cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
-    cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
+    for (Long64_t ievent = 0; ievent < nentries; ievent++) {
+      /* fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries); */
+      int i = ievent % block_size;
+      //reading from file is done every [block_size] number of events
+      //this variable keeps track of the current increment within a block
+      // as opposed to [ievent] which is looping through all events
 
-    mix_offset[0]=ievent;//need to get the mixed event pairing for this triggered event
-    mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
-    mix_dataset.read( mix_data_out, PredType::NATIVE_FLOAT, mix_memspace, mix_dataspace );
+      if (i == (block_size-1)) {//writes 1 block (2000 events) at a time. Faster/less memory
 
-    // for some reason, loading these 2 events from this ntuple causes a segfault
-    /* if (root_file == "/global/project/projectdirs/alice/NTuples/PbPb/15o_pass2_cluster15.root") { */
-    /*   if (ievent == 7894 || ievent == 7895) { */
-    /*     std::cout << std::endl << "skipping event " << ievent; */
-    /*     if (ievent == 7895) { */
-    /*       std::cout << std::endl; */
-    /*     } */
-    /*     continue; */
-    /*   } */
-    /* } */
-    /* _tree_event->GetEntry(ievent); */
+        event_offset[0] += block_size;
+        event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
+        event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
 
-    //Set Event Variables
-    float primary_vertex = event_data_out[0][0];//z-vertex
-    float multiplicity = event_data_out[0][1];
-    float v2 = event_data_out[0][2];
-    float centrality_v0m = event_data_out[0][3];
+        cluster_offset[0] += block_size;
+        cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
+        cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
 
-    //FIXME: NEED THE BELOW ADDED TO "to_hdf5.cc"
-    //_tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
-    //_tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
-    //is_pileup_from_spd_5_08
+        mix_offset[0] += block_size;//need to get the mixed event pairing for this triggered event
+        mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
+        mix_dataset.read( mix_data_out, PredType::NATIVE_FLOAT, mix_memspace, mix_dataspace );
 
-    fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
-
-    Float_t purity_weight = 0;
-    Float_t BR_purity_weight = 0;
-    bool first_cluster = true;
-    //if (not(first_cluster)) continue;
-
-    //Event Selection
-    if (TMath::Abs(primary_vertex) > 10) continue;
-    if (primary_vertex == 0.00) continue;
-
-    //FIXME: Need to add this to to_hdf5.cc
-    /* if (do_pile && is_pileup_from_spd_5_08) continue; */
-
-    //Cluster Loop
-    for (ULong64_t n = 0; n < ncluster_max; n++) {
-
-      //See to_hdf5.cc for ROOT->HDF5 details
-      if (std::isnan(cluster_data_out[0][n][0])) break; 
-      float cluster_e = cluster_data_out[0][n][0];
-      float cluster_pt = cluster_data_out[0][n][1];
-      float cluster_eta = cluster_data_out[0][n][2];
-      float cluster_phi = cluster_data_out[0][n][3];
-      float cluster_lambda0 = cluster_data_out[0][n][4];
-      float cluster_e_max = cluster_data_out[0][n][5];
-      float cluster_e_cross = cluster_data_out[0][n][6];
-      float cluster_iso_tpc_02 = cluster_data_out[0][n][7];
-      float cluster_iso_tpc_03 = cluster_data_out[0][n][8];
-      float cluster_iso_tpc_04 = cluster_data_out[0][n][9];
-      float cluster_iso_its_02 = cluster_data_out[0][n][10];
-      float cluster_iso_its_03 = cluster_data_out[0][n][11];
-      float cluster_iso_its_04 = cluster_data_out[0][n][12];
-      float cluster_frixione_tpc_04_02 = cluster_data_out[0][n][13];
-      float cluster_frixione_its_04_02 = cluster_data_out[0][n][14];
-      float cluster_s_nphoton0 = cluster_data_out[0][n][15];
-      float cluster_mc_truth_index = cluster_data_out[0][n][16];//last dimension is length 32. Placeholder
-      float cluster_ncell = cluster_data_out[0][n][17];
-      float cluster_cell_id_max = cluster_data_out[0][n][18];
-      float cluster_cell_e = cluster_data_out[0][n][19];//last dimension is length 17664. Placeholder
-      float cluster_distance_to_bad_channel = cluster_data_out[0][n][20];
-      float cluster_nlocal_maxima = cluster_data_out[0][n][21];
-      float cluster_tof = cluster_data_out[0][n][22];
-      float cluster_iso_its_02_ue = cluster_data_out[0][n][23];
-      float cluster_iso_its_03_ue = cluster_data_out[0][n][24];
-      float cluster_iso_its_04_ue = cluster_data_out[0][n][25];
-      float cluster_iso_tpc_02_ue = cluster_data_out[0][n][26];
-      float cluster_iso_tpc_03_ue = cluster_data_out[0][n][27];
-      float cluster_iso_tpc_04_ue = cluster_data_out[0][n][28];
-      float cluster_lambda_square= cluster_data_out[0][n][29];
-      float cluster_s_nphoton = cluster_data_out[0][n][30];
-
-      if ( not(cluster_pt > pT_min and cluster_pt < pT_max)) continue; //select pt of photons
-      if ( not(TMath::Abs(cluster_eta) < Eta_max)) continue;           //cut edges of detector
-      if ( not(cluster_ncell >= Cluster_min)) continue;                 //removes clusters with 1 or 2 cells
-      if ( not(cluster_e_cross / cluster_e_max > EcrossoverE_min)) continue; //removes "spiky" clusters
-      if ( not(cluster_distance_to_bad_channel >= Cluster_DtoBad)) continue; //removes clusters near bad channels
-      if ( not(cluster_nlocal_maxima < 3)) continue; //require to have at most 2 local maxima.
-      if (not(abs(cluster_tof) < cluster_time)) continue;
-
-      float isolation;
-      if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04;
-      else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04;
-      //FIXME: neds ue_estimate_its_const and ue_estimate_tpc_const implemented in hdf5
-      /* else if (determiner == CLUSTER_ISO_ITS_04_SUB) */
-      /*   isolation = cluster_iso_its_04 + cluster_iso_its_04_ue - ue_estimate_its_const * 3.1416 * 0.4 * 0.4; */
-      /* else if (determiner == CLUSTER_ISO_TPC_04_SUB) { */
-      /*   isolation = cluster_iso_tpc_04 + cluster_iso_tpc_04_ue - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4; */
-      /* } */
-      /* else if (determiner == CLUSTER_ISO_TPC_02_SUB) { */
-      /*   isolation = cluster_iso_tpc_02 + cluster_iso_tpc_02_ue - ue_estimate_tpc_const * 3.1416 * 0.2 * 0.2; */
-      /* } */
-      else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02;
-      else isolation = cluster_frixione_its_04_02;
-
-      Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
-
-      float shower = -1;
-      if (shower_shape == "cluster_Lambda") {
-        shower = cluster_lambda_square;
-      }
-      else if (shower_shape == "cluster_NN1") {
-        shower = cluster_s_nphoton;
-      }
-      else if (shower_shape == "cluster_emax_over_e") {
-        shower = cluster_e_max / cluster_e;
       }
 
-      Signal = (shower > srmin) and (shower < srmax);
-      Background = (shower > brmin) and (shower < brmax);
+      //Set Event Variables
+      float primary_vertex = event_data_out[i][0];//z-vertex
+      float multiplicity = event_data_out[i][1];
+      float v2 = event_data_out[i][2];
+      float centrality_v0m = event_data_out[i][3];
+      bool  is_pileup_from_spd_5_08 = event_data_out[i][4]; 
+      float ue_estimate_its_const = event_data_out[i][5];
+      float ue_estimate_tpc_const = event_data_out[i][6];
 
-      float bkg_weight = 1.0;
-      float track_weight = 1.0; //Fake Rate, smearing, efficiency
+      //From to_hdf5.cc, which converts ROOT NTuple to HDF5:
+      /* event_data[iblock*event_row_size + 0] = primary_vertex[2]; //xyz, choose 3rd element, z */
+      /* event_data[iblock*event_row_size + 1] = multiplicity_sum; */
+      /* event_data[iblock*event_row_size + 2] = event_plane_angle[1]; //elliptic flow */
+      /* event_data[iblock*event_row_size + 3] = centrality; */
+      /* event_data[iblock*event_row_size + 4] = is_pileup_from_spd_5_08; */
+      /* event_data[iblock*event_row_size + 5] = ue_estimate_its_const; */
+      /* event_data[iblock*event_row_size + 6] = ue_estimate_tpc_const; */
 
-      if (Background and Isolated) {
-        BR_purity_weight = (1.0 / getPurity(cluster_pt, centrality_v0m, purityconfig) - 1); //(1-p)/p = 1/p - 1
 
-        trigBR[0] = centrality_v0m;
-        trigBR[1] = cluster_pt;
-        hTrigBR->Fill(trigBR);
-      }
 
-      if (Signal and Isolated) {
-        purity_weight = 1.0 / getPurity(cluster_pt, centrality_v0m, purityconfig);
+      Float_t purity_weight = 0;
+      Float_t BR_purity_weight = 0;
+      bool first_cluster = true;
+      //if (not(first_cluster)) continue;
 
-        trigSR[0] = centrality_v0m;
-        trigSR[1] = cluster_pt;
-        hTrigSR->Fill(trigSR);
-      }
+      //Event Selection
+      if (TMath::Abs(primary_vertex) > 10) continue;
+      if (primary_vertex == 0.00) continue;
+      if (do_pile && is_pileup_from_spd_5_08) continue;
 
-      fprintf(stderr,"\n %d: Cluster pT = %1.2f \n",__LINE__,cluster_pt);
+      z_vertices_triggered->Fill(primary_vertex);
+      flow_triggered->Fill(v2);
+      centrality_triggered->Fill(centrality_v0m);
+      multiplicity_triggered->Fill(multiplicity);
 
-      //Mixed Event Loop
-      for (Long64_t imix = 0; imix <nmix; imix++){
-        Long64_t mix_event =  mix_data_out[0][0][imix];
-        /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
-        /*     __FILE__,__LINE__,mix_event,omp_get_thread_num()); */
+      //Cluster Loop
+      for (ULong64_t n = 0; n < ncluster_max; n++) {
 
+        //See to_hdf5.cc for ROOT->HDF5 details
+        if (std::isnan(cluster_data_out[i][n][0])) break; 
+        float cluster_e = cluster_data_out[i][n][0];
+        float cluster_pt = cluster_data_out[i][n][1];
+        float cluster_eta = cluster_data_out[i][n][2];
+        float cluster_phi = cluster_data_out[i][n][3];
+        float cluster_lambda0 = cluster_data_out[i][n][4];
+        float cluster_e_max = cluster_data_out[i][n][5];
+        float cluster_e_cross = cluster_data_out[i][n][6];
+        float cluster_iso_tpc_02 = cluster_data_out[i][n][7];
+        float cluster_iso_tpc_03 = cluster_data_out[i][n][8];
+        float cluster_iso_tpc_04 = cluster_data_out[i][n][9];
+        float cluster_iso_its_02 = cluster_data_out[i][n][10];
+        float cluster_iso_its_03 = cluster_data_out[i][n][11];
+        float cluster_iso_its_04 = cluster_data_out[i][n][12];
+        float cluster_frixione_tpc_04_02 = cluster_data_out[i][n][13];
+        float cluster_frixione_its_04_02 = cluster_data_out[i][n][14];
+        float cluster_s_nphoton0 = cluster_data_out[i][n][15];
+        float cluster_mc_truth_index = cluster_data_out[i][n][16];//last dimension is length 32. Placeholder
+        float cluster_ncell = cluster_data_out[i][n][17];
+        float cluster_cell_id_max = cluster_data_out[i][n][18];
+        float cluster_cell_e = cluster_data_out[i][n][19];//last dimension is length 17664. Placeholder
+        float cluster_distance_to_bad_channel = cluster_data_out[i][n][20];
+        float cluster_nlocal_maxima = cluster_data_out[i][n][21];
+        float cluster_tof = cluster_data_out[i][n][22];
+        float cluster_iso_its_02_ue = cluster_data_out[i][n][23];
+        float cluster_iso_its_03_ue = cluster_data_out[i][n][24];
+        float cluster_iso_its_04_ue = cluster_data_out[i][n][25];
+        float cluster_iso_tpc_02_ue = cluster_data_out[i][n][26];
+        float cluster_iso_tpc_03_ue = cluster_data_out[i][n][27];
+        float cluster_iso_tpc_04_ue = cluster_data_out[i][n][28];
+        float cluster_lambda_square= cluster_data_out[i][n][29];
+        float cluster_s_nphoton = cluster_data_out[i][n][30];
+
+        if ( not(cluster_pt > pT_min and cluster_pt < pT_max)) continue; //select pt of photons
+        if ( not(TMath::Abs(cluster_eta) < Eta_max)) continue;           //cut edges of detector
+        if ( not(cluster_ncell >= Cluster_min)) continue;                 //removes clusters with 1 or 2 cells
+        if ( not(cluster_e_cross / cluster_e_max > EcrossoverE_min)) continue; //removes "spiky" clusters
+        if ( not(cluster_distance_to_bad_channel >= Cluster_DtoBad)) continue; //removes clusters near bad channels
+        if ( not(cluster_nlocal_maxima < 3)) continue; //require to have at most 2 local maxima.
+        if (not(abs(cluster_tof) < cluster_time)) continue;
+
+        float isolation;
+        if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04;
+        else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04;
+        else if (determiner == CLUSTER_ISO_ITS_04_SUB)
+          isolation = cluster_iso_its_04 + cluster_iso_its_04_ue - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
+        else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
+          isolation = cluster_iso_tpc_04 + cluster_iso_tpc_04_ue - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
+        }
+        else if (determiner == CLUSTER_ISO_TPC_02_SUB) {
+          isolation = cluster_iso_tpc_02 + cluster_iso_tpc_02_ue - ue_estimate_tpc_const * 3.1416 * 0.2 * 0.2;
+        }
+        else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02;
+        else isolation = cluster_frixione_its_04_02;
+
+        Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
+        /* std::cout<<"ISOLATION "<<determiner<<" = "<<isolation<<std::endl; */
+
+        float shower = -1;
+        if (shower_shape == "cluster_Lambda") {
+          shower = cluster_lambda_square;
+        }
+        else if (shower_shape == "cluster_NN1") {
+          shower = cluster_s_nphoton;
+        }
+        else if (shower_shape == "cluster_emax_over_e") {
+          shower = cluster_e_max / cluster_e;
+        }
+
+        Signal = (shower > srmin) and (shower < srmax);
+        Background = (shower > brmin) and (shower < brmax);
+
+        float bkg_weight = 1.0;
+        float track_weight = 1.0; //Fake Rate, smearing, efficiency
+
+        if (Background and Isolated) {
+          BR_purity_weight = (1.0 / getPurity(cluster_pt, centrality_v0m, purityconfig) - 1); //(1-p)/p = 1/p - 1
+
+          trigBR[0] = centrality_v0m;
+          trigBR[1] = cluster_pt;
+          hTrigBR->Fill(trigBR);
+        }
+
+        if (Signal and Isolated) {
+          purity_weight = 1.0 / getPurity(cluster_pt, centrality_v0m, purityconfig);
+
+          trigSR[0] = centrality_v0m;
+          trigSR[1] = cluster_pt;
+          hTrigSR->Fill(trigSR);
+        }
+        
+
+        //Mixed Event Loop
+
+        //PAIRING METRICS
+        Long64_t mix_event =  mix_data_out[i][imix];
         if(mix_event  < 0) continue; //unpaired events set to negative numbers 
+        int mix_index = mix_event % block_size;
+
+        float mb_primary_vertex = mb_event_data_out[mix_index][0];//z-vertex
+        float mb_multiplicity = mb_event_data_out[mix_index][1];
+        float mb_v2 = mb_event_data_out[mix_index][2];
+        float mb_centrality_v0m = mb_event_data_out[mix_index][3];
+
+        z_vertices_MinBias->Fill(mb_primary_vertex);
+        flow_MinBias->Fill(mb_v2);
+        multiplicity_MinBias->Fill(mb_multiplicity);
+        centrality_MinBias->Fill(mb_centrality_v0m);
+
+        delta_z_vertices->Fill(TMath::Abs(primary_vertex-mb_primary_vertex));
+        delta_flow->Fill(TMath::Abs(v2-mb_v2));
+        delta_multiplicity->Fill(TMath::Abs(multiplicity-mb_multiplicity));
+        delta_centrality->Fill(TMath::Abs(centrality_v0m-mb_centrality_v0m));
+
         //FIXME: Add Delta Cuts on Event Pairing Here
 
         if (Signal and Isolated) {
@@ -604,18 +673,12 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           BR_mixed_event_counter->Fill(mix_event);
         }
 
-        //grab the jet information from the selected mixed event
-        //FIXME: experiment with read outside of cluster loop. Would mean htrig histos need re-working as well
-        jet_offset[0]=mix_event;
-        jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
-        jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
-
         //Jet Loop
         for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
-          if (std::isnan(jet_data_out[0][ijet][0])) break;
-          float jet_ak04tpc_pt_raw = jet_data_out[0][ijet][0];
-          float jet_ak04tpc_eta= jet_data_out[0][ijet][1];   
-          float jet_ak04tpc_phi= jet_data_out[0][ijet][2];   
+          if (std::isnan(jet_data_out[mix_index][ijet][0])) break;
+          float jet_ak04tpc_pt_raw = jet_data_out[mix_index][ijet][0];
+          float jet_ak04tpc_eta= jet_data_out[mix_index][ijet][1];   
+          float jet_ak04tpc_phi= jet_data_out[mix_index][ijet][2];   
 
           if (jet_ak04tpc_pt_raw < jet_pt_min) continue;
           if (jet_ak04tpc_pt_raw > jet_pt_max) continue;
@@ -632,7 +695,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
             corrSR[2] = deltaphi;
             corrSR[3] = jetpt;
             corrSR[4] = ptratio;
-            fprintf(stderr,"%i: cent = %f, pt = %f, deltaphi = %f, jetpt = %f, ptratio = %f\n",__LINE__,centrality_v0m,cluster_pt, deltaphi,jetpt,ptratio);
+            /* fprintf(stderr,"%i: cent = %f, pt = %f, deltaphi = %f, jetpt = %f, ptratio = %f\n",__LINE__,centrality_v0m,cluster_pt, deltaphi,jetpt,ptratio); */
             hCorrSR->Fill(corrSR, purity_weight);
           }
 
@@ -646,9 +709,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           }
 
         }//jet loop
-      }//mixed event loop
-    }//cluster loop
-  }//event loop
+      }//cluster loop
+    }//event loop
+  }//mixed event loop
 
   TFile* fout;
   fout = new TFile("mixedEvent_h5.root", "RECREATE");
@@ -664,6 +727,22 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   hCorrBR->Write();
   hnMixBR->Write();
   BR_mixed_event_counter->Write();
+
+  z_vertices_triggered->Write();
+  z_vertices_MinBias->Write();
+  delta_z_vertices->Write();
+
+  multiplicity_triggered->Write();
+  multiplicity_MinBias->Write();
+  delta_multiplicity->Write();
+
+  flow_triggered->Write();
+  flow_MinBias->Write();
+  delta_flow->Write();
+
+  centrality_triggered->Write();
+  centrality_MinBias->Write();
+  delta_centrality->Write();
 
   fout->Close();
   std::cout << " ending " << std::endl;
