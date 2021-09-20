@@ -227,6 +227,12 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   Double_t corrSR[ndimCorr];
   Double_t corrBR[ndimCorr];
 
+  //Debugging Histograms
+  TH1F *hClusterpT = new TH1F("hClusterpT","Cluster pT Distribution",200,0,100);
+  TH1F *hClusterLambda = new TH1F("hClusterLambda","Cluster Lambda Distribution",40,0,1.5);
+  TH1F *hClustereta = new TH1F("hClustereta","Cluster eta Distribution",60,-3,3);
+  TH1F *hClusterIso = new TH1F("hClusterIso","Cluster Iso Distribution",120,-10,50);
+
   /*---------------------------------------------------------------
     Mixed Event Book Keeping
     ---------------------------------------------------------------*/
@@ -354,7 +360,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   //Block size should be determined by chunk size in to_hdf5. Usually 2000
 
-  const int block_size = 2000;
+  const int block_size = 4000;
 
   //Local arrays the hyperslabs will be fed into, and ultimatley used in LOOPS
   float cluster_data_out[block_size][ncluster_max][Ncluster_Vars];
@@ -464,11 +470,13 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
 
   //MAIN CORRELATION LOOP
-  nentries=10000;
+  /* nentries=100000; */
   /* #pragma omp parallel for */
-  for (Long64_t imix = 0; imix <nmix; imix++){
-    fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d",
-        __FILE__,__LINE__,imix,omp_get_thread_num());
+  nmix = 40;
+  for (Long64_t imix = 0; imix < nmix; imix++){
+    std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<nmix<<std::endl;
+    /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
+    /*     __FILE__,__LINE__,imix,omp_get_thread_num()); */
 
     //Grab 2000 Mixed Events at a time
     //Takes advantage of block structure used in pairing
@@ -481,24 +489,27 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
     jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
     jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
 
+    int offset = 0; //Offset for Triggered Events
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
-      /* fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries); */
+      fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
       int i = ievent % block_size;
       //reading from file is done every [block_size] number of events
       //this variable keeps track of the current increment within a block
       // as opposed to [ievent] which is looping through all events
 
-      if (i == (block_size-1)) {//writes 1 block (2000 events) at a time. Faster/less memory
+      /* fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__,i,block_size-1); */
+      if ((i == (block_size-1)) && (ievent!=nentries-1) && (ievent < nentries-block_size-1)) {//writes 1 block (2000 events) at a time. Faster/less memory
 
-        event_offset[0] += block_size;
+        offset += block_size;
+        event_offset[0] = offset;
         event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
         event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
 
-        cluster_offset[0] += block_size;
+        cluster_offset[0] = offset;
         cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
         cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
 
-        mix_offset[0] += block_size;//need to get the mixed event pairing for this triggered event
+        mix_offset[0] = offset;//need to get the mixed event pairing for this triggered event
         mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
         mix_dataset.read( mix_data_out, PredType::NATIVE_FLOAT, mix_memspace, mix_dataspace );
 
@@ -512,17 +523,6 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       bool  is_pileup_from_spd_5_08 = event_data_out[i][4]; 
       float ue_estimate_its_const = event_data_out[i][5];
       float ue_estimate_tpc_const = event_data_out[i][6];
-
-      //From to_hdf5.cc, which converts ROOT NTuple to HDF5:
-      /* event_data[iblock*event_row_size + 0] = primary_vertex[2]; //xyz, choose 3rd element, z */
-      /* event_data[iblock*event_row_size + 1] = multiplicity_sum; */
-      /* event_data[iblock*event_row_size + 2] = event_plane_angle[1]; //elliptic flow */
-      /* event_data[iblock*event_row_size + 3] = centrality; */
-      /* event_data[iblock*event_row_size + 4] = is_pileup_from_spd_5_08; */
-      /* event_data[iblock*event_row_size + 5] = ue_estimate_its_const; */
-      /* event_data[iblock*event_row_size + 6] = ue_estimate_tpc_const; */
-
-
 
       Float_t purity_weight = 0;
       Float_t BR_purity_weight = 0;
@@ -548,7 +548,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         float cluster_pt = cluster_data_out[i][n][1];
         float cluster_eta = cluster_data_out[i][n][2];
         float cluster_phi = cluster_data_out[i][n][3];
-        float cluster_lambda0 = cluster_data_out[i][n][4];
+        float cluster_lambda_square = cluster_data_out[i][n][4];
         float cluster_e_max = cluster_data_out[i][n][5];
         float cluster_e_cross = cluster_data_out[i][n][6];
         float cluster_iso_tpc_02 = cluster_data_out[i][n][7];
@@ -573,8 +573,13 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         float cluster_iso_tpc_02_ue = cluster_data_out[i][n][26];
         float cluster_iso_tpc_03_ue = cluster_data_out[i][n][27];
         float cluster_iso_tpc_04_ue = cluster_data_out[i][n][28];
-        float cluster_lambda_square= cluster_data_out[i][n][29];
+        float cluster_lambda1 = cluster_data_out[i][n][29];
         float cluster_s_nphoton = cluster_data_out[i][n][30];
+
+        hClusterpT->Fill(cluster_pt);
+        hClusterLambda->Fill(cluster_lambda_square);
+        hClustereta->Fill(cluster_eta);
+        hClusterIso->Fill(cluster_iso_tpc_04_ue);
 
         if ( not(cluster_pt > pT_min and cluster_pt < pT_max)) continue; //select pt of photons
         if ( not(TMath::Abs(cluster_eta) < Eta_max)) continue;           //cut edges of detector
@@ -614,6 +619,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
         Signal = (shower > srmin) and (shower < srmax);
         Background = (shower > brmin) and (shower < brmax);
+        /* std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl; */
+        /* std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Background BOOL = "<<Background<<std::endl; */
+        /* std::cout<<"Centrality = "<<centrality_v0m<<"; Isolation Deteminer = "<<determiner<<"; Iso Val = "<<isolation<<std::endl; */
 
         float bkg_weight = 1.0;
         float track_weight = 1.0; //Fake Rate, smearing, efficiency
@@ -633,11 +641,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           trigSR[1] = cluster_pt;
           hTrigSR->Fill(trigSR);
         }
-        
 
-        //Mixed Event Loop
-
-        //PAIRING METRICS
+        //MIXING
         Long64_t mix_event =  mix_data_out[i][imix];
         if(mix_event  < 0) continue; //unpaired events set to negative numbers 
         int mix_index = mix_event % block_size;
@@ -657,7 +662,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         delta_multiplicity->Fill(TMath::Abs(multiplicity-mb_multiplicity));
         delta_centrality->Fill(TMath::Abs(centrality_v0m-mb_centrality_v0m));
 
-        //FIXME: Add Delta Cuts on Event Pairing Here
+        //Add Delta Cuts on Event Pairing
+        if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) std::cout<<std::endl<<"SKIPPED MIXED EVENT"<<std::endl;
+        if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) continue;
+        if (TMath::Abs(primary_vertex-mb_primary_vertex) > 2.) continue;
+        if (TMath::Abs(v2-mb_v2) > 0.5) continue;
 
         if (Signal and Isolated) {
           nMixSR[0] = centrality_v0m;
@@ -743,6 +752,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   centrality_triggered->Write();
   centrality_MinBias->Write();
   delta_centrality->Write();
+
+  hClusterpT->Write();
+  hClusterLambda->Write();
+  hClustereta->Write();
+  hClusterIso->Write();
 
   fout->Close();
   std::cout << " ending " << std::endl;
