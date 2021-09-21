@@ -539,7 +539,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       multiplicity_triggered->Fill(multiplicity);
 
       bool first_cluster = false;
-      if (first_cluster) continue;
+      /* if (first_cluster) continue; */
 
       //Cluster Loop
       for (ULong64_t n = 0; n < ncluster_max; n++) {
@@ -634,7 +634,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           trigBR[0] = centrality_v0m;
           trigBR[1] = cluster_pt;
           hTrigBR->Fill(trigBR);
-          first_cluster = true;
+          /* first_cluster = true; */
         }
 
         if (Signal and Isolated) {
@@ -643,7 +643,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           trigSR[0] = centrality_v0m;
           trigSR[1] = cluster_pt;
           hTrigSR->Fill(trigSR);
-          first_cluster = true;
+          /* first_cluster = true; */
         }
 
         //MIXING
@@ -726,7 +726,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   }//mixed event loop
 
   TFile* fout;
-  fout = new TFile("mixedEvent_h5_firstcluster.root", "RECREATE");
+  fout = new TFile("mixedEvent_h5.root", "RECREATE");
   // fout = new TFile((TString) configrunperiod["filelists"]["mixedevent"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
