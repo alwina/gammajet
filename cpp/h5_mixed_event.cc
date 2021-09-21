@@ -25,7 +25,6 @@
 
 const int MAX_INPUT_LENGTH = 200;
 
-enum isolationDet {CLUSTER_ISO_TPC_04, CLUSTER_ISO_ITS_04, CLUSTER_ISO_ITS_04_SUB, CLUSTER_ISO_TPC_02_SUB, CLUSTER_ISO_TPC_04_SUB, CLUSTER_FRIXIONE_TPC_04_02, CLUSTER_FRIXIONE_ITS_04_02};
 
 using namespace H5;
 
@@ -66,11 +65,9 @@ int main(int argc, char *argv[])
   bool do_pile = false;
 
   //double deta_max = 0;
-  isolationDet determiner = CLUSTER_ISO_ITS_04;
+  std::string isovar = "cluster_iso_its_04";
   std::string shower_shape = "DNN";
   std::string purity_deviation = "None";
-
-  bool TPC_Iso_Flag = false;
 
   YAML::Node purityconfig;
   YAML::Node isoconfig;
@@ -134,49 +131,8 @@ int main(int argc, char *argv[])
 
     if (config["isolation"]) {
       isoconfig = config["isolation"];
-      std::string determinant = config["isolation"]["isovar"].as<std::string>();
-
-      if (determinant == "cluster_iso_tpc_04") {
-        determiner = CLUSTER_ISO_TPC_04;
-        std::cout << "Isolation Variable: cluster_iso_tpc_04" << std::endl;
-      }
-
-      else if (determinant == "cluster_iso_its_04") {
-        determiner = CLUSTER_ISO_ITS_04;
-        std::cout << "Isolation Variable: cluster_iso_its_04" << std::endl;
-      }
-
-      else if (determinant == "cluster_iso_its_04_sub") {
-        determiner = CLUSTER_ISO_ITS_04_SUB;
-        std::cout << "Isolation Variable: cluster_iso_its_04_sub" << std::endl;
-      }
-
-      else if (determinant == "cluster_iso_tpc_02_sub") {
-        determiner = CLUSTER_ISO_TPC_02_SUB;
-        TPC_Iso_Flag = true;
-        std::cout << "Isolation Variable: cluster_iso_tpc_02_sub" << std::endl;
-      }
-
-      else if (determinant == "cluster_iso_tpc_04_sub") {
-        determiner = CLUSTER_ISO_TPC_04_SUB;
-        TPC_Iso_Flag = true;
-        std::cout << "Isolation Variable: cluster_iso_tpc_04_sub" << std::endl;
-      }
-
-      else if (determinant == "cluster_frixione_tpc_04_02") {
-        determiner = CLUSTER_FRIXIONE_TPC_04_02;
-        std::cout << "Isolation Variable: cluster_frixione_tpc_04_02" << std::endl;
-      }
-
-      else if (determinant == "cluster_frixione_its_04_02") {
-        determiner = CLUSTER_FRIXIONE_ITS_04_02;
-        std::cout << "Isolation Variable: cluster_frixione_its_04_02" << std::endl;
-      }
-
-      else {
-        std::cout << "ERROR: Cluster_isolation_determinant in configuration file must be \"cluster_iso_tpc_04\", \"cluster_iso_its_04\", \"cluster_frixione_tpc_04_02\", or \"cluster_frixione_its_04_02\"" << std::endl << "Aborting the program" << std::endl;
-        exit(EXIT_FAILURE);
-      }
+      isovar = config["isolation"]["isovar"].as<std::string>();
+      std::cout << "Isolation variable: " << isovar << std::endl;
     }
 
     if (config["Purity_Dev"]) {
@@ -291,11 +247,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   //Triggered and MB hdf5 files
   const H5std_string triggered_hdf5_file_name(configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
-  fprintf(stderr, (TString)configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
+  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
   H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY ); 
 
   const H5std_string MB_hdf5_file_name(configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
-  fprintf(stderr, (TString)configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
+  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
   H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY );
 
   //get cluster dataset from TRIGGERED file
@@ -568,21 +524,25 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         if ( not(abs(cluster_tof) < cluster_time)) continue;
 
         float isolation;
-        if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04;
-        else if (determiner == CLUSTER_ISO_ITS_04) isolation = cluster_iso_its_04;
-        else if (determiner == CLUSTER_ISO_ITS_04_SUB)
+        if (isovar == "cluster_iso_tpc_04") isolation = cluster_iso_tpc_04;
+        else if (isovar == "cluster_iso_its_04") isolation = cluster_iso_its_04;
+        else if (isovar == "cluster_iso_its_04_sub") {
           isolation = cluster_iso_its_04 + cluster_iso_its_04_ue - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
-        else if (determiner == CLUSTER_ISO_TPC_04_SUB) {
+        }
+        else if (isovar == "cluster_iso_tpc_04_sub") {
           isolation = cluster_iso_tpc_04 + cluster_iso_tpc_04_ue - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
         }
-        else if (determiner == CLUSTER_ISO_TPC_02_SUB) {
+        else if (isovar == "cluster_iso_tpc_02_sub") {
           isolation = cluster_iso_tpc_02 + cluster_iso_tpc_02_ue - ue_estimate_tpc_const * 3.1416 * 0.2 * 0.2;
         }
-        else if (determiner == CLUSTER_FRIXIONE_TPC_04_02) isolation = cluster_frixione_tpc_04_02;
-        else isolation = cluster_frixione_its_04_02;
+        else if (isovar == "cluster_frixione_tpc_04_02") isolation = cluster_frixione_tpc_04_02;
+        else if (isovar == "cluster_frixione_its_04_02") isolation = cluster_frixione_its_04_02;
+        else {
+          std::cout << "ERROR: Isolation variable " << isovar << " not recognized. Aborting" << std::endl;
+          exit(EXIT_FAILURE);
+        }
 
         Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
-        /* std::cout<<"ISOLATION "<<determiner<<" = "<<isolation<<std::endl; */
 
         float shower = -1;
         if (shower_shape == "cluster_Lambda") {
