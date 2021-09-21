@@ -34,12 +34,10 @@ link_directories($ENV{YAMLCPP}/build)
 
 # add executables
 add_executable(same_event same_event.cc)
-add_executable(mixed_event mixed_event.cc)
 add_executable(h5_mixed_event h5_mixed_event.cc)
 add_executable(response_matrix response_matrix.cc)
 
 # link libraries
 target_link_libraries(same_event ${ROOT_LIBRARIES} yaml-cpp)
-target_link_libraries(mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp OpenMP::OpenMP_CXX)
 target_link_libraries(h5_mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp OpenMP::OpenMP_CXX)
 target_link_libraries(response_matrix RooUnfold ${ROOT_LIBRARIES} yaml-cpp)

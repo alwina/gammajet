@@ -301,7 +301,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
   fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
 
-  YAML::Node filenames = configrunperiod["filelists"]["data"];
+  YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
     std::string root_file = it->as<std::string>();
     std::cout << "Opening " << root_file << std::endl;
@@ -516,7 +516,7 @@ int main(int argc, char *argv[])
 
   // Write to fout
   TFile* fout;
-  fout = new TFile((TString) configrunperiod["filelists"]["sameevent"].as<std::string>(), "RECREATE");
+  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["sameevent"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   hTrigSR->Write();

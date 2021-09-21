@@ -31,8 +31,8 @@ using namespace H5;
 
 int main(int argc, char *argv[])
 {
-  if (argc < 6) {
-    fprintf(stderr, "Format: [command] [config file] [root file] [MB hdf5 file] [PbPb or pp] [Mix Start] [Mix End]\n");
+  if (argc < 1) {
+    fprintf(stderr, "Format: [command] [config file]\n");
     exit(EXIT_FAILURE);
   }
 
@@ -290,12 +290,12 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //I use dimensions obtained by reading dataspace info the hdf5 file 
 
   //Triggered and MB hdf5 files
-  const H5std_string triggered_hdf5_file_name(argv[2]);
-  fprintf(stderr,(TString)argv[2]);
+  const H5std_string triggered_hdf5_file_name(configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
+  fprintf(stderr, (TString)configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
   H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY ); 
 
-  const H5std_string MB_hdf5_file_name(argv[3]);
-  fprintf(stderr,(TString)argv[3]);
+  const H5std_string MB_hdf5_file_name(configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
+  fprintf(stderr, (TString)configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
   H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY );
 
   //get cluster dataset from TRIGGERED file
@@ -438,30 +438,6 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "datasets succesfully read into array");
 
-  //FIXME: Add HDF5 Files to config files
-  /* 
-     YAML::Node filenames = config["filelists"]["data"];
-     for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
-     std::string root_file = it->as<std::string>();
-     std::cout << "Opening " << root_file << std::endl;
-     TFile *file = TFile::Open((TString)root_file);
-
-     if (file == NULL) {
-     std::cout << " fail" << std::endl;
-     exit(EXIT_FAILURE);
-     }
-     file->Print();
-
-     TTree *_tree_event = dynamic_cast<TTree *>(file->Get("_tree_event"));
-
-     if (_tree_event == NULL) {
-     _tree_event = dynamic_cast<TTree *>(file->Get("AliAnalysisTaskNTGJ/_tree_event"));
-     if (_tree_event == NULL) {
-     std::cout << " fail " << std::endl;
-     exit(EXIT_FAILURE);
-     }
-     }
-     */
 
   //IMPORTANT BOOLEAN VARIABLES
   Bool_t Signal = false;
@@ -726,8 +702,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   }//mixed event loop
 
   TFile* fout;
-  fout = new TFile("mixedEvent_h5.root", "RECREATE");
-  // fout = new TFile((TString) configrunperiod["filelists"]["mixedevent"].as<std::string>(), "RECREATE");
+  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   hTrigSR->Write();

@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
   fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
 
-  YAML::Node filenames = configrunperiod["filelists"]["gjmc"];
+  YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["gjmc"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
     std::string root_file = it->as<std::string>();
     std::cout << "Opening " << root_file << std::endl;
@@ -588,7 +588,7 @@ int main(int argc, char *argv[])
 
   // Write to fout
   TFile* fout;
-  fout = new TFile((TString) configrunperiod["filelists"]["responsematrix"].as<std::string>(), "RECREATE");
+  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["responsematrix"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   for (int i = 0; i < ncentralityranges; i++) {
