@@ -358,7 +358,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   fprintf(stderr, "\n%s:%d: number of event variables = %i\n", __FILE__, __LINE__, Nevent_Vars);
   fprintf(stderr, "\n%s:%d: number of jet variables = %i\n", __FILE__, __LINE__, Njet_Vars);
 
-  //Block size should be determined by chunk size in to_hdf5. Usually 2000
+  //Block size should be determined by chunk size in to_hdf5. Usually 2000 or its multiples.
+  //A larger block size will speed things up, at the cost of more memory
 
   const int block_size = 4000;
 
@@ -416,7 +417,6 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   hsize_t event_count_out[2] = {block_size, Nevent_Vars};
   hsize_t cluster_count_out[3] = {block_size, ncluster_max, Ncluster_Vars};
   hsize_t mix_count_out[2] = {block_size, nmix};
-  //FIXME: Get MinBias to Use block logic
   hsize_t jet_count_out[3] = {block_size, njet_ak04tpc, Njet_Vars};
   hsize_t mb_event_count_out[2] = {block_size, Nevent_Vars};
 
@@ -472,7 +472,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //MAIN CORRELATION LOOP
   /* nentries=100000; */
   /* #pragma omp parallel for */
-  nmix = 40;
+  nmix = 10;
   for (Long64_t imix = 0; imix < nmix; imix++){
     std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<nmix<<std::endl;
     /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
@@ -498,7 +498,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       // as opposed to [ievent] which is looping through all events
 
       /* fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__,i,block_size-1); */
-      if ((i == (block_size-1)) && (ievent!=nentries-1) && (ievent < nentries-block_size-1)) {//writes 1 block (2000 events) at a time. Faster/less memory
+      if ((i == (block_size-1)) && (ievent!=nentries-1) && (ievent < nentries-block_size-1)) {
+        //writes 1 block (2000 events) at a time. Faster/less memory
 
         offset += block_size;
         event_offset[0] = offset;
@@ -526,8 +527,6 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
       Float_t purity_weight = 0;
       Float_t BR_purity_weight = 0;
-      bool first_cluster = true;
-      //if (not(first_cluster)) continue;
 
       //Event Selection
       if (TMath::Abs(primary_vertex) > 10) continue;
@@ -538,6 +537,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       flow_triggered->Fill(v2);
       centrality_triggered->Fill(centrality_v0m);
       multiplicity_triggered->Fill(multiplicity);
+
+      bool first_cluster = false;
+      if (first_cluster) continue;
 
       //Cluster Loop
       for (ULong64_t n = 0; n < ncluster_max; n++) {
@@ -587,7 +589,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         if ( not(cluster_e_cross / cluster_e_max > EcrossoverE_min)) continue; //removes "spiky" clusters
         if ( not(cluster_distance_to_bad_channel >= Cluster_DtoBad)) continue; //removes clusters near bad channels
         if ( not(cluster_nlocal_maxima < 3)) continue; //require to have at most 2 local maxima.
-        if (not(abs(cluster_tof) < cluster_time)) continue;
+        if ( not(abs(cluster_tof) < cluster_time)) continue;
 
         float isolation;
         if (determiner == CLUSTER_ISO_TPC_04) isolation = cluster_iso_tpc_04;
@@ -632,6 +634,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           trigBR[0] = centrality_v0m;
           trigBR[1] = cluster_pt;
           hTrigBR->Fill(trigBR);
+          first_cluster = true;
         }
 
         if (Signal and Isolated) {
@@ -640,6 +643,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           trigSR[0] = centrality_v0m;
           trigSR[1] = cluster_pt;
           hTrigSR->Fill(trigSR);
+          first_cluster = true;
         }
 
         //MIXING
@@ -663,7 +667,6 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         delta_centrality->Fill(TMath::Abs(centrality_v0m-mb_centrality_v0m));
 
         //Add Delta Cuts on Event Pairing
-        if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) std::cout<<std::endl<<"SKIPPED MIXED EVENT"<<std::endl;
         if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) continue;
         if (TMath::Abs(primary_vertex-mb_primary_vertex) > 2.) continue;
         if (TMath::Abs(v2-mb_v2) > 0.5) continue;
@@ -723,7 +726,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   }//mixed event loop
 
   TFile* fout;
-  fout = new TFile("mixedEvent_h5.root", "RECREATE");
+  fout = new TFile("mixedEvent_h5_firstcluster.root", "RECREATE");
   // fout = new TFile((TString) configrunperiod["filelists"]["mixedevent"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
