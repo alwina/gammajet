@@ -183,10 +183,12 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
 
     if rootfileRM:
         rootfile = ROOT.TFile.Open(rootfileRM)
-        # TO-DO: split by centrality, pT
+        # TO-DO: split by pT
         rooUnfoldResponses = {}
         for observable in observableInfo:
-            rooUnfoldResponses[observable] = rootfile.Get('{0}Response'.format(observable))
+            rooUnfoldResponses[observable] = {}
+            for icent, centrange in enumerate(centranges):
+                rooUnfoldResponses[observable][centrange] = rootfile.Get('{0}Response{1}'.format(observable, icent))
         rootfile.Close()
 
     # make all correlation objects
@@ -222,14 +224,19 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                 # set up the correlation object
                 gjCorr = GammaJetCorrelation(observable)
 
+                # add any additional cuts for the particular observable
+                additionalCuts = []
+                for cut in observableInfo[observable]['cuts']:
+                    additionalCuts.append((AxisNum[cut['var']].value, cut['min'], cut['max']))
+
                 # project and scale the same-event
-                srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices, AxisNum[observable].value)
-                brTH1 = sliceAndProjectTHnSparse(sehCorrBR, slices, AxisNum[observable].value)
+                srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices + additionalCuts, AxisNum[observable].value)
+                brTH1 = sliceAndProjectTHnSparse(sehCorrBR, slices + additionalCuts, AxisNum[observable].value)
                 gjCorr.setSameEvent(srTH1, brTH1, nTrigSESR, nTrigSEBR)
 
                 # project and scale the mixed-event
-                srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices, AxisNum[observable].value)
-                brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices, AxisNum[observable].value)
+                srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum[observable].value)
+                brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum[observable].value)
                 gjCorr.setMixedEvent(srTH1, brTH1, nTrigMESR, nTrigMEBR, nMixSR, nMixBR)
 
                 # rebin
@@ -243,9 +250,20 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
 
                 # set response matrix if it exists
                 # TO-DO: split by centrality, pT
-                gjCorr.setResponseMatrix(rooUnfoldResponses[observable])
+                gjCorr.setResponseMatrix(rooUnfoldResponses[observable][centrange])
 
                 # add to dictionary
                 allCorr[centrange][photonptrange][observable] = gjCorr
+
+                # reset any per-observable cuts that were done
+                resetCuts = []
+                for cut in observableInfo[observable]['cuts']:
+                    cutobs = cut['var']
+                    resetCuts.append((AxisNum[cutobs].value, observableInfo[cutobs]['min'], observableInfo[cutobs]['max']))
+
+                sliceAndProjectTHnSparse(sehCorrSR, resetCuts, 0)
+                sliceAndProjectTHnSparse(sehCorrBR, resetCuts, 0)
+                sliceAndProjectTHnSparse(mehCorrSR, resetCuts, 0)
+                sliceAndProjectTHnSparse(mehCorrBR, resetCuts, 0)
 
     return allCorr
