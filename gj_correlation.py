@@ -12,7 +12,7 @@ from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToA
 # 1. initialize with the observable name
 # 2. call setSameEvent, setMixedEvent, and setResponseMatrix (optional)
 # 3. call useNbins, which also turns the histograms into numpy arrays and divides by the bin widths
-# 4. call subtractMixedEvent
+# 4. call subtractBkgRegion and/or subtractMixedEvent
 # 5. call getSignalCorrelation
 # 6. optionally, do stuff with the unfolder
 class GammaJetCorrelation:
@@ -109,6 +109,12 @@ class GammaJetCorrelation:
         self.mesrhist, self.mesrerr = self.convertAndDivideWidths(self.mesrth1)
         self.mebrhist, self.mebrerr = self.convertAndDivideWidths(self.mebrth1)
 
+    def subtractBkgRegion(self):
+        self.sehist = np.subtract(self.sesrhist, self.sebrhist)
+        self.seerr = quadSumPairwise(self.sesrerr, self.sebrerr)
+        self.mehist = np.subtract(self.mesrhist, self.mebrhist)
+        self.meerr = quadSumPairwise(self.mesrerr, self.mebrerr)
+
     def subtractMixedEvent(self):
         self.srhist = np.subtract(self.sesrhist, self.mesrhist)
         self.srerr = quadSumPairwise(self.sesrerr, self.mesrerr)
@@ -117,8 +123,15 @@ class GammaJetCorrelation:
 
     # rebin before calling this
     def getSignalCorrelation(self):
-        self.corrhist = np.subtract(self.srhist, self.brhist)
-        self.correrr = quadSumPairwise(self.srerr, self.brerr)
+        # it absolutely should not matter if we do (SESR-SEBR)-(MESR-MEBR)
+        # or (SESR-MESR)-(SEBR-MEBR); just take the one that exists
+        # and do SE-ME by default
+        try:
+            self.corrhist = np.subtract(self.sehist, self.mehist)
+            self.correrr = quadSumPairwise(self.seerr, self.meerr)
+        except AttributeError:
+            self.corrhist = np.subtract(self.srhist, self.brhist)
+            self.correrr = quadSumPairwise(self.srerr, self.brerr)
 
         # convert to TH1 and feed to unfolder
         self.corrth1 = ROOT.TH1F("{0}_measured".format(self.observable), "{0} measured".format(self.observable), self.nBins, self.minBin, self.maxBin)
@@ -242,10 +255,13 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                 # rebin
                 gjCorr.useNbins(observableInfo[observable]['nbins'])
 
-                # subtract mixed-event from same-event
+                # subtract BR in each of SE and ME
+                gjCorr.subtractBkgRegion()
+
+                # subtract mixed-event in each of SR and BR, in case we want to see this for some reason
                 gjCorr.subtractMixedEvent()
 
-                # subtract BR from SR
+                # second subtraction
                 gjCorr.getSignalCorrelation()
 
                 # set response matrix if it exists
