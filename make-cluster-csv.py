@@ -12,6 +12,7 @@ import warnings
 import yaml
 
 from alice_emcal import get5x5Cells, getCrossCells, calculateShowerShapeFromCells
+from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
 
 
 def calculateShowerShapes5x5(icluster, cluster_e, cellMaxId, cell_e, cell_cluster_index):
@@ -217,7 +218,7 @@ def main(ntuplefilenames, csvfilename):
                       'cluster_iso_tpc_01_sub', 'cluster_iso_tpc_02_sub', 'cluster_iso_tpc_03_sub', 'cluster_iso_tpc_04_sub',
                       'cluster_frixione_tpc_04_02', 'cluster_frixione_tpc_04_05', 'cluster_frixione_tpc_04_10',
                       'cluster_5x5contiguouscluster', 'cluster_5x5contiguous', 'cluster_5x5cluster', 'cluster_5x5all',
-                      'ue_estimate_tpc_const', 'weights', 'centrality_v0m']
+                      'ue_estimate_tpc_const', 'weights', 'centrality_v0m', 'isINT7', 'isCentral', 'isSemiCentral', 'isEMCEGA']
         csvwriter = csv.DictWriter(csvfile, delimiter='\t', fieldnames=fieldnames)
         csvwriter.writeheader()
         clustercount = 0
@@ -250,6 +251,7 @@ def main(ntuplefilenames, csvfilename):
             acluster_lambda_square = rnp.tree2array(tree, branches='cluster_lambda_square')
             acluster_s_nphoton = rnp.tree2array(tree, branches='cluster_s_nphoton')
             acluster_mc_truth_index = rnp.tree2array(tree, branches='cluster_mc_truth_index')
+            atrigger_mask = rnp.tree2array(tree, branches='trigger_mask')
 
             # compute MC weights or set to 1
             aeg_cross_section = rnp.tree2array(tree, branches='eg_cross_section')
@@ -260,6 +262,9 @@ def main(ntuplefilenames, csvfilename):
                 aweights = np.divide(aeg_cross_section, avg_eg_ntrial * pthatnevents)
             else:
                 aweights = np.ones(nevents)
+
+            # track previous run number so that we don't have to recalculate the trigger IDs if it didn't change
+            previous_run_number = -1
 
             # loop through events
             for ievent in range(nevents):
@@ -301,12 +306,27 @@ def main(ntuplefilenames, csvfilename):
 
                 centrality_v0m = getattr(tree, 'centrality_v0m')
                 ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
+                run_number = getattr(tree, "run_number")
+
+                if run_number != previous_run_number:
+                    kINT7TriggerIds = getINT7TriggerIds(run_number)
+                    kCentralTriggerIds = getCentralTriggerIds(run_number)
+                    kSemiCentralTriggerIds = getSemiCentralTriggerIds(run_number)
+                    kEMCEGATriggerIds = getEMCEGATriggerIds(run_number)
+                    previous_run_number = run_number
 
                 cell_e = getattr(tree, 'cell_e')
                 cell_cluster_index = getattr(tree, 'cell_cluster_index')
 
                 # event-based values
                 weight = aweights[ievent]
+                # combine the trigger masks into one number
+                triggerMask = atrigger_mask[ievent][0] + (int(atrigger_mask[ievent][1]) << 50)
+
+                isINT7 = isEventSelected(kINT7TriggerIds, triggerMask)
+                isCentral = isEventSelected(kCentralTriggerIds, triggerMask)
+                isSemiCentral = isEventSelected(kSemiCentralTriggerIds, triggerMask)
+                isEMCEGA = isEventSelected(kEMCEGATriggerIds, triggerMask)
 
                 for icluster in range(ncluster):
                     # cluster-based values
@@ -402,6 +422,10 @@ def main(ntuplefilenames, csvfilename):
                     row['cluster_ecross_emax'] = e_cross / e_max
                     row['weights'] = weight
                     row['centrality_v0m'] = centrality_v0m
+                    row['isINT7'] = isINT7
+                    row['isCentral'] = isCentral
+                    row['isSemiCentral'] = isSemiCentral
+                    row['isEMCEGA'] = isEMCEGA
 
                     row['cluster_5x5contiguouscluster'] = showershapes5x5['5x5contiguouscluster']
                     row['cluster_5x5contiguous'] = showershapes5x5['5x5contiguous']
@@ -446,6 +470,6 @@ if __name__ == '__main__':
     with open(configfilename) as configfile:
         config = yaml.safe_load(configfile)
 
-    ntuplefilenames = config['filelists'][filetype]
+    ntuplefilenames = config['filelists']['ntuples'][filetype]
     csvfilename = config['filelists']['clustercsvs'][filetype]
     main(ntuplefilenames, csvfilename)
