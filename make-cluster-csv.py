@@ -12,6 +12,7 @@ import warnings
 import yaml
 
 from alice_emcal import get5x5Cells, getCrossCells, calculateShowerShapeFromCells
+from alice_raa import getWeightWithRaa502charged
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
 
 
@@ -218,6 +219,7 @@ def main(ntuplefilenames, csvfilename):
                       'cluster_iso_tpc_01_sub', 'cluster_iso_tpc_02_sub', 'cluster_iso_tpc_03_sub', 'cluster_iso_tpc_04_sub',
                       'cluster_frixione_tpc_04_02', 'cluster_frixione_tpc_04_05', 'cluster_frixione_tpc_04_10',
                       'cluster_5x5contiguouscluster', 'cluster_5x5contiguous', 'cluster_5x5cluster', 'cluster_5x5all',
+                      'cluster_weight_with_raa',
                       'ue_estimate_tpc_const', 'weights', 'centrality_v0m', 'isINT7', 'isCentral', 'isSemiCentral', 'isEMCEGA']
         csvwriter = csv.DictWriter(csvfile, delimiter='\t', fieldnames=fieldnames)
         csvwriter.writeheader()
@@ -386,6 +388,7 @@ def main(ntuplefilenames, csvfilename):
                         continue
 
                     # this takes time, so put it after the pT cut
+                    weightwithraa = getWeightWithRaa502charged(weight, parentpi0pt, centrality_v0m)
                     showershapes5x5 = calculateShowerShapes5x5(icluster, e, cell_id_max, cell_e, cell_cluster_index)
 
                     row = {}
@@ -420,6 +423,7 @@ def main(ntuplefilenames, csvfilename):
                     row['cluster_mc_truth_components'] = mc_truth_components
                     row['cluster_ecross_e'] = e_cross / e
                     row['cluster_ecross_emax'] = e_cross / e_max
+                    row['cluster_weight_with_raa'] = weightwithraa
                     row['weights'] = weight
                     row['centrality_v0m'] = centrality_v0m
                     row['isINT7'] = isINT7
