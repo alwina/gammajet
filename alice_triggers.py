@@ -19,7 +19,7 @@ def getTriggerIds(runNumber, triggerStrings):
     return triggerIDs
 
 
-def getINT7TriggerIds(runNumber):
+def getCentralTriggerIds(runNumber):
     # kCentral,"+CV0H7-[B|U|T]-NOPF-[CENT|CENTNOTRD|CENTNOPMD]"
     triggerStrings = []
     triggerStrings.append("CV0H7-B-NOPF-CENT")
@@ -35,7 +35,7 @@ def getINT7TriggerIds(runNumber):
     return getTriggerIds(runNumber, triggerStrings)
 
 
-def getCentralTriggerIds(runNumber):
+def getINT7TriggerIds(runNumber):
     # kINT7,"+[CINT7|CINT7ZAC|CV0L7]-[B|U|T]-NOPF-[CENT|CENTNOTRD|CENTNOPMD]"
     triggerStrings = []
     triggerStrings.append("CINT7-B-NOPF-CENT")
