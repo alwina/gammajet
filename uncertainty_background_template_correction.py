@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
-from params import ptcuttext, centralitycuttext
-from utils import getNormHistAndErr, divideHistsAndErrs, getCenters, getBinRange
+from utils import getCenters, getBinRange
 
 
 # copy this here to avoid circular dependencies
@@ -11,43 +9,6 @@ def modifyBkgWeights(weights, binEdges, modFunction):
     binCenters = getCenters(binEdges)
     mods = list(map(modFunction, binCenters))
     return np.multiply(weights, mods)
-
-
-# call this first
-def getDoubleRatioAndError(dfs, ptrange, isoParams, ssParams, centrange=None, useraa=False):
-    isojjmcdf = dfs.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
-    antiisojjmcdf = dfs.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
-    isodatadf = dfs.fulldatadf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
-    antiisodatadf = dfs.fulldatadf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
-    isogjmcdf = dfs.fullgjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
-    antiisogjmcdf = dfs.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
-
-    if centrange:
-        isojjmcdf = isojjmcdf.query(centralitycuttext(centrange))
-        antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
-        isodatadf = isodatadf.query(centralitycuttext(centrange))
-        antiisodatadf = antiisodatadf.query(centralitycuttext(centrange))
-        isogjmcdf = isogjmcdf.query(centralitycuttext(centrange))
-        antiisogjmcdf = antiisogjmcdf.query(centralitycuttext(centrange))
-
-    if useraa:
-        isojjmcdf = pd.concat([isojjmcdf, isogjmcdf])
-        antiisojjmcdf = pd.concat([antiisojjmcdf, antiisogjmcdf])
-        isojjmchist, isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges, weightvar='weightswithraa')
-        antiisojjmchist, antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges, weightvar='weightswithraa')
-    else:
-        isojjmchist, isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
-        antiisojjmchist, antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
-
-    isodatahist, isodataerr = getNormHistAndErr(isodatadf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
-    antiisodatahist, antiisodataerr = getNormHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.doubleRatioBinEdges)
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        jjmcratio, jjmcerr = divideHistsAndErrs(isojjmchist, isojjmcerr, antiisojjmchist, antiisojjmcerr)
-        dataratio, dataerr = divideHistsAndErrs(isodatahist, isodataerr, antiisodatahist, antiisodataerr)
-        doubleratio, doubleratioerr = divideHistsAndErrs(dataratio, dataerr, jjmcratio, jjmcerr)
-
-    return doubleratio, doubleratioerr
 
 
 # after getDoubleRatioAndError

@@ -1,13 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 import iminuit
 
 from utils import getBinRange, getCenters, getWidths, normalizeHistAndErr, quadSumPairwise, getHistAndErr, getNormHistAndErr, divideHistsAndErrs
 from plotstyle import upperRightText
 from params import centralitycuttext, ptcuttext
-from uncertainty_background_template_correction import getDoubleRatioAndError, getDoubleRatioFitAndError, plotDoubleRatioAndFit
+from uncertainty_background_template_correction import getDoubleRatioFitAndError, plotDoubleRatioAndFit
 from fit_functions import SingleParameterLinearFit
 
 
@@ -334,7 +333,7 @@ class BackgroundFit:
 
 
 class ExtendedTemplateFit:
-    def __init__(self, dfs, ptrange, centrange, isoParams, ssParams, usezeta=False, useraa=True, usedoubleratio=False, verbosity=0):
+    def __init__(self, dfs, ptrange, centrange, isoParams, ssParams, usezeta=False, usedoubleratio=False, verbosity=0):
         bincut = '{0} and {1}'.format(centralitycuttext(centrange), ptcuttext(ptrange))
         self.ptrange = ptrange
         self.centrange = centrange
@@ -356,13 +355,6 @@ class ExtendedTemplateFit:
         self.antiisogjmchist, self.antiisogjmcerr = getNormHistAndErr(antiisogjmcdf, ssParams.ssvar, ssParams.binEdges)
         self.antiisojjmchist, self.antiisojjmcerr = getNormHistAndErr(antiisojjmcdf, ssParams.ssvar, ssParams.binEdges)
 
-        if useraa:
-            # make combined histogram with anti-isolated MCs using RAA-scaled weights
-            antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
-            self.antiisomchist, self.antiisomcerr = getNormHistAndErr(antiisomcdf, ssParams.ssvar, ssParams.binEdges, weightvar='weightswithraa')
-            # also scale the isolated dijet MC with RAA
-            self.isojjmchist, self.isojjmcerr = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.binEdges, weightvar='weightswithraa')
-
         if ssParams.tfFitRange:
             self.fitRange = slice(*getBinRange(self.binEdges, *ssParams.tfFitRange))
         else:
@@ -383,7 +375,6 @@ class ExtendedTemplateFit:
 
         # flags for how to correct the background template
         self.usezeta = usezeta
-        self.useraa = useraa
         self.usedoubleratio = usedoubleratio
 
         if usedoubleratio:
@@ -393,15 +384,12 @@ class ExtendedTemplateFit:
         self.getPurity()
 
     def getDoubleRatioFit(self):
-        self.doubleratio, self.doubleratioerr = getDoubleRatioAndError(self.dfs, self.ptrange, self.isoParams, self.ssParams, self.centrange, useraa=self.useraa)
+        self.doubleRatio, self.doubleratioerr = self.dfs.getDoubleRatioAndError(self.ptrange, self.isoParams, self.ssParams, self.centrange, useraa=False)
         self.drfit = SingleParameterLinearFit()
         getDoubleRatioFitAndError(self.doubleratio, self.doubleratioerr, self.ssParams, self.drfit)
 
     def getBkgCorrectionWeights(self):
-        if self.useraa:
-            bkgweights, bkgweightserr = divideHistsAndErrs(self.isojjmchist, self.isojjmcerr, self.antiisomchist, self.antiisomcerr)
-        else:
-            bkgweights, bkgweightserr = divideHistsAndErrs(self.isojjmchist, self.isojjmcerr, self.antiisojjmchist, self.antiisojjmcerr)
+        bkgweights, bkgweightserr = divideHistsAndErrs(self.isojjmchist, self.isojjmcerr, self.antiisojjmchist, self.antiisojjmcerr)
 
         if self.usedoubleratio:
             bkgweights = modifyBkgWeights(bkgweights, self.binEdges, self.drfit.getFunctionFit())
@@ -554,11 +542,6 @@ class ExtendedTemplateFit:
             plt.bar(self.binCenters, np.multiply(self.fitzeta, self.antiisogjmchist), bottom=np.subtract(self.antiisodatahist, np.multiply(self.fitzeta, self.antiisogjmchist)), width=self.binWidths, align='center',
                     label='Scaled anti-iso GJ MC ($\zeta$={0:2.2})'.format(self.fitzeta), capsize=0, color=self.signalColor, ec=self.signalColor)
             plt.legend()
-        elif self.useraa:
-            plt.bar(self.binCenters, self.antiisomchist, width=self.binWidths, align='center',
-                    label=r'$R_{AA}\times$ JJ MC + GJ MC', capsize=0, color=self.bkgColor, ec=self.bkgColor)
-            plt.plot(self.binCenters, self.antiisojjmchist, 'k-', drawstyle='steps-mid', label='JJ MC')
-            plt.legend()
         else:
             plt.bar(self.binCenters, self.antiisodatahist, width=self.binWidths, align='center', label='Anti-isolated data', capsize=0, color=self.bkgColor, ec=self.bkgColor)
             plt.legend()
@@ -568,10 +551,7 @@ class ExtendedTemplateFit:
         bkgweights, bkgweighterrs = self.getBkgCorrectionWeights()
         plt.errorbar(self.binCenters, bkgweights, yerr=bkgweighterrs, fmt='ko')
         plt.ylabel('Bkg template\ncorrection')
-        if self.useraa:
-            bkgtempcorrdesc = r'$R_\mathrm{AA} \times$ Iso JJ MC / ($R_\mathrm{AA} \times$ Anti-iso JJ MC + Anti-iso GJ MC)'
-        else:
-            bkgtempcorrdesc = 'Iso JJ MC / Anti-iso JJ MC'
+        bkgtempcorrdesc = 'Iso JJ MC / Anti-iso JJ MC'
         upperRightText(bkgtempcorrdesc)
 
         # double ratio
@@ -579,10 +559,7 @@ class ExtendedTemplateFit:
         if self.drfit is not None:
             self.doubleratio[self.doubleratioerr == 0] = np.nan
             plotDoubleRatioAndFit(self.doubleratio, self.doubleratioerr, self.ssParams, self.drfit)
-            if self.useraa:
-                plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{MC}}$')
-            else:
-                plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{dijet MC}}$')
+            plt.ylabel(r'$\frac{\mathrm{(iso/antiiso)}_\mathrm{data}}{\mathrm{(iso/antiiso)}_\mathrm{dijet MC}}$')
             plt.axvspan(self.doubleRatioFitRange[0], self.doubleRatioFitRange[1], color=self.bkgColor, alpha=0.2)
             plt.xlabel(self.xlabel)
 
