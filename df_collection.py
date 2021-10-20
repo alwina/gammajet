@@ -136,7 +136,7 @@ class DataframeCollection:
             print('JJ MC')
             self.fulljjmcdf = applyCuts(self.fulljjmcdf, cuts['jjmc'])
 
-    def getTemplateFit(self, ptrange, isoParams, ssParams, bkgWeights=[], verbosity=0, centrange=None, additionalCuts=[]):
+    def getTemplateFit(self, ptrange, isoParams, ssParams, bkgWeights=[], verbosity=0, centrange=None, additionalCuts={}):
         isodatadf = self.fulldatadf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         isogjmcdf = self.fullgjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisodatadf = self.fulldatadf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
@@ -146,10 +146,14 @@ class DataframeCollection:
             isogjmcdf = isogjmcdf.query(centralitycuttext(centrange))
             antiisodatadf = antiisodatadf.query(centralitycuttext(centrange))
 
-        for cut in additionalCuts:
-            isodatadf = isodatadf.query(cut)
-            isogjmcdf = isogjmcdf.query(cut)
-            antiisodatadf = antiisodatadf.query(cut)
+        if 'data' in additionalCuts:
+            for cut in additionalCuts['data']:
+                isodatadf = isodatadf.query(cut)
+                antiisodatadf = antiisodatadf.query(cut)
+
+        if 'gjmc' in additionalCuts:
+            for cut in additionalCuts['gjmc']:
+                isogjmcdf = isogjmcdf.query(cut)
 
         data, dataerr = getHistAndErr(isodatadf, ssParams.ssvar, ssParams.binEdges)
         signal, signalerr = getNormHistAndErr(isogjmcdf, ssParams.ssvar, ssParams.binEdges)
@@ -160,7 +164,7 @@ class DataframeCollection:
 
         return TemplateFit(data, dataerr, signal, signalerr, bkg, bkgerr, ssParams, verbosity)
 
-    def getBackgroundFit(self, ptrange, isoParams, ssParams, bkgWeights=[], verbosity=0, centrange=None, additionalCuts=[]):
+    def getBackgroundFit(self, ptrange, isoParams, ssParams, bkgWeights=[], verbosity=0, centrange=None, additionalCuts={}):
         isodatadf = self.fulldatadf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisodatadf = self.fulldatadf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
 
@@ -168,9 +172,10 @@ class DataframeCollection:
             isodatadf = isodatadf.query(centralitycuttext(centrange))
             antiisodatadf = antiisodatadf.query(centralitycuttext(centrange))
 
-        for cut in additionalCuts:
-            isodatadf = isodatadf.query(cut)
-            antiisodatadf = antiisodatadf.query(cut)
+        if 'data' in additionalCuts:
+            for cut in additionalCuts['data']:
+                isodatadf = isodatadf.query(cut)
+                antiisodatadf = antiisodatadf.query(cut)
 
         data, dataerr = getHistAndErr(isodatadf, ssParams.ssvar, ssParams.binEdges)
         bkg, bkgerr = getNormHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.binEdges)
@@ -182,7 +187,7 @@ class DataframeCollection:
 
     # much cleaner to split off the calculation of the background weights,
     # even though it means there will always be this extra call
-    def getBkgWeights(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts=[]):
+    def getBkgWeights(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts={}):
         isojjmcdf = self.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisogjmcdf = self.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
         antiisojjmcdf = self.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
@@ -192,10 +197,14 @@ class DataframeCollection:
             antiisogjmcdf = antiisogjmcdf.query(centralitycuttext(centrange))
             antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
 
-        for cut in additionalCuts:
-            isojjmcdf = isojjmcdf.query(cut)
-            antiisogjmcdf = antiisogjmcdf.query(cut)
-            antiisojjmcdf = antiisojjmcdf.query(cut)
+        if 'gjmc' in additionalCuts:
+            for cut in additionalCuts['gjmc']:
+                antiisogjmcdf = antiisogjmcdf.query(cut)
+
+        if 'jjmc' in additionalCuts:
+            for cut in additionalCuts['jjmc']:
+                isojjmcdf = isojjmcdf.query(cut)
+                antiisojjmcdf = antiisojjmcdf.query(cut)
 
         if useraa:
             antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
@@ -210,7 +219,7 @@ class DataframeCollection:
 
         return weights
 
-    def getBkgWeightsAndErrs(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts=[]):
+    def getBkgWeightsAndErrs(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts={}):
         isojjmcdf = self.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisogjmcdf = self.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
         antiisojjmcdf = self.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
@@ -220,10 +229,14 @@ class DataframeCollection:
             antiisogjmcdf = antiisogjmcdf.query(centralitycuttext(centrange))
             antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
 
-        for cut in additionalCuts:
-            isojjmcdf = isojjmcdf.query(cut)
-            antiisogjmcdf = antiisogjmcdf.query(cut)
-            antiisojjmcdf = antiisojjmcdf.query(cut)
+        if 'gjmc' in additionalCuts:
+            for cut in additionalCuts['gjmc']:
+                antiisogjmcdf = antiisogjmcdf.query(cut)
+
+        if 'jjmc' in additionalCuts:
+            for cut in additionalCuts['jjmc']:
+                isojjmcdf = isojjmcdf.query(cut)
+                antiisojjmcdf = antiisojjmcdf.query(cut)
 
         if useraa:
             antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
@@ -239,29 +252,36 @@ class DataframeCollection:
 
         return weights, weightserr
 
-    def getDoubleRatioAndError(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts=[]):
-        isojjmcdf = self.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
-        antiisojjmcdf = self.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
+    def getDoubleRatioAndError(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts={}):
         isodatadf = self.fulldatadf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisodatadf = self.fulldatadf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
         isogjmcdf = self.fullgjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisogjmcdf = self.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
+        isojjmcdf = self.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
+        antiisojjmcdf = self.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
 
         if centrange:
-            isojjmcdf = isojjmcdf.query(centralitycuttext(centrange))
-            antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
             isodatadf = isodatadf.query(centralitycuttext(centrange))
             antiisodatadf = antiisodatadf.query(centralitycuttext(centrange))
             isogjmcdf = isogjmcdf.query(centralitycuttext(centrange))
             antiisogjmcdf = antiisogjmcdf.query(centralitycuttext(centrange))
+            isojjmcdf = isojjmcdf.query(centralitycuttext(centrange))
+            antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
 
-        for cut in additionalCuts:
-            isojjmcdf = isojjmcdf.query(cut)
-            antiisojjmcdf = antiisojjmcdf.query(cut)
-            isodatadf = isodatadf.query(cut)
-            antiisodatadf = antiisodatadf.query(cut)
-            isogjmcdf = isogjmcdf.query(cut)
-            antiisogjmcdf = antiisogjmcdf.query(cut)
+        if 'data' in additionalCuts:
+            for cut in additionalCuts:
+                isodatadf = isodatadf.query(cut)
+                antiisodatadf = antiisodatadf.query(cut)
+
+        if 'gjmc' in additionalCuts:
+            for cut in additionalCuts:
+                isogjmcdf = isogjmcdf.query(cut)
+                antiisogjmcdf = antiisogjmcdf.query(cut)
+
+        if 'jjmc' in additionalCuts:
+            for cut in additionalCuts:
+                isojjmcdf = isojjmcdf.query(cut)
+                antiisojjmcdf = antiisojjmcdf.query(cut)
 
         if useraa:
             isomcdf = pd.concat([isojjmcdf, isogjmcdf])
