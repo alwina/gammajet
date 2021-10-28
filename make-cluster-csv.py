@@ -131,6 +131,8 @@ def getNMCPhotons(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code):
         mcindex = cluster_mc_truth_index[i]
         if mcindex == 65535:
             continue
+        if mcindex >= len(mc_truth_pdg_code):
+            continue
         if mc_truth_pdg_code[mcindex] == 22:
             photonCount = photonCount + 1
 
@@ -146,6 +148,11 @@ def getIsPrompt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code, mc
         mcindex = cluster_mc_truth_index[i]
         # if this is the dummy index, ignore it
         if mcindex == 65535:
+            continue
+        # if this is somehow out of range, ignore it
+        if mcindex >= len(mc_truth_pdg_code):
+            continue
+        if mcindex >= len(mc_truth_is_prompt_photon):
             continue
         # if this is not a photon or electron, ignore it
         if mc_truth_pdg_code[mcindex] not in (11, -11, 22):
@@ -163,6 +170,11 @@ def getTruthPtAndComponents(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_
         mcindex = cluster_mc_truth_index[i]
         # if this is the dummy index, ignore it
         if mcindex == 65535:
+            continue
+        # if this is somehow out of range, ignore it
+        if mcindex >= len(mc_truth_pdg_code):
+            continue
+        if mcindex >= len(mc_truth_is_prompt_photon):
             continue
         # if this is not a photon or electron, ignore it
         if mc_truth_pdg_code[mcindex] not in (11, -11, 22):
@@ -192,6 +204,11 @@ def getParentPi0Pt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_first_par
         mcindex = cluster_mc_truth_index[i]
         # if this is the dummy index, ignore it
         if mcindex == 65535:
+            continue
+        # if this is somehow out of range, ignore it
+        if mcindex >= len(mc_truth_first_parent_pdg_code):
+            continue
+        if mcindex >= len(mc_truth_first_parent_pt):
             continue
         # if the parent is not a pi0, ignore it
         # not sure if pi0 can have negative pdg code, but check just in case
