@@ -208,11 +208,13 @@ class DataframeCollection:
 
         if useraa:
             antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
+            weightvar = 'cluster_weight_with_raa'
         else:
             antiisomcdf = antiisojjmcdf
+            weightvar = 'weights'
 
-        isohist, _ = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.binEdges)
-        antiisohist, _ = getNormHistAndErr(antiisomcdf, ssParams.ssvar, ssParams.binEdges)
+        isohist, _ = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.binEdges, weightvar=weightvar)
+        antiisohist, _ = getNormHistAndErr(antiisomcdf, ssParams.ssvar, ssParams.binEdges, weightvar=weightvar)
 
         weights = np.ones_like(isohist)
         np.divide(isohist, antiisohist, out=weights, where=antiisohist != 0)
@@ -240,7 +242,7 @@ class DataframeCollection:
 
         if useraa:
             antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
-            weightvar = 'weightswithraa'
+            weightvar = 'cluster_weight_with_raa'
         else:
             antiisomcdf = antiisojjmcdf
             weightvar = 'weights'
@@ -286,7 +288,7 @@ class DataframeCollection:
         if useraa:
             isomcdf = pd.concat([isojjmcdf, isogjmcdf])
             antiisomcdf = pd.concat([antiisojjmcdf, antiisogjmcdf])
-            weightvar = 'weightswithraa'
+            weightvar = 'cluster_weight_with_raa'
         else:
             isomcdf = isojjmcdf
             antiisomcdf = antiisojjmcdf
