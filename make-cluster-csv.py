@@ -6,12 +6,14 @@ import numpy as np
 import os
 import ROOT
 import root_numpy as rnp
+import struct
 import sys
 import time
 import warnings
 import yaml
 
 from alice_emcal import get5x5Cells, getCrossCells, calculateShowerShapeFromCells
+from alice_mc_weights import fixedWeightProductions, getFixedWeight
 from alice_raa import getWeightWithRaa502charged
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
 
@@ -259,9 +261,15 @@ def main(ntuplefilenames, csvfilename):
             aeg_cross_section = rnp.tree2array(tree, branches='eg_cross_section')
             aeg_ntrial = rnp.tree2array(tree, branches='eg_ntrial')
             if 'pthat' in ntuplefilename:
-                avg_eg_ntrial = np.mean(aeg_ntrial)
-                pthatnevents = pthat_nevents[ntuplefilename.split('pthat')[1][0]]
-                aweights = np.divide(aeg_cross_section, avg_eg_ntrial * pthatnevents)
+                for production in fixedWeightProductions:
+                    if production in ntuplefilename:
+                        fixedWeights = True
+                if fixedWeights:
+                    aweights = np.full(nevents, getFixedWeight(ntuplefilename))
+                else:
+                    avg_eg_ntrial = np.mean(aeg_ntrial)
+                    pthatnevents = pthat_nevents[ntuplefilename.split('pthat')[1][0]]
+                    aweights = np.divide(aeg_cross_section, avg_eg_ntrial * pthatnevents)
             else:
                 aweights = np.ones(nevents)
 
@@ -340,7 +348,7 @@ def main(ntuplefilenames, csvfilename):
                     e_max = cluster_e_max[icluster]
                     ncell = cluster_ncell[icluster]
                     tof = cluster_tof[icluster]
-                    nlm = cluster_nlocal_maxima[icluster]
+                    nlm = struct.unpack('1b', cluster_nlocal_maxima[icluster])[0]
                     dbc = cluster_distance_to_bad_channel[icluster]
                     cell_id_max = cluster_cell_id_max[icluster]
                     iso_tpc_01 = cluster_iso_tpc_01[icluster]
