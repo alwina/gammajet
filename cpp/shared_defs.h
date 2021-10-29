@@ -1,4 +1,5 @@
 #include <vector>
+#include "emcal.h"
 #include "yaml-cpp/yaml.h"
 
 /*--------------------------------------------------------------
@@ -119,4 +120,58 @@ float getPurity(float pt, float centrality, YAML::Node purityConfig)
 			return GetPurityErf(pt, erfparams);
 		}
 	}
+}
+
+// calculate 5x5all shower shape
+float get5x5all(const unsigned int cellMaxId, float cluster_e, float cell_e[17664])
+{
+	unsigned int cells5x5[25];
+	cell_5_5(cells5x5, cellMaxId);
+
+	float wtot = 0.0;
+	float x = 0.0;
+	float z = 0.0;
+	float dxx = 0.0;
+	float dzz = 0.0;
+	float dxz = 0.0;
+
+	unsigned int sm_max;
+	unsigned int nphi_max;
+	to_sm_nphi(sm_max, nphi_max, cellMaxId);
+
+	for (int i = 0; i < 25; i++) {
+		unsigned int cellId = cells5x5[i];
+
+		if (cell_e[cellId] < 0.1) continue;
+
+		unsigned int sm;
+		unsigned int ieta;
+		unsigned int iphi;
+		to_sm_ieta_iphi(sm, ieta, iphi, cellId)
+
+		if (sm % 2) {
+			ieta = ieta + 48;
+		}
+
+		w = TMath::Max(0, 4.5 + TMath::Log(cell_e[cellId] / cluster_e))
+		dxx = dxx + w * ieta * ieta;
+		x = x + w * ieta;
+		dzz = dzz + w * iphi * iphi;
+		z = z + w * iphi;
+		dxz = dxz + w * ieta * iphi;
+		wtot = wtot + w;
+	}
+
+	if (wtot > 0) {
+		dxx /= wtot ;
+		x   /= wtot ;
+		dxx -= x * x ;
+		dzz /= wtot ;
+		z   /= wtot ;
+		dzz -= z * z ;
+		dxz /= wtot ;
+		dxz -= x * z ;
+	}
+
+	return 0.5 * (dxx + dzz) + TMath::Sqrt( 0.25 * (dxx - dzz) * (dxx - dzz) + dxz * dxz );
 }
