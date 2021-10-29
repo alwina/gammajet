@@ -413,7 +413,8 @@ int main(int argc, char *argv[])
         }
         else if (shower_shape == "cluster_emax_over_e") {
           shower = cluster_e_max[n] / cluster_e[n];
-        } else if (shower_shape == "cluster_5x5all") {
+        }
+        else if (shower_shape == "cluster_5x5all") {
           shower = get5x5all(cluster_cell_id_max[n], cluster_e[n], cell_e);
         }
 

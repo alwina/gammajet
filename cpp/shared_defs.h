@@ -129,6 +129,7 @@ float get5x5all(const unsigned int cellMaxId, float cluster_e, float cell_e[1766
 	cell_5_5(cells5x5, cellMaxId);
 
 	float wtot = 0.0;
+    float w = 0.0;
 	float x = 0.0;
 	float z = 0.0;
 	float dxx = 0.0;
@@ -142,18 +143,19 @@ float get5x5all(const unsigned int cellMaxId, float cluster_e, float cell_e[1766
 	for (int i = 0; i < 25; i++) {
 		unsigned int cellId = cells5x5[i];
 
+        if (cellId < 0 || cellId > 17763) continue;
 		if (cell_e[cellId] < 0.1) continue;
 
 		unsigned int sm;
 		unsigned int ieta;
 		unsigned int iphi;
-		to_sm_ieta_iphi(sm, ieta, iphi, cellId)
+		to_sm_ieta_iphi(sm, ieta, iphi, cellId);
 
 		if (sm % 2) {
 			ieta = ieta + 48;
 		}
 
-		w = TMath::Max(0, 4.5 + TMath::Log(cell_e[cellId] / cluster_e))
+		float w = TMath::Max(0.0, 4.5 + TMath::Log(cell_e[cellId] / cluster_e));
 		dxx = dxx + w * ieta * ieta;
 		x = x + w * ieta;
 		dzz = dzz + w * iphi * iphi;
