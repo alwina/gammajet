@@ -168,12 +168,12 @@ class TemplateFit:
         plt.legend(handles=[datapoint, signalplot, bkgplot, chi2text, puritytext], ncol=1, numpoints=1, loc=1, fontsize=22, frameon=False)
 
         pttext = '{0} < pT < {1} GeV/$c$'.format(ptrange[0], ptrange[1])
-        if centrange:
-            centtext = '{0}-{1}% {2}'.format(centrange[0], centrange[1], system)
         infotext = pttext
         if centrange:
+            centtext = '{0}-{1}% {2}'.format(centrange[0], centrange[1], system)
             infotext = infotext + '\n' + centtext
-        # centtext = '{0}-{1}% Pb-Pb\n$\sqrt{{s_{{NN}}}}=5.02$ TeV'.format(centrange[0], centrange[1])
+        else:
+            infotext = infotext + '\n' + system
         plt.annotate(infotext, xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
         plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
 

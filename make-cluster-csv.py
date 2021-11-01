@@ -12,117 +12,10 @@ import time
 import warnings
 import yaml
 
-from alice_emcal import get5x5Cells, getCrossCells, calculateShowerShapeFromCells
+from alice_emcal import calculateShowerShapes5x5
 from alice_mc_weights import fixedWeightProductions, getFixedWeight
 from alice_raa import getWeightWithRaa502charged
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
-
-
-def calculateShowerShapes5x5(icluster, cluster_e, cellMaxId, cell_e, cell_cluster_index):
-    # first, get the cell Ids of the surrounding 5x5 grid
-    cells5x5 = get5x5Cells(cellMaxId)
-
-    # this is not supposed to happen, so return a nonsensical number to see how there are
-    # and also to not count them
-    if cell_e[cellMaxId] < 0.1:
-        return {
-            '5x5contiguouscluster': -1.0,
-            '5x5contiguous': -1.0,
-            '5x5cluster': -1.0,
-            '5x5all': -1.0
-        }
-
-    cells_ss5x5contiguouscluster = set()
-    cells_ss5x5contiguous = set()
-    cells_ss5x5cluster = set()
-    cells_ss5x5all = set()
-
-    # shower shape that requires contiguous cells in the 5x5 in the cluster:
-    # recursively, starting with the max energy cell (cellMaxId):
-    # 1. look for the crossing cells
-    # 2. for each cell, check that it is not already in the set of cells to be used in the calculation
-    # 3. if so, determine if it is in the 5x5
-    # 4. if so, determine if it is in the cluster
-    # 5. if so, add to the set of cells to be used in the calculation
-    # 6. recurse
-    cells_ss5x5contiguouscluster.add(cellMaxId)
-    checkedCells = set()
-    checkedCells.add(cellMaxId)
-
-    def getContiguousClusterCells(cellId):
-        crossCells = getCrossCells(cellId)
-        for crossCellId in crossCells:
-            if crossCellId in checkedCells:
-                continue
-            checkedCells.add(crossCellId)
-            if crossCellId > 17663 or crossCellId < 0:
-                continue
-            if cell_e[crossCellId] < 0.1 or np.isnan(cell_e[crossCellId]):
-                continue
-            if crossCellId not in cells5x5:
-                continue
-            if cell_cluster_index[crossCellId] != icluster:
-                continue
-            cells_ss5x5contiguouscluster.add(crossCellId)
-            getContiguousClusterCells(crossCellId)
-
-    getContiguousClusterCells(cellMaxId)
-
-    # shower shape that requires contiguous cells in the 5x5, not necessarily in the cluster:
-    # recursively, starting with the max energy cell (cellMaxId):
-    # 1. look for the crossing cells
-    # 2. for each cell, check that it is not already in the set of cells to be used in the calculation
-    # 3. if so, determine if it is in the 5x5
-    # 4. if so, add it to the set of cells to be used in the calculation
-    # 5. recurse
-    # calculate
-    cells_ss5x5contiguous.add(cellMaxId)
-    checkedCells = set()
-    checkedCells.add(cellMaxId)
-
-    def getContiguousCells(cellId):
-        crossCells = getCrossCells(cellId)
-        for crossCellId in crossCells:
-            if crossCellId in checkedCells:
-                continue
-            checkedCells.add(crossCellId)
-            if crossCellId > 17663 or crossCellId < 0:
-                continue
-            if cell_e[crossCellId] < 0.1 or np.isnan(cell_e[crossCellId]):
-                continue
-            if crossCellId not in cells5x5:
-                continue
-            cells_ss5x5contiguous.add(crossCellId)
-            getContiguousCells(crossCellId)
-
-    getContiguousCells(cellMaxId)
-
-    # shower shape that takes all cells in the 5x5 in the cluster, not necessarily contiguous
-    # for each cell in the 5x5, add it to the set of cells to be used in the calculation if it is in the cluster
-
-    # shower shape that takes all cells in the 5x5, not necessarily contiguous or in the cluster
-    # for each cell in the 5x5, add it to the set of cells to be used in the calculation
-
-    for cellId in cells5x5:
-        if cellId > 17663 or cellId < 0:
-            continue
-        if cell_e[cellId] < 0.1 or np.isnan(cell_e[cellId]):
-            continue
-        cells_ss5x5all.add(cellId)
-        if cell_cluster_index[cellId] == icluster:
-            cells_ss5x5cluster.add(cellId)
-
-    ss5x5contiguouscluster = calculateShowerShapeFromCells(cells_ss5x5contiguouscluster, cell_e, cluster_e)
-    ss5x5contiguous = calculateShowerShapeFromCells(cells_ss5x5contiguous, cell_e, cluster_e)
-    ss5x5cluster = calculateShowerShapeFromCells(cells_ss5x5cluster, cell_e, cluster_e)
-    ss5x5all = calculateShowerShapeFromCells(cells_ss5x5all, cell_e, cluster_e)
-
-    return {
-        '5x5contiguouscluster': ss5x5contiguouscluster,
-        '5x5contiguous': ss5x5contiguous,
-        '5x5cluster': ss5x5cluster,
-        '5x5all': ss5x5all
-    }
 
 
 def getNMCPhotons(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code):
@@ -237,6 +130,7 @@ def main(ntuplefilenames, csvfilename):
                       'cluster_iso_tpc_01', 'cluster_iso_tpc_02', 'cluster_iso_tpc_03', 'cluster_iso_tpc_04',
                       'cluster_iso_tpc_01_sub', 'cluster_iso_tpc_02_sub', 'cluster_iso_tpc_03_sub', 'cluster_iso_tpc_04_sub',
                       'cluster_frixione_tpc_04_02', 'cluster_frixione_tpc_04_05', 'cluster_frixione_tpc_04_10',
+                      'cluster_iso_its_02', 'cluster_iso_its_04', 'cluster_iso_its_02_sub', 'cluster_iso_its_04_sub',
                       'cluster_5x5contiguouscluster', 'cluster_5x5contiguous', 'cluster_5x5cluster', 'cluster_5x5all',
                       'cluster_weight_with_raa',
                       'ue_estimate_tpc_const', 'weights', 'centrality_v0m', 'isINT7', 'isCentral', 'isSemiCentral', 'isEMCEGA']
@@ -278,6 +172,7 @@ def main(ntuplefilenames, csvfilename):
             aeg_cross_section = rnp.tree2array(tree, branches='eg_cross_section')
             aeg_ntrial = rnp.tree2array(tree, branches='eg_ntrial')
             if 'pthat' in ntuplefilename:
+                fixedWeights = False
                 for production in fixedWeightProductions:
                     if production in ntuplefilename:
                         fixedWeights = True
@@ -320,6 +215,10 @@ def main(ntuplefilenames, csvfilename):
                 cluster_frixione_tpc_04_02 = getattr(tree, 'cluster_frixione_tpc_04_02')
                 cluster_frixione_tpc_04_05 = getattr(tree, 'cluster_frixione_tpc_04_05')
                 cluster_frixione_tpc_04_10 = getattr(tree, 'cluster_frixione_tpc_04_10')
+                cluster_iso_its_02 = getattr(tree, 'cluster_iso_its_02')
+                cluster_iso_its_04 = getattr(tree, 'cluster_iso_its_04')
+                cluster_iso_its_02_ue = getattr(tree, 'cluster_iso_its_02_ue')
+                cluster_iso_its_04_ue = getattr(tree, 'cluster_iso_its_04_ue')
 
                 cluster_nmc_truth = getattr(tree, 'cluster_nmc_truth')
                 mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
@@ -333,6 +232,7 @@ def main(ntuplefilenames, csvfilename):
 
                 centrality_v0m = getattr(tree, 'centrality_v0m')
                 ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
+                ue_estimate_its_const = getattr(tree, 'ue_estimate_its_const')
                 run_number = getattr(tree, "run_number")
 
                 if run_number != previous_run_number:
@@ -380,6 +280,12 @@ def main(ntuplefilenames, csvfilename):
                     iso_tpc_02_sub = iso_tpc_02 + iso_tpc_02_ue - (ue_estimate_tpc_const * 0.2 * 0.2 * np.pi)
                     iso_tpc_03_sub = iso_tpc_03 + iso_tpc_03_ue - (ue_estimate_tpc_const * 0.3 * 0.3 * np.pi)
                     iso_tpc_04_sub = iso_tpc_04 + iso_tpc_04_ue - (ue_estimate_tpc_const * 0.4 * 0.4 * np.pi)
+                    iso_its_02 = cluster_iso_its_02[icluster]
+                    iso_its_04 = cluster_iso_its_04[icluster]
+                    iso_its_02_ue = cluster_iso_its_02_ue[icluster]
+                    iso_its_04_ue = cluster_iso_its_04_ue[icluster]
+                    iso_its_02_sub = iso_its_02 + iso_its_02_ue - (ue_estimate_its_const * 0.2 * 0.2 * np.pi)
+                    iso_its_04_sub = iso_its_04 + iso_its_04_ue - (ue_estimate_its_const * 0.4 * 0.4 * np.pi)
                     frixione_tpc_04_02 = cluster_frixione_tpc_04_02[icluster]
                     frixione_tpc_04_05 = cluster_frixione_tpc_04_05[icluster]
                     frixione_tpc_04_10 = cluster_frixione_tpc_04_10[icluster]
@@ -439,6 +345,10 @@ def main(ntuplefilenames, csvfilename):
                     row['cluster_frixione_tpc_04_02'] = frixione_tpc_04_02
                     row['cluster_frixione_tpc_04_05'] = frixione_tpc_04_05
                     row['cluster_frixione_tpc_04_10'] = frixione_tpc_04_10
+                    row['cluster_iso_its_02'] = iso_its_02
+                    row['cluster_iso_its_04'] = iso_its_04
+                    row['cluster_iso_its_02_sub'] = iso_its_02_sub
+                    row['cluster_iso_its_04_sub'] = iso_its_04_sub
                     row['cluster_Lambda'] = lambda0
                     row['cluster_NN1'] = nn1
                     row['cluster_nmc_photon'] = nmc_photon
