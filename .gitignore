@@ -4,6 +4,8 @@ csv/
 # for now, don't push notebooks or plots
 *.ipynb
 plots/
+config-*.yaml
+nocelltrack-config-pbpb18.yaml
 
 *.pkl
 *.root

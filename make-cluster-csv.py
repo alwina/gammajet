@@ -230,10 +230,13 @@ def main(ntuplefilenames, csvfilename):
                 except AttributeError:
                     mc_truth_is_prompt_photon = None
 
+                cell_e = getattr(tree, 'cell_e')
+                cell_cluster_index = getattr(tree, 'cell_cluster_index')
+
                 centrality_v0m = getattr(tree, 'centrality_v0m')
                 ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
                 ue_estimate_its_const = getattr(tree, 'ue_estimate_its_const')
-                run_number = getattr(tree, "run_number")
+                run_number = getattr(tree, 'run_number')
 
                 if run_number != previous_run_number:
                     kINT7TriggerIds = getINT7TriggerIds(run_number)
@@ -241,9 +244,6 @@ def main(ntuplefilenames, csvfilename):
                     kSemiCentralTriggerIds = getSemiCentralTriggerIds(run_number)
                     kEMCEGATriggerIds = getEMCEGATriggerIds(run_number)
                     previous_run_number = run_number
-
-                cell_e = getattr(tree, 'cell_e')
-                cell_cluster_index = getattr(tree, 'cell_cluster_index')
 
                 # event-based values
                 weight = aweights[ievent]

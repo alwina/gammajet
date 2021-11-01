@@ -144,7 +144,7 @@ float get5x5all(const unsigned int cellMaxId, float cluster_e, float cell_e[1766
 		unsigned int cellId = cells5x5[i];
 
         if (cellId < 0 || cellId > 17763) continue;
-		if (cell_e[cellId] < 0.1) continue;
+		if (cell_e[cellId] < 0.1 || TMath::IsNaN(cell_e[cellId])) continue;
 
 		unsigned int sm;
 		unsigned int ieta;
