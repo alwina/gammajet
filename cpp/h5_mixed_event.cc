@@ -509,6 +509,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         float cluster_iso_tpc_04_ue = cluster_data_out[i][n][28];
         float cluster_lambda1 = cluster_data_out[i][n][29];
         float cluster_s_nphoton = cluster_data_out[i][n][30];
+        float cluster_5x5all = cluster_data_out[i][n][31];
 
         hClusterpT->Fill(cluster_pt);
         hClusterLambda->Fill(cluster_lambda_square);
@@ -553,6 +554,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         }
         else if (shower_shape == "cluster_emax_over_e") {
           shower = cluster_e_max / cluster_e;
+        }
+        else if (shower_shape == "cluster_5x5all") {
+          shower = cluster_5x5all;
         }
 
         Signal = (shower > srmin) and (shower < srmax);
