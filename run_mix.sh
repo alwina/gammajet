@@ -1,3 +1,7 @@
 #!/bin/bash
-
-./cpp/build/h5_mixed_event config-pbpb18.yaml cpp/18q_pass3_cluster15_celltrack.hdf5 cpp/18q_mb_296618_celltrack.hdf5 PbPb 0 10
+i=$1
+nmix=$2
+mix_start=$((i*nmix))
+mix_end=$((mix_start+nmix))
+echo $mix_start $mix_end
+./cpp/build/h5_mixed_event config-pbpb18.yaml $mix_start $mix_end

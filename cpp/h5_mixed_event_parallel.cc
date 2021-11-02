@@ -30,11 +30,14 @@ using namespace H5;
 
 int main(int argc, char *argv[])
 {
-  if (argc < 1) {
-    fprintf(stderr, "Format: [command] [config file]\n");
+  if (argc < 4) {
+    fprintf(stderr, "Format: [command] [config file] [mix start index] [mix end index]\n");
     exit(EXIT_FAILURE);
   }
 
+  int mix_start = atoi(argv[2]);
+  int mix_end = atoi(argv[3]);
+  std::cout<<mix_start<<" - "<<mix_end<<std::endl;
   // load config files
   // each config points to the next
   std::vector<YAML::Node> allconfigs;
@@ -188,6 +191,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   TH1F *hClusterLambda = new TH1F("hClusterLambda","Cluster Lambda Distribution",40,0,1.5);
   TH1F *hClustereta = new TH1F("hClustereta","Cluster eta Distribution",60,-3,3);
   TH1F *hClusterIso = new TH1F("hClusterIso","Cluster Iso Distribution",120,-10,50);
+  /* TH1I *hnJets = new TH1I("hnJets","Number of jets that pass cuts",20,0,20); */
+
+  TH1I ** hnJets = new TH1I*[10];
+  for (int h = 0; h < 10; h++)
+    hnJets[h] = new TH1I(Form("hnJetMix_%i",h),Form("Number of Jets in mixed event %i",h),20,0,20);
 
   /*---------------------------------------------------------------
     Mixed Event Book Keeping
@@ -317,7 +325,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //Block size should be determined by chunk size in to_hdf5. Usually 2000 or its multiples.
   //A larger block size will speed things up, at the cost of more memory
 
-  const int block_size = 4000;
+  const int block_size = 2000;
 
   //Local arrays the hyperslabs will be fed into, and ultimatley used in LOOPS
   float cluster_data_out[block_size][ncluster_max][Ncluster_Vars];
@@ -402,24 +410,28 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
 
   //MAIN CORRELATION LOOP
-  nentries=100000;
+  /* nentries=10000; */
   /* #pragma omp parallel for */
-  nmix = 10;
-  for (Long64_t imix = 0; imix < nmix; imix++){
-    std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<nmix<<std::endl;
+  /* nmix = 300; */
+  int mix_counter = 0; 
+  for (Long64_t imix = mix_start; imix < mix_end; imix++){
+    std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<mix_end<<std::endl;
+    if (imix > nmix) break;
     /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
     /*     __FILE__,__LINE__,imix,omp_get_thread_num()); */
 
     //Grab 2000 Mixed Events at a time
     //Takes advantage of block structure used in pairing
-    mb_event_offset[0]= imix * block_size;
-    mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
-    mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
+    if (imix*block_size <mb_eventdims[0]-block_size-1) {
+      mb_event_offset[0]= imix * block_size;
+      mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
+      mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
 
-    //FIXME: experiment with read outside of cluster loop. Would mean htrig histos need re-working as well
-    jet_offset[0]= imix * block_size;
-    jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
-    jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+      //FIXME: experiment with read outside of cluster loop. Would mean htrig histos need re-working as well
+      jet_offset[0]= imix * block_size;
+      jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
+      jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+    }
 
     int offset = 0; //Offset for Triggered Events
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
@@ -544,7 +556,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         }
 
         Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
-
+        std::cout<<std::endl<<"Isolation Bool = "<<Isolated<<std::endl;
         float shower = -1;
         if (shower_shape == "cluster_Lambda") {
           shower = cluster_lambda_square;
@@ -561,9 +573,10 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
         Signal = (shower > srmin) and (shower < srmax);
         Background = (shower > brmin) and (shower < brmax);
-        /* std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl; */
-        /* std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Background BOOL = "<<Background<<std::endl; */
-        /* std::cout<<"Centrality = "<<centrality_v0m<<"; Isolation Deteminer = "<<determiner<<"; Iso Val = "<<isolation<<std::endl; */
+        std::cout<<"Signal Region = "<<srmin<<" to "<<srmax<<std::endl;
+        std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl;
+        std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Signal BOOL = "<<Signal<<std::endl;
+        std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Background BOOL = "<<Background<<std::endl;
 
         float bkg_weight = 1.0;
         float track_weight = 1.0; //Fake Rate, smearing, efficiency
@@ -591,7 +604,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         if(mix_event  < 0) continue; //unpaired events set to negative numbers 
         int mix_index = mix_event % block_size;
 
-        float mb_primary_vertex = mb_event_data_out[mix_index][0];//z-vertex
+        float mb_primary_vertex = mb_event_data_out[mix_index][0];
         float mb_multiplicity = mb_event_data_out[mix_index][1];
         float mb_v2 = mb_event_data_out[mix_index][2];
         float mb_centrality_v0m = mb_event_data_out[mix_index][3];
@@ -610,8 +623,10 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) continue;
         if (TMath::Abs(primary_vertex-mb_primary_vertex) > 2.) continue;
         if (TMath::Abs(v2-mb_v2) > 0.5) continue;
+        std::cout<<"HERE"<<std::endl;
 
         if (Signal and Isolated) {
+          std::cout<<"HERE"<<__LINE__<<std::endl;
           nMixSR[0] = centrality_v0m;
           nMixSR[1] = cluster_pt;
           hnMixSR->Fill(nMixSR);
@@ -626,6 +641,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         }
 
         //Jet Loop
+        int jet_counter = 0;
         for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
           if (std::isnan(jet_data_out[mix_index][ijet][0])) break;
           float jet_ak04tpc_pt_raw = jet_data_out[mix_index][ijet][0];
@@ -635,6 +651,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
           if (jet_ak04tpc_pt_raw < jet_pt_min) continue;
           if (jet_ak04tpc_pt_raw > jet_pt_max) continue;
           if (abs(jet_ak04tpc_eta) > jet_eta_max) continue;
+
+          jet_counter++;
+          /* hnJets[mix_counter]->Fill(jet_counter); */
 
           // Observables: delta phi, jet pT, pT ratio
           Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi - jet_ak04tpc_phi));
@@ -663,10 +682,13 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         }//jet loop
       }//cluster loop
     }//event loop
+    mix_counter++;
   }//mixed event loop
 
   TFile* fout;
-  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE");
+  /* fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE"); */
+  TString basename = (TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>();
+  fout = new TFile(basename+Form("mix_%i.root",mix_start),"RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   hTrigSR->Write();
@@ -699,6 +721,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   hClusterLambda->Write();
   hClustereta->Write();
   hClusterIso->Write();
+
+  for (int h = 0; h < 10; h++)
+    hnJets[h]->Write();
 
   fout->Close();
   std::cout << " ending " << std::endl;
