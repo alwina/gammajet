@@ -410,7 +410,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
 
   //MAIN CORRELATION LOOP
-  /* nentries=10000; */
+  /* nentries=10; */
   /* #pragma omp parallel for */
   /* nmix = 300; */
   int mix_counter = 0; 
@@ -422,7 +422,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
     //Grab 2000 Mixed Events at a time
     //Takes advantage of block structure used in pairing
-    if (imix*block_size <mb_eventdims[0]-block_size-1) {
+    if (imix*block_size < mb_eventdims[0]-block_size-1) {
       mb_event_offset[0]= imix * block_size;
       mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
       mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
@@ -437,6 +437,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
       int i = ievent % block_size;
+      std::cout<<std::endl<<i<<std::endl;
       //reading from file is done every [block_size] number of events
       //this variable keeps track of the current increment within a block
       // as opposed to [ievent] which is looping through all events
@@ -556,7 +557,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         }
 
         Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
-        std::cout<<std::endl<<"Isolation Bool = "<<Isolated<<std::endl;
+
         float shower = -1;
         if (shower_shape == "cluster_Lambda") {
           shower = cluster_lambda_square;
@@ -573,10 +574,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
         Signal = (shower > srmin) and (shower < srmax);
         Background = (shower > brmin) and (shower < brmax);
-        std::cout<<"Signal Region = "<<srmin<<" to "<<srmax<<std::endl;
-        std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl;
-        std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Signal BOOL = "<<Signal<<std::endl;
-        std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Background BOOL = "<<Background<<std::endl;
+        /* std::cout<<std::endl; */
+        /* std::cout<<"Isolation Bool = "<<Isolated<<std::endl; */
+        /* std::cout<<"Signal Region = "<<srmin<<" to "<<srmax<<std::endl; */
+        /* std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl; */
+        /* std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Signal BOOL = "<<Signal<<"; Background BOOL = "<<Background<<std::endl; */
 
         float bkg_weight = 1.0;
         float track_weight = 1.0; //Fake Rate, smearing, efficiency
@@ -601,13 +603,27 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
         //MIXING
         Long64_t mix_event =  mix_data_out[i][imix];
+        /* std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
         if(mix_event  < 0) continue; //unpaired events set to negative numbers 
-        int mix_index = mix_event % block_size;
+        int mix_index = mix_event % block_size; //get the relevant index for this specific block
+
+        /* std::cout<<std::endl<<mix_index<<std::endl; */
+        /* std::cout<<std::endl<<mix_event<<std::endl; */
 
         float mb_primary_vertex = mb_event_data_out[mix_index][0];
         float mb_multiplicity = mb_event_data_out[mix_index][1];
         float mb_v2 = mb_event_data_out[mix_index][2];
         float mb_centrality_v0m = mb_event_data_out[mix_index][3];
+
+        /* std::cout<<std::endl<<"z = "<<primary_vertex; */
+        /* std::cout<<std::endl<<"mb z = "<<mb_primary_vertex<<std::endl; */
+        /* std::cout<<std::endl<<"multp = "<<multiplicity; */
+        /* std::cout<<std::endl<<"mb multp = "<<mb_multiplicity<<std::endl; */
+        /* std::cout<<std::endl<<"v2 = "<<v2; */
+        /* std::cout<<std::endl<<"mb v2 = "<<mb_v2<<std::endl; */
+        /* std::cout<<std::endl<<"cent = "<<centrality_v0m; */
+        /* std::cout<<std::endl<<"mb cent = "<<mb_centrality_v0m<<std::endl; */
+
 
         z_vertices_MinBias->Fill(mb_primary_vertex);
         flow_MinBias->Fill(mb_v2);
@@ -620,13 +636,18 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         delta_centrality->Fill(TMath::Abs(centrality_v0m-mb_centrality_v0m));
 
         //Add Delta Cuts on Event Pairing
+        /* std::cout<<std::endl<<(TMath::Abs(centrality_v0m-mb_centrality_v0m)) ; */
+        /* std::cout<<std::endl<<(TMath::Abs(primary_vertex-mb_primary_vertex)); */
+        /* std::cout<<std::endl<<(TMath::Abs(v2-mb_v2)); */
+        /* std::cout<<"HERE"<<std::endl; */
+
         if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) continue;
         if (TMath::Abs(primary_vertex-mb_primary_vertex) > 2.) continue;
         if (TMath::Abs(v2-mb_v2) > 0.5) continue;
-        std::cout<<"HERE"<<std::endl;
+        /* std::cout<<"HERE"<<std::endl; */
 
         if (Signal and Isolated) {
-          std::cout<<"HERE"<<__LINE__<<std::endl;
+          /* std::cout<<"HERE"<<__LINE__<<std::endl; */
           nMixSR[0] = centrality_v0m;
           nMixSR[1] = cluster_pt;
           hnMixSR->Fill(nMixSR);
