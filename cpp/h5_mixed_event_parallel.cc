@@ -317,10 +317,10 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   hsize_t mb_eventdims[mb_event_rank];
   mb_event_dataspace.getSimpleExtentDims(mb_eventdims, NULL);
 
-  fprintf(stderr, "\n%s:%d: number of cluster variables = %i\n", __FILE__, __LINE__, Ncluster_Vars);
-  fprintf(stderr, "\n%s:%d: number of mixed events from file = %i\n", __FILE__, __LINE__, nmix);
-  fprintf(stderr, "\n%s:%d: number of event variables = %i\n", __FILE__, __LINE__, Nevent_Vars);
-  fprintf(stderr, "\n%s:%d: number of jet variables = %i\n", __FILE__, __LINE__, Njet_Vars);
+  /* fprintf(stderr, "\n%s:%d: number of cluster variables = %i\n", __FILE__, __LINE__, Ncluster_Vars); */
+  /* fprintf(stderr, "\n%s:%d: number of mixed events from file = %i\n", __FILE__, __LINE__, nmix); */
+  /* fprintf(stderr, "\n%s:%d: number of event variables = %i\n", __FILE__, __LINE__, Nevent_Vars); */
+  /* fprintf(stderr, "\n%s:%d: number of jet variables = %i\n", __FILE__, __LINE__, Njet_Vars); */
 
   //Block size should be determined by chunk size in to_hdf5. Usually 2000 or its multiples.
   //A larger block size will speed things up, at the cost of more memory
@@ -358,7 +358,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
   mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
-  fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "select Hyperslab OK");
+  /* fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "select Hyperslab OK"); */
 
   //Define the memory dataspace in which to place hyperslab
   DataSpace event_memspace(event_rank, eventdims );
@@ -400,7 +400,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   //First [block_size] number of events have just been read into local arrays
 
-  fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "datasets succesfully read into array");
+  /* fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "datasets succesfully read into array"); */
 
 
   //IMPORTANT BOOLEAN VARIABLES
@@ -415,8 +415,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   /* nmix = 300; */
   int mix_counter = 0; 
   for (Long64_t imix = mix_start; imix < mix_end; imix++){
-    std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<mix_end<<std::endl;
     if (imix > nmix) break;
+    /* std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<mix_end<<std::endl; */
     /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
     /*     __FILE__,__LINE__,imix,omp_get_thread_num()); */
 
@@ -435,9 +435,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
     int offset = 0; //Offset for Triggered Events
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
-      fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
+      fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix-mix_start, mix_end-mix_start,ievent, nentries);
       int i = ievent % block_size;
-      std::cout<<std::endl<<i<<std::endl;
       //reading from file is done every [block_size] number of events
       //this variable keeps track of the current increment within a block
       // as opposed to [ievent] which is looping through all events
@@ -710,7 +709,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   /* fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE"); */
   TString basename = (TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>();
   fout = new TFile(basename+Form("mix_%i.root",mix_start),"RECREATE");
-  std::cout << "Writing to file" << std::endl;
+  /* std::cout << "Writing to file" << std::endl; */
 
   hTrigSR->Write();
   hCorrSR->Write();
