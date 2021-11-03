@@ -217,6 +217,7 @@ int main(int argc, char *argv[])
   Float_t cell_e[17664];
   Float_t cluster_distance_to_bad_channel[NTRACK_MAX];
   UChar_t cluster_nlocal_maxima[NTRACK_MAX];
+  Float_t cluster_5x5all[NTRACK_MAX];
 
   Float_t cluster_tof[NTRACK_MAX];
   Float_t cluster_iso_its_04_ue[NTRACK_MAX];
@@ -250,7 +251,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
   fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
   fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
-  fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, srmax);
+  fprintf(stderr, "%d: SR max = %f \n ", __LINE__, srmax);
   fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
   fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
   fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
@@ -263,10 +264,9 @@ int main(int argc, char *argv[])
     TFile *file = TFile::Open((TString)root_file);
 
     if (file == NULL) {
-      std::cout << " fail" << std::endl;
+      std::cout << "Failed to open file" << std::endl;
       exit(EXIT_FAILURE);
     }
-    file->Print();
 
     TTree *_tree_event = dynamic_cast<TTree *>(file->Get("_tree_event"));
 
@@ -277,7 +277,17 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
       }
     }
-
+    
+    std::string aux_filename = root_file.replace(root_file.find(".root"), 5, "_AUX.root");
+    std::cout << "Opening " << aux_filename << std::endl;
+    TFile *auxfile = TFile::Open((TString)aux_filename);
+    if (auxfile == NULL) {
+      std::cout << "Failed to open file" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    
+    TTree *auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
+    
     // Set the branch addresses of the branches in the TTrees
     _tree_event->SetBranchStatus("*mc*", 0);
 
@@ -330,6 +340,8 @@ int main(int argc, char *argv[])
     _tree_event->SetBranchAddress("cluster_iso_its_04_ue", cluster_iso_its_04_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
+    
+    auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
 
     //_tree_event->SetBranchAddress("eg_cross_section",&eg_cross_section);
     //_tree_event->SetBranchAddress("eg_ntrial",&eg_ntrial);
@@ -347,6 +359,7 @@ int main(int argc, char *argv[])
     Bool_t Isolated = false;
 
     Long64_t nentries = _tree_event->GetEntries();
+    // nentries = 1000;
 
     //MAIN CORRELATION LOOP
     for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
@@ -361,6 +374,7 @@ int main(int argc, char *argv[])
         }
       }
       _tree_event->GetEntry(ievent);
+      auxtree->GetEntry(ievent);
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
       Float_t purity_weight = 0;
@@ -415,7 +429,7 @@ int main(int argc, char *argv[])
           shower = cluster_e_max[n] / cluster_e[n];
         }
         else if (shower_shape == "cluster_5x5all") {
-          shower = get5x5all(cluster_cell_id_max[n], cluster_e[n], cell_e);
+          shower = cluster_5x5all[n];
         }
 
         Signal = (shower > srmin) and (shower < srmax);
@@ -474,6 +488,7 @@ int main(int argc, char *argv[])
       }//for nclusters
     } //for nevents
     file->Close();
+    auxfile->Close();
     std::cout << std::endl;
   }
 

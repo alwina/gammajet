@@ -38,6 +38,8 @@ def createAuxFile(ntuplefilename):
     previous_run_number = -1
 
     for ievent in range(nevents):
+        if ievent % 25000 == 0:
+            print('{0} Processing event {1}/{2}'.format(datetime.datetime.now(), ievent, nevents))
         tree.GetEntry(ievent)
         ncluster = getattr(tree, 'ncluster')
         cluster_e = getattr(tree, 'cluster_e')
@@ -77,8 +79,9 @@ def createAuxFile(ntuplefilename):
 
 def main(ntuplefilenames):
     for (ifile, ntuplefilename) in enumerate(ntuplefilenames):
-        print('{0} Creating aux file for {2} ({3}/{4})'.format(datetime.datetime.now(), os.path.basename(ntuplefilename), ifile + 1, len(ntuplefilenames)))
+        print('{0} Creating aux file for {1} ({2}/{3})'.format(datetime.datetime.now(), os.path.basename(ntuplefilename), ifile + 1, len(ntuplefilenames)))
         createAuxFile(ntuplefilename)
+    print('Done')
 
 
 if __name__ == '__main__':
