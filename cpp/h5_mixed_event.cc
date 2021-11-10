@@ -30,8 +30,8 @@ using namespace H5;
 
 int main(int argc, char *argv[])
 {
-  if (argc < 1) {
-    fprintf(stderr, "Format: [command] [config file]\n");
+  if (argc < 2) {
+    fprintf(stderr, "Format: [command] [config file] [mixlabel]\n");
     exit(EXIT_FAILURE);
   }
 
@@ -44,6 +44,8 @@ int main(int argc, char *argv[])
   allconfigs.push_back(configsystem);
   YAML::Node configglobal = YAML::LoadFile(configsystem["globalconfig"].as<std::string>());
   allconfigs.push_back(configglobal);
+
+  std::string mixlabel = argv[2];
 
   double srmin = 0;
   double srmax = 0;
@@ -246,12 +248,12 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //I use dimensions obtained by reading dataspace info the hdf5 file 
 
   //Triggered and MB hdf5 files
-  const H5std_string triggered_hdf5_file_name(configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
-  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"]["triggered"].as<std::string>());
+  const H5std_string triggered_hdf5_file_name(configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>());
+  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>());
   H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY ); 
 
-  const H5std_string MB_hdf5_file_name(configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
-  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"]["mb"].as<std::string>());
+  const H5std_string MB_hdf5_file_name(configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
+  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
   H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY );
 
   //get cluster dataset from TRIGGERED file
@@ -666,7 +668,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   }//mixed event loop
 
   TFile* fout;
-  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE");
+  fout = new TFile((TString) configrunperiod["filelists"]["mixing"][mixlabel]["correlation"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
   hTrigSR->Write();

@@ -238,6 +238,10 @@ def main(ntuplefilenames, csvfilename):
                 ue_estimate_its_const = getattr(tree, 'ue_estimate_its_const')
                 run_number = getattr(tree, 'run_number')
 
+                # somehow accidentally used this run, but it's not in the good run list
+                if run_number == 295665:
+                    continue
+
                 if run_number != previous_run_number:
                     kINT7TriggerIds = getINT7TriggerIds(run_number)
                     kCentralTriggerIds = getCentralTriggerIds(run_number)
