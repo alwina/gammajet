@@ -16,8 +16,8 @@ find_package(OpenMP)
 # finding the HDF5 package fails, so we do it manually instead
 # 'export $HDF5_DIR=/opt/cray/pe/hdf5-parallel/1.10.5.2/INTEL/19.0/'
 # find_package(HDF5)
-# find_package(HDF5 NAMES hdf5 COMPONENTS C ${SEARCH_TYPE})
-# set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${HDF5_INCLUDE_DIR}")
+find_package(HDF5 NAMES hdf5 COMPONENTS C ${SEARCH_TYPE})
+set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${HDF5_INCLUDE_DIR}")
 
 # RooUnfold is a manual install, and $ROOUNFOLD_DIR is a variable that doesn't naturally exist,
 # so add to .bashrc or export it before compiling or whatever
@@ -45,4 +45,5 @@ add_executable(response_matrix response_matrix.cc)
 # link libraries
 target_link_libraries(same_event ${ROOT_LIBRARIES} yaml-cpp)
 target_link_libraries(h5_mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp OpenMP::OpenMP_CXX)
+target_link_libraries(h5_mixed_event_parallel ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp OpenMP::OpenMP_CXX)
 target_link_libraries(response_matrix RooUnfold ${ROOT_LIBRARIES} yaml-cpp)
