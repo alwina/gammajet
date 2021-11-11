@@ -4,7 +4,7 @@ from array import array
 import datetime
 import os
 import ROOT
-import root_numpy as rnp
+import struct
 import sys
 import yaml
 
@@ -15,15 +15,14 @@ from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentr
 def createAuxFile(ntuplefilename):
     rootfile = ROOT.TFile.Open(ntuplefilename, 'READ')
     tree = rootfile.Get('AliAnalysisTaskNTGJ/_tree_event')
-    atrigger_mask = rnp.tree2array(tree, branches='trigger_mask')
     nevents = tree.GetEntries()
 
     outncluster = array('i', [0])
     cluster_5x5all = array('f', 17664 * [0])
-    isINT7 = array('i', [0])
-    isCentral = array('i', [0])
-    isSemiCentral = array('i', [0])
-    isEMCEGA = array('i', [0])
+    isINT7 = array('B', [0])
+    isCentral = array('B', [0])
+    isSemiCentral = array('B', [0])
+    isEMCEGA = array('B', [0])
 
     outfile = ROOT.TFile.Open(ntuplefilename.replace('.root', '_AUX.root'), 'RECREATE')
     outtree = ROOT.TTree('ntupleaux', 'ntupleaux')
@@ -45,6 +44,7 @@ def createAuxFile(ntuplefilename):
         cluster_e = getattr(tree, 'cluster_e')
         cluster_cell_id_max = getattr(tree, 'cluster_cell_id_max')
         run_number = getattr(tree, 'run_number')
+        trigger_mask = getattr(tree, 'trigger_mask')
         cell_e = getattr(tree, 'cell_e')
         cell_cluster_index = getattr(tree, 'cell_cluster_index')
 
@@ -56,7 +56,10 @@ def createAuxFile(ntuplefilename):
             previous_run_number = run_number
 
         # combine the trigger masks into one number
-        triggerMask = atrigger_mask[ievent][0] + (int(atrigger_mask[ievent][1]) << 50)
+        if len(trigger_mask) > 1:
+            triggerMask = struct.unpack('2L', trigger_mask)[0] + (struct.unpack('2L', trigger_mask)[1] << 50)
+        else:
+            triggerMask = struct.unpack('1L', trigger_mask)[0]
 
         isINT7[0] = isEventSelected(kINT7TriggerIds, triggerMask)
         isCentral[0] = isEventSelected(kCentralTriggerIds, triggerMask)
