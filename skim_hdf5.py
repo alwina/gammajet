@@ -13,6 +13,8 @@ def skimHDF5Centrality(filename, centrange, eventgroupsize=100000, chunksize=200
     jetshape = fullfile['jet'][:1].shape
     neventsfull = eventshape[0]
 
+    print('Skimming from {0} events'.format(neventsfull))
+
     skimevent = None
     skimcluster = None
     skimtrack = None
@@ -29,10 +31,10 @@ def skimHDF5Centrality(filename, centrange, eventgroupsize=100000, chunksize=200
         neventsskim = np.count_nonzero(event_pass_indices)
 
         if skimevent is None:
-            skimevent = skimfile.create_dataset('event', data=event[event_pass_indices], chunks=(chunksize, eventshape[1]), compression='gzip', maxshape=(None, eventshape[1]))
-            skimcluster = skimfile.create_dataset('cluster', data=cluster[event_pass_indices], chunks=(chunksize, clustershape[1], clustershape[2]), compression='gzip', maxshape=(None, clustershape[1], clustershape[2]))
-            skimtrack = skimfile.create_dataset('track', data=track[event_pass_indices], chunks=(chunksize, trackshape[1], trackshape[2]), compression='gzip', maxshape=(None, trackshape[1], trackshape[2]))
-            skimjet = skimfile.create_dataset('jet', data=jet[event_pass_indices], chunks=(chunksize, jetshape[1], jetshape[2]), compression='gzip', maxshape=(None, jetshape[1], jetshape[2]))
+            skimevent = skimfile.create_dataset('event', data=event[event_pass_indices], chunks=(chunksize, eventshape[1]), compression='gzip', maxshape=(neventsfull, eventshape[1]))
+            skimcluster = skimfile.create_dataset('cluster', data=cluster[event_pass_indices], chunks=(chunksize, clustershape[1], clustershape[2]), compression='gzip', maxshape=(neventsfull, clustershape[1], clustershape[2]))
+            skimtrack = skimfile.create_dataset('track', data=track[event_pass_indices], chunks=(chunksize, trackshape[1], trackshape[2]), compression='gzip', maxshape=(neventsfull, trackshape[1], trackshape[2]))
+            skimjet = skimfile.create_dataset('jet', data=jet[event_pass_indices], chunks=(chunksize, jetshape[1], jetshape[2]), compression='gzip', maxshape=(neventsfull, jetshape[1], jetshape[2]))
         else:
             skimevent.resize(skimevent.shape[0] + neventsskim, axis=0)
             skimcluster.resize(skimcluster.shape[0] + neventsskim, axis=0)
