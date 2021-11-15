@@ -31,6 +31,7 @@ def createAuxFile(ntuplefilename):
     jet_ak02tpc_eta = array('f', 10000 * [0])
     jet_ak02tpc_phi = array('f', 10000 * [0])
     jet_ak02tpc_area = array('f', 10000 * [0])
+    jet_ak02tpc_multiplicity_raw = array('H', 10000 * [0])
 
     outfile = ROOT.TFile.Open(ntuplefilename.replace('.root', '_AUX.root'), 'RECREATE')
     outtree = ROOT.TTree('ntupleaux', 'ntupleaux')
@@ -46,6 +47,7 @@ def createAuxFile(ntuplefilename):
     outtree.Branch('jet_ak02tpc_eta', jet_ak02tpc_eta, 'jet_ak02tpc_eta[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_phi', jet_ak02tpc_phi, 'jet_ak02tpc_phi[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_area', jet_ak02tpc_area, 'jet_ak02tpc_area[njet_ak02tpc]/F')
+    outtree.Branch('jet_ak02tpc_multiplicity_raw', jet_ak02tpc_multiplicity_raw, 'jet_ak02tpc_multiplicity_raw[njet_ak02tpc]/s')
 
     jetdef = fastjet.JetDefinition(fastjet.antikt_algorithm, 0.2)
     areadef = fastjet.AreaDefinition(fastjet.VoronoiAreaSpec())
@@ -127,12 +129,12 @@ def createAuxFile(ntuplefilename):
         # need to keep this in scope in order for other stuff to work
         csa = fastjet.ClusterSequenceArea(pjs, jetdef, areadef)
         jets = csa.inclusive_jets()
-        for ijet in range(len(jets)):
-            jet = jets[ijet]
+        for ijet, jet in enumerate(jets):
             jet_ak02tpc_pt_raw[ijet] = jet.perp() - (ue_estimate_tpc_const * jet.area())
             jet_ak02tpc_eta[ijet] = jet.eta()
             jet_ak02tpc_phi[ijet] = jet.phi()
             jet_ak02tpc_area[ijet] = jet.area()
+            jet_ak02tpc_multiplicity_raw[ijet] = len(jet.constituents())
 
         njet_ak02tpc[0] = len(jets)
 
