@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
   std::string mixlabel = argv[2];
   int mix_start = atoi(argv[3]);
   int mix_end = atoi(argv[4]);
-  std::cout<<mix_start<<" - "<<mix_end<<std::endl;
+  std::cout << mix_start << " - " << mix_end << std::endl;
   // load config files
   // each config points to the next
   std::vector<YAML::Node> allconfigs;
@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
   bool do_pile = false;
 
   //double deta_max = 0;
+  std::string jettype = "ak04tpc";
   std::string isovar = "cluster_iso_its_04";
   std::string shower_shape = "DNN";
   std::string purity_deviation = "None";
@@ -123,10 +124,14 @@ int main(int argc, char *argv[])
       cluster_time = config["clustercuts"]["data"]["cluster_tof"]["max"].as<double>();
     }
 
+    if (config["jettype"]) {
+      jettype = config["jettype"].as<std::string>();
+    }
+
     if (config["jetcuts"]) {
-      jet_pt_min = config["jetcuts"]["jet_ak04tpc_pt_raw"]["min"].as<double>();
-      jet_pt_max = config["jetcuts"]["jet_ak04tpc_pt_raw"]["max"].as<double>();
-      jet_eta_max = config["jetcuts"]["jet_ak04tpc_eta"]["max"].as<double>();
+      jet_pt_min = config["jetcuts"]["jet_pt_raw"]["min"].as<double>();
+      jet_pt_max = config["jetcuts"]["jet_pt_raw"]["max"].as<double>();
+      jet_eta_max = config["jetcuts"]["jet_eta"]["max"].as<double>();
     }
 
     if (config["do_pileup_cut"]) {
@@ -151,11 +156,11 @@ int main(int argc, char *argv[])
 
   /*--------------------------------------------------------------
     Setting up THnSparses
-hCorrSR: cluster-jet correlations for the signal region
-hTrigSR: counting the number of clusters in each bin in the signal region
-hCorrBR: cluster-jet correlations for the bkg region
-hTrigBR: counting the number of clusters in each bin in the bkg region
---------------------------------------------------------------*/
+  hCorrSR: cluster-jet correlations for the signal region
+  hTrigSR: counting the number of clusters in each bin in the signal region
+  hCorrBR: cluster-jet correlations for the bkg region
+  hTrigBR: counting the number of clusters in each bin in the bkg region
+  --------------------------------------------------------------*/
 
   // dimensions: centrality, cluster pT
   const Int_t ndimTrig = 2;
@@ -165,8 +170,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   THnSparseF* hTrigSR = new THnSparseF("hTrigSR", "Mixed Event Number of clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
   THnSparseF* hTrigBR = new THnSparseF("hTrigBR", "Mixed Event Number of clusters (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
-  THnSparseF* hnMixSR= new THnSparseF("hnMixSR", "Number of Mixed Events (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
-  THnSparseF* hnMixBR= new THnSparseF("hnMixBR", "Number of Mixed Events (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+  THnSparseF* hnMixSR = new THnSparseF("hnMixSR", "Number of Mixed Events (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+  THnSparseF* hnMixBR = new THnSparseF("hnMixBR", "Number of Mixed Events (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
   Double_t trigSR[ndimTrig];
   Double_t trigBR[ndimTrig];
@@ -188,21 +193,21 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   Double_t corrBR[ndimCorr];
 
   //Debugging Histograms
-  TH1F *hClusterpT = new TH1F("hClusterpT","Cluster pT Distribution",200,0,100);
-  TH1F *hClusterLambda = new TH1F("hClusterLambda","Cluster Lambda Distribution",40,0,1.5);
-  TH1F *hClustereta = new TH1F("hClustereta","Cluster eta Distribution",60,-3,3);
-  TH1F *hClusterIso = new TH1F("hClusterIso","Cluster Iso Distribution",120,-10,50);
+  TH1F *hClusterpT = new TH1F("hClusterpT", "Cluster pT Distribution", 200, 0, 100);
+  TH1F *hClusterLambda = new TH1F("hClusterLambda", "Cluster Lambda Distribution", 40, 0, 1.5);
+  TH1F *hClustereta = new TH1F("hClustereta", "Cluster eta Distribution", 60, -3, 3);
+  TH1F *hClusterIso = new TH1F("hClusterIso", "Cluster Iso Distribution", 120, -10, 50);
   /* TH1I *hnJets = new TH1I("hnJets","Number of jets that pass cuts",20,0,20); */
 
   TH1I ** hnJets = new TH1I*[10];
   for (int h = 0; h < 10; h++)
-    hnJets[h] = new TH1I(Form("hnJetMix_%i",h),Form("Number of Jets in mixed event %i",h),20,0,20);
+    hnJets[h] = new TH1I(Form("hnJetMix_%i", h), Form("Number of Jets in mixed event %i", h), 20, 0, 20);
 
   /*---------------------------------------------------------------
     Mixed Event Book Keeping
     ---------------------------------------------------------------*/
-  TH1I *SR_mixed_event_counter = new TH1I("SR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
-  TH1I *BR_mixed_event_counter = new TH1I("BR_mixed_event_counter","Distribution of Mixed Event No.",1E6,0,1E6);
+  TH1I *SR_mixed_event_counter = new TH1I("SR_mixed_event_counter", "Distribution of Mixed Event No.", 1E6, 0, 1E6);
+  TH1I *BR_mixed_event_counter = new TH1I("BR_mixed_event_counter", "Distribution of Mixed Event No.", 1E6, 0, 1E6);
   //GetEntries() of above is all that is needed. Distributions serve as additional check to mixing
 
   TH1D* z_vertices_triggered = new TH1D("Primary_Vertex_triggered", "Z-vertex (triggered)", 240, -12, 12);
@@ -215,7 +220,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   TH1D* flow_triggered = new TH1D("Flow_triggered", "Flow (triggered)", 500, -2, 2);
   TH1D* flow_MinBias = new TH1D("Flow_MinBias", "Flow (MinBias)", 500, -2, 2);
-  TH1D* delta_flow= new TH1D("Delta_Flow", "#Delta Flow Distribution", 500, 0, 4);
+  TH1D* delta_flow = new TH1D("Delta_Flow", "#Delta Flow Distribution", 500, 0, 4);
 
   TH1D* centrality_triggered = new TH1D("centrality_triggered", "centrality (triggered)", 200, 0, 100);
   TH1D* centrality_MinBias = new TH1D("centrality_MinBias", "centrality (MinBias)", 200, 0, 100);
@@ -233,11 +238,11 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
 
   /*---------------------------------------------------------------
-    Using low level hdf5 API for data 
+    Using low level hdf5 API for data
     ---------------------------------------------------------------*/
   //Procedure goes something like this:
   //1. Get Datasets from the appropriate triggered or MB hdf5 file
-  //2. Get Dataspaces from datasets, and record dimensions locally 
+  //2. Get Dataspaces from datasets, and record dimensions locally
   //3. Define size and offset of hyperslab to be read from DISK
   //4. Define size and offset of hyperslab to read into MEMORY
   //5. Define local arrays to store information
@@ -251,13 +256,13 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
   //Documentation:
   //https://support.hdfgroup.org/HDF5/doc/cpplus_RM/readdata_8cpp-example.html
-  //Instead of ranks as strict definitions (RANK_OUT for example), 
-  //I use dimensions obtained by reading dataspace info the hdf5 file 
+  //Instead of ranks as strict definitions (RANK_OUT for example),
+  //I use dimensions obtained by reading dataspace info the hdf5 file
 
   //Triggered and MB hdf5 files
   const H5std_string triggered_hdf5_file_name(configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>());
   fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>());
-  H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY ); 
+  H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY );
 
   const H5std_string MB_hdf5_file_name(configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
   fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
@@ -275,9 +280,20 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   const H5std_string mix_ds_name( "mixing" );
   DataSet mix_dataset = triggered_h5_file.openDataSet( mix_ds_name );
 
-  //get Jet Dateset from MIN-BIAS file
-  const H5std_string jet_ds_name( "jet" );
-  DataSet jet_dataset = MB_h5_file.openDataSet( jet_ds_name );
+  // get Jet Dateset from MIN-BIAS file
+  // switch based on jet type
+  DataSet jet_dataset;
+  if (jettype == "ak04tpc" or jettype == "ak02tpc") {
+    const H5std_string jet_ds_name( "jet_" + jettype );
+    jet_dataset = MB_h5_file.openDataSet( jet_ds_name );
+  } else if (jettype == "ak04its") {
+    std::cout << "ERROR: Jet type ak04its not yet supported. Aborting" << std::endl;
+    exit(EXIT_FAILURE);
+  } else {
+    std::cout << "ERROR: Jet type " << jettype << " not recognized. Aborting" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
   //MINBIAS EVENT DATA
   DataSet mb_event_dataset = MB_h5_file.openDataSet( event_ds_name );
 
@@ -286,7 +302,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   DataSpace event_dataspace = event_dataset.getSpace();
   DataSpace mix_dataspace = mix_dataset.getSpace();
   DataSpace jet_dataspace = jet_dataset.getSpace();
-  DataSpace mb_event_dataspace = mb_event_dataset.getSpace(); 
+  DataSpace mb_event_dataspace = mb_event_dataset.getSpace();
 
   //Load the dimensions of datasets from file, to be used in dataspace/hyperslab
   //first get the number of dimensions with ExtentNdims
@@ -305,13 +321,13 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   const int event_rank = event_dataspace.getSimpleExtentNdims();
   hsize_t eventdims[event_rank];
   event_dataspace.getSimpleExtentDims(eventdims, NULL);
-  hsize_t nentries= eventdims[0]; //name break convention here to be similar same event corr. nentries = tree->GetEntries()
+  hsize_t nentries = eventdims[0]; //name break convention here to be similar same event corr. nentries = tree->GetEntries()
   UInt_t Nevent_Vars = eventdims[1];
 
   const int jet_rank = jet_dataspace.getSimpleExtentNdims();
   hsize_t jetdims[jet_rank];
   jet_dataspace.getSimpleExtentDims(jetdims, NULL);
-  UInt_t njet_ak04tpc = jetdims[1];
+  UInt_t njet = jetdims[1];
   UInt_t Njet_Vars = jetdims[2];
 
   const int mb_event_rank = mb_event_dataspace.getSimpleExtentNdims();
@@ -333,7 +349,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   float mix_data_out[block_size][nmix];
   float event_data_out[block_size][Nevent_Vars];
 
-  float jet_data_out[block_size][njet_ak04tpc][Njet_Vars];
+  float jet_data_out[block_size][njet][Njet_Vars];
   float mb_event_data_out[block_size][Nevent_Vars];
 
   //Define hyperslab size and offset to be read from FILE;
@@ -346,13 +362,13 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   //MB
   //FIXME: Get MinBias to use block logic as well
   hsize_t jet_offset[3] = {0, 0, 0};
-  hsize_t jet_count[3] = {block_size, njet_ak04tpc, Njet_Vars};
+  hsize_t jet_count[3] = {block_size, njet, Njet_Vars};
   hsize_t mb_event_offset[2] = {0, 0};
   hsize_t mb_event_count[2] = {block_size, Nevent_Vars};
 
   /* The Offset is how we iterate over the entire hdf5 file. */
   /* For example, To obtain data for event 68, set the */
-  /* offset's to {68, njet_ak04tpc, Njet_Vars}. */
+  /* offset's to {68, njet, Njet_Vars}. */
   event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
   cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
   mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
@@ -382,7 +398,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   hsize_t event_count_out[2] = {block_size, Nevent_Vars};
   hsize_t cluster_count_out[3] = {block_size, ncluster_max, Ncluster_Vars};
   hsize_t mix_count_out[2] = {block_size, nmix};
-  hsize_t jet_count_out[3] = {block_size, njet_ak04tpc, Njet_Vars};
+  hsize_t jet_count_out[3] = {block_size, njet, Njet_Vars};
   hsize_t mb_event_count_out[2] = {block_size, Nevent_Vars};
 
   //Apply the offset and dimensions from the previous two code blocks to the memspace
@@ -414,8 +430,8 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   /* nentries=10; */
   /* #pragma omp parallel for */
   /* nmix = 300; */
-  int mix_counter = 0; 
-  for (Long64_t imix = mix_start; imix < mix_end; imix++){
+  int mix_counter = 0;
+  for (Long64_t imix = mix_start; imix < mix_end; imix++) {
     if (imix > nmix) break;
     /* std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<mix_end<<std::endl; */
     /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
@@ -423,27 +439,27 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
     //Grab 2000 Mixed Events at a time
     //Takes advantage of block structure used in pairing
-    if (imix*block_size < mb_eventdims[0]-block_size-1) {
-      mb_event_offset[0]= imix * block_size;
+    if (imix * block_size < mb_eventdims[0] - block_size - 1) {
+      mb_event_offset[0] = imix * block_size;
       mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
       mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
 
       //FIXME: experiment with read outside of cluster loop. Would mean htrig histos need re-working as well
-      jet_offset[0]= imix * block_size;
+      jet_offset[0] = imix * block_size;
       jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
       jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
     }
 
     int offset = 0; //Offset for Triggered Events
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
-      fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix-mix_start, mix_end-mix_start,ievent, nentries);
+      fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix - mix_start, mix_end - mix_start, ievent, nentries);
       int i = ievent % block_size;
       //reading from file is done every [block_size] number of events
       //this variable keeps track of the current increment within a block
       // as opposed to [ievent] which is looping through all events
 
       /* fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__,i,block_size-1); */
-      if ((i == (block_size-1)) && (ievent!=nentries-1) && (ievent < nentries-block_size-1)) {
+      if ((i == (block_size - 1)) && (ievent != nentries - 1) && (ievent < nentries - block_size - 1)) {
         //writes 1 block (2000 events) at a time. Faster/less memory
 
         offset += block_size;
@@ -466,7 +482,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       float multiplicity = event_data_out[i][1];
       float v2 = event_data_out[i][2];
       float centrality_v0m = event_data_out[i][3];
-      bool  is_pileup_from_spd_5_08 = event_data_out[i][4]; 
+      bool  is_pileup_from_spd_5_08 = event_data_out[i][4];
       float ue_estimate_its_const = event_data_out[i][5];
       float ue_estimate_tpc_const = event_data_out[i][6];
 
@@ -490,7 +506,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
       for (ULong64_t n = 0; n < ncluster_max; n++) {
 
         //See to_hdf5.cc for ROOT->HDF5 details
-        if (std::isnan(cluster_data_out[i][n][0])) break; 
+        if (std::isnan(cluster_data_out[i][n][0])) break;
         float cluster_e = cluster_data_out[i][n][0];
         float cluster_pt = cluster_data_out[i][n][1];
         float cluster_eta = cluster_data_out[i][n][2];
@@ -604,7 +620,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         //MIXING
         Long64_t mix_event =  mix_data_out[i][imix];
         /* std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
-        if(mix_event  < 0) continue; //unpaired events set to negative numbers 
+        if (mix_event  < 0) continue; //unpaired events set to negative numbers
         int mix_index = mix_event % block_size; //get the relevant index for this specific block
 
         /* std::cout<<std::endl<<mix_index<<std::endl; */
@@ -630,10 +646,10 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         multiplicity_MinBias->Fill(mb_multiplicity);
         centrality_MinBias->Fill(mb_centrality_v0m);
 
-        delta_z_vertices->Fill(TMath::Abs(primary_vertex-mb_primary_vertex));
-        delta_flow->Fill(TMath::Abs(v2-mb_v2));
-        delta_multiplicity->Fill(TMath::Abs(multiplicity-mb_multiplicity));
-        delta_centrality->Fill(TMath::Abs(centrality_v0m-mb_centrality_v0m));
+        delta_z_vertices->Fill(TMath::Abs(primary_vertex - mb_primary_vertex));
+        delta_flow->Fill(TMath::Abs(v2 - mb_v2));
+        delta_multiplicity->Fill(TMath::Abs(multiplicity - mb_multiplicity));
+        delta_centrality->Fill(TMath::Abs(centrality_v0m - mb_centrality_v0m));
 
         //Add Delta Cuts on Event Pairing
         /* std::cout<<std::endl<<(TMath::Abs(centrality_v0m-mb_centrality_v0m)) ; */
@@ -641,9 +657,9 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
         /* std::cout<<std::endl<<(TMath::Abs(v2-mb_v2)); */
         /* std::cout<<"HERE"<<std::endl; */
 
-        if (TMath::Abs(centrality_v0m-mb_centrality_v0m) > 10.) continue;
-        if (TMath::Abs(primary_vertex-mb_primary_vertex) > 2.) continue;
-        if (TMath::Abs(v2-mb_v2) > 0.5) continue;
+        if (TMath::Abs(centrality_v0m - mb_centrality_v0m) > 10.) continue;
+        if (TMath::Abs(primary_vertex - mb_primary_vertex) > 2.) continue;
+        if (TMath::Abs(v2 - mb_v2) > 0.5) continue;
         /* std::cout<<"HERE"<<std::endl; */
 
         if (Signal and Isolated) {
@@ -663,22 +679,22 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
 
         //Jet Loop
         int jet_counter = 0;
-        for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
+        for (ULong64_t ijet = 0; ijet < njet; ijet++) {
           if (std::isnan(jet_data_out[mix_index][ijet][0])) break;
-          float jet_ak04tpc_pt_raw = jet_data_out[mix_index][ijet][0];
-          float jet_ak04tpc_eta= jet_data_out[mix_index][ijet][1];   
-          float jet_ak04tpc_phi= jet_data_out[mix_index][ijet][2];   
+          float jet_pt_raw = jet_data_out[mix_index][ijet][0];
+          float jet_eta = jet_data_out[mix_index][ijet][1];
+          float jet_phi = jet_data_out[mix_index][ijet][2];
 
-          if (jet_ak04tpc_pt_raw < jet_pt_min) continue;
-          if (jet_ak04tpc_pt_raw > jet_pt_max) continue;
-          if (abs(jet_ak04tpc_eta) > jet_eta_max) continue;
+          if (jet_pt_raw < jet_pt_min) continue;
+          if (jet_pt_raw > jet_pt_max) continue;
+          if (abs(jet_eta) > jet_eta_max) continue;
 
           jet_counter++;
           /* hnJets[mix_counter]->Fill(jet_counter); */
 
           // Observables: delta phi, jet pT, pT ratio
-          Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi - jet_ak04tpc_phi));
-          Float_t jetpt = jet_ak04tpc_pt_raw;
+          Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi - jet_phi));
+          Float_t jetpt = jet_pt_raw;
           Float_t ptratio = jetpt / cluster_pt;
 
           if (Signal and Isolated) {
@@ -709,7 +725,7 @@ hTrigBR: counting the number of clusters in each bin in the bkg region
   TFile* fout;
   /* fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE"); */
   TString basename = (TString) configrunperiod["filelists"]["mixing"][mixlabel]["correlation"].as<std::string>();
-  fout = new TFile(basename+Form("mix_%i.root",mix_start),"RECREATE");
+  fout = new TFile(basename + Form("mix_%i.root", mix_start), "RECREATE");
   /* std::cout << "Writing to file" << std::endl; */
 
   hTrigSR->Write();
