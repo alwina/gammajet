@@ -1,13 +1,14 @@
-*.pyc
-.ipynb_checkpoints
-csv/
 # for now, don't push notebooks or plots
-*.ipynb
+csv/
 plots/
-config-*.yaml
-nocelltrack-config-pbpb18.yaml
-
-*.pkl
-*.root
-*.hdf5
+config/
+root/
 cpp/build/
+
+*.pyc
+*.ipynb
+*.pkl
+*.hdf5
+
+.ipynb_checkpoints
+nocelltrack-config-pbpb18.yaml

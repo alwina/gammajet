@@ -276,10 +276,6 @@ int main(int argc, char *argv[])
   const H5std_string event_ds_name( "event" );
   DataSet event_dataset = triggered_h5_file.openDataSet( event_ds_name );
 
-  //Mixed Event pairings are found in the mix dateset, in the TRIGGERED file
-  const H5std_string mix_ds_name( "mixing" );
-  DataSet mix_dataset = triggered_h5_file.openDataSet( mix_ds_name );
-
   // get Jet Dateset from MIN-BIAS file
   // switch based on jet type
   DataSet jet_dataset;
@@ -300,7 +296,6 @@ int main(int argc, char *argv[])
   //Get DataSpaces from datasets
   DataSpace cluster_dataspace = cluster_dataset.getSpace();
   DataSpace event_dataspace = event_dataset.getSpace();
-  DataSpace mix_dataspace = mix_dataset.getSpace();
   DataSpace jet_dataspace = jet_dataset.getSpace();
   DataSpace mb_event_dataspace = mb_event_dataset.getSpace();
 
@@ -312,11 +307,6 @@ int main(int argc, char *argv[])
   cluster_dataspace.getSimpleExtentDims(clusterdims, NULL);
   UInt_t ncluster_max = clusterdims[1];
   UInt_t Ncluster_Vars = clusterdims[2];
-
-  const int mix_rank = mix_dataspace.getSimpleExtentNdims();
-  hsize_t mixdims[mix_rank];
-  mix_dataspace.getSimpleExtentDims(mixdims, NULL);
-  UInt_t nmix = mixdims[1];
 
   const int event_rank = event_dataspace.getSimpleExtentNdims();
   hsize_t eventdims[event_rank];
@@ -346,7 +336,6 @@ int main(int argc, char *argv[])
 
   //Local arrays the hyperslabs will be fed into, and ultimatley used in LOOPS
   float cluster_data_out[block_size][ncluster_max][Ncluster_Vars];
-  float mix_data_out[block_size][nmix];
   float event_data_out[block_size][Nevent_Vars];
 
   float jet_data_out[block_size][njet][Njet_Vars];
@@ -357,9 +346,7 @@ int main(int argc, char *argv[])
   hsize_t event_count[2] = {block_size, Nevent_Vars};
   hsize_t cluster_offset[3] = {0, 0, 0};
   hsize_t cluster_count[3] = {block_size, ncluster_max, Ncluster_Vars};
-  hsize_t mix_offset[2] = {0, 0};
-  hsize_t mix_count[2] = {block_size, nmix};
-  //MB
+
   //FIXME: Get MinBias to use block logic as well
   hsize_t jet_offset[3] = {0, 0, 0};
   hsize_t jet_count[3] = {block_size, njet, Njet_Vars};
@@ -371,7 +358,6 @@ int main(int argc, char *argv[])
   /* offset's to {68, njet, Njet_Vars}. */
   event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
   cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
-  mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
 
   jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
   mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
@@ -380,7 +366,6 @@ int main(int argc, char *argv[])
   //Define the memory dataspace in which to place hyperslab
   DataSpace event_memspace(event_rank, eventdims );
   DataSpace cluster_memspace(cluster_rank, clusterdims );
-  DataSpace mix_memspace(mix_rank, mixdims );
 
   DataSpace jet_memspace(jet_rank, jetdims );
   DataSpace mb_event_memspace(mb_event_rank, mb_eventdims );
@@ -390,28 +375,24 @@ int main(int argc, char *argv[])
   //So we set the DataSpace offset to [0]. Can be important if low memory
   hsize_t event_offset_out[2] = {0};
   hsize_t cluster_offset_out[3] = {0};
-  hsize_t mix_offset_out[2] = {0};
   hsize_t jet_offset_out[3] = {0};
   hsize_t mb_event_offset_out[2] = {0};
 
   //define dimensions of hyperslab in memory (aka memspace)
   hsize_t event_count_out[2] = {block_size, Nevent_Vars};
   hsize_t cluster_count_out[3] = {block_size, ncluster_max, Ncluster_Vars};
-  hsize_t mix_count_out[2] = {block_size, nmix};
   hsize_t jet_count_out[3] = {block_size, njet, Njet_Vars};
   hsize_t mb_event_count_out[2] = {block_size, Nevent_Vars};
 
   //Apply the offset and dimensions from the previous two code blocks to the memspace
   event_memspace.selectHyperslab( H5S_SELECT_SET, event_count_out, event_offset_out );
   cluster_memspace.selectHyperslab( H5S_SELECT_SET, cluster_count_out, cluster_offset_out );
-  mix_memspace.selectHyperslab( H5S_SELECT_SET, mix_count_out, mix_offset_out );
   jet_memspace.selectHyperslab( H5S_SELECT_SET, jet_count_out, jet_offset_out );
   mb_event_memspace.selectHyperslab( H5S_SELECT_SET, mb_event_count_out, mb_event_offset_out );
 
   //FINALLY use the well-defined memspace to read data from the dataspace, INTO the local array
   event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
   cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
-  mix_dataset.read( mix_data_out, PredType::NATIVE_FLOAT, mix_memspace, mix_dataspace );
   jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
   mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
 
@@ -450,6 +431,12 @@ int main(int argc, char *argv[])
       jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
     }
 
+    // open pairing file and prepare to loop through it
+    std::string pairing_filename;
+    int nmix = 300;
+    std::ifstream pairing_textfile;
+    pairing_textfile.open(pairing_filename);
+
     int offset = 0; //Offset for Triggered Events
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
       fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix - mix_start, mix_end - mix_start, ievent, nentries);
@@ -470,10 +457,6 @@ int main(int argc, char *argv[])
         cluster_offset[0] = offset;
         cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
         cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
-
-        mix_offset[0] = offset;//need to get the mixed event pairing for this triggered event
-        mix_dataspace.selectHyperslab( H5S_SELECT_SET, mix_count, mix_offset );
-        mix_dataset.read( mix_data_out, PredType::NATIVE_FLOAT, mix_memspace, mix_dataspace );
 
       }
 
@@ -501,6 +484,49 @@ int main(int argc, char *argv[])
 
       bool first_cluster = false;
       /* if (first_cluster) continue; */
+
+      // parse pairing file to get event number to mix with
+      Long64_t mix_event = -1;
+      std::string eventline;
+      if (ievent > 0) {
+        // skips \n that separates each triggered event's pairings list
+        getline(pairing_textfile, eventline);
+      }
+      getline(pairing_textfile, eventline);
+
+      if (eventline.size() == 0) {
+        mix_event = -999;
+      } else {
+        std::string mixednum_string;
+        std::istringstream parser[1];
+        parser[0].str(eventline);
+        // skip until we get to the mix number we're on
+        for (int jmix = 0; jmix < imix; jmix++) {
+          getline(parser[0], mixednum_string, '\t');
+        }
+        mix_event = stoul(mixednum_string);
+      }
+
+      /* std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
+      if (mix_event  < 0) continue; //unpaired events set to negative numbers
+      int mix_index = mix_event % block_size; //get the relevant index for this specific block
+
+      /* std::cout<<std::endl<<mix_index<<std::endl; */
+      /* std::cout<<std::endl<<mix_event<<std::endl; */
+
+      float mb_primary_vertex = mb_event_data_out[mix_index][0];
+      float mb_multiplicity = mb_event_data_out[mix_index][1];
+      float mb_v2 = mb_event_data_out[mix_index][2];
+      float mb_centrality_v0m = mb_event_data_out[mix_index][3];
+
+      /* std::cout<<std::endl<<"z = "<<primary_vertex; */
+      /* std::cout<<std::endl<<"mb z = "<<mb_primary_vertex<<std::endl; */
+      /* std::cout<<std::endl<<"multp = "<<multiplicity; */
+      /* std::cout<<std::endl<<"mb multp = "<<mb_multiplicity<<std::endl; */
+      /* std::cout<<std::endl<<"v2 = "<<v2; */
+      /* std::cout<<std::endl<<"mb v2 = "<<mb_v2<<std::endl; */
+      /* std::cout<<std::endl<<"cent = "<<centrality_v0m; */
+      /* std::cout<<std::endl<<"mb cent = "<<mb_centrality_v0m<<std::endl; */
 
       //Cluster Loop
       for (ULong64_t n = 0; n < ncluster_max; n++) {
@@ -618,29 +644,6 @@ int main(int argc, char *argv[])
         }
 
         //MIXING
-        Long64_t mix_event =  mix_data_out[i][imix];
-        /* std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
-        if (mix_event  < 0) continue; //unpaired events set to negative numbers
-        int mix_index = mix_event % block_size; //get the relevant index for this specific block
-
-        /* std::cout<<std::endl<<mix_index<<std::endl; */
-        /* std::cout<<std::endl<<mix_event<<std::endl; */
-
-        float mb_primary_vertex = mb_event_data_out[mix_index][0];
-        float mb_multiplicity = mb_event_data_out[mix_index][1];
-        float mb_v2 = mb_event_data_out[mix_index][2];
-        float mb_centrality_v0m = mb_event_data_out[mix_index][3];
-
-        /* std::cout<<std::endl<<"z = "<<primary_vertex; */
-        /* std::cout<<std::endl<<"mb z = "<<mb_primary_vertex<<std::endl; */
-        /* std::cout<<std::endl<<"multp = "<<multiplicity; */
-        /* std::cout<<std::endl<<"mb multp = "<<mb_multiplicity<<std::endl; */
-        /* std::cout<<std::endl<<"v2 = "<<v2; */
-        /* std::cout<<std::endl<<"mb v2 = "<<mb_v2<<std::endl; */
-        /* std::cout<<std::endl<<"cent = "<<centrality_v0m; */
-        /* std::cout<<std::endl<<"mb cent = "<<mb_centrality_v0m<<std::endl; */
-
-
         z_vertices_MinBias->Fill(mb_primary_vertex);
         flow_MinBias->Fill(mb_v2);
         multiplicity_MinBias->Fill(mb_multiplicity);

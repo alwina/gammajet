@@ -132,7 +132,7 @@ def createAuxFile(ntuplefilename):
         for ijet, jet in enumerate(jets):
             jet_ak02tpc_pt_raw[ijet] = jet.perp() - (ue_estimate_tpc_const * jet.area())
             jet_ak02tpc_eta[ijet] = jet.eta()
-            jet_ak02tpc_phi[ijet] = jet.phi()
+            jet_ak02tpc_phi[ijet] = jet.phi_std()
             jet_ak02tpc_area[ijet] = jet.area()
             jet_ak02tpc_multiplicity_raw[ijet] = len(jet.constituents())
 
