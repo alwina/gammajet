@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
   bool do_pile = false;
 
   //double deta_max = 0;
+  std::string jettype = "ak04tpc";
   std::string isovar = "cluster_iso_its_04";
   std::string shower_shape = "DNN";
   std::string purity_deviation = "None";
@@ -114,10 +115,14 @@ int main(int argc, char *argv[])
       cluster_time = config["clustercuts"]["data"]["cluster_tof"]["max"].as<double>();
     }
 
+    if (config["jettype"]) {
+      jettype = config["jettype"].as<std::string>();
+    }
+
     if (config["jetcuts"]) {
-      jet_pt_min = config["jetcuts"]["jet_ak04tpc_pt_raw"]["min"].as<double>();
-      jet_pt_max = config["jetcuts"]["jet_ak04tpc_pt_raw"]["max"].as<double>();
-      jet_eta_max = config["jetcuts"]["jet_ak04tpc_eta"]["max"].as<double>();
+      jet_pt_min = config["jetcuts"]["jet_pt_raw"]["min"].as<double>();
+      jet_pt_max = config["jetcuts"]["jet_pt_raw"]["max"].as<double>();
+      jet_eta_max = config["jetcuts"]["jet_eta"]["max"].as<double>();
     }
 
     if (config["do_pileup_cut"]) {
@@ -225,10 +230,10 @@ int main(int argc, char *argv[])
   Float_t cluster_iso_tpc_04_ue[NTRACK_MAX];
 
   // Jets
-  UInt_t njet_ak04tpc;
-  Float_t jet_ak04tpc_pt_raw[NTRACK_MAX];
-  Float_t jet_ak04tpc_eta[NTRACK_MAX];
-  Float_t jet_ak04tpc_phi[NTRACK_MAX];
+  UInt_t njet;
+  Float_t jet_pt_raw[NTRACK_MAX];
+  Float_t jet_eta[NTRACK_MAX];
+  Float_t jet_phi[NTRACK_MAX];
 
   //MC
   unsigned int nmc_truth;
@@ -277,7 +282,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
       }
     }
-    
+
     std::string aux_filename = root_file.replace(root_file.find(".root"), 5, "_AUX.root");
     std::cout << "Opening " << aux_filename << std::endl;
     TFile *auxfile = TFile::Open((TString)aux_filename);
@@ -285,9 +290,9 @@ int main(int argc, char *argv[])
       std::cout << "Failed to open file" << std::endl;
       exit(EXIT_FAILURE);
     }
-    
+
     TTree *auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
-    
+
     // Set the branch addresses of the branches in the TTrees
     _tree_event->SetBranchStatus("*mc*", 0);
 
@@ -340,17 +345,33 @@ int main(int argc, char *argv[])
     _tree_event->SetBranchAddress("cluster_iso_its_04_ue", cluster_iso_its_04_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
-    
+
     auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
 
     //_tree_event->SetBranchAddress("eg_cross_section",&eg_cross_section);
     //_tree_event->SetBranchAddress("eg_ntrial",&eg_ntrial);
 
     // Jet addresses
-    _tree_event->SetBranchAddress("njet_ak04tpc", &njet_ak04tpc);
-    _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_ak04tpc_pt_raw);
-    _tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_ak04tpc_eta);
-    _tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_ak04tpc_phi);
+    // switch based on jet type
+    if (jettype == "ak04tpc") {
+      _tree_event->SetBranchAddress("njet_ak04tpc", &njet);
+      _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_pt_raw);
+      _tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_eta);
+      _tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_phi);
+    } else if (jettype == "ak02tpc") {
+      auxtree->SetBranchAddress("njet_ak02tpc", &njet);
+      auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", jet_pt_raw);
+      auxtree->SetBranchAddress("jet_ak02tpc_eta", jet_eta);
+      auxtree->SetBranchAddress("jet_ak02tpc_phi", jet_phi);
+    } else if (jettype == "ak04its") {
+      _tree_event->SetBranchAddress("njet_ak04its", &njet);
+      _tree_event->SetBranchAddress("jet_ak04its_pt_raw", jet_pt_raw);
+      _tree_event->SetBranchAddress("jet_ak04its_eta", jet_eta);
+      _tree_event->SetBranchAddress("jet_ak04its_phi", jet_phi);      
+    } else {
+      std::cout << "ERROR: Jet type " << jettype << " not recognized. Aborting" << std::endl;
+      exit(EXIT_FAILURE);
+    }
 
 
     //IMPORTANT BOOLEAN VARIABLES
@@ -456,14 +477,14 @@ int main(int argc, char *argv[])
 
         //Jet Loop
 
-        for (ULong64_t ijet = 0; ijet < njet_ak04tpc; ijet++) {
-          if (jet_ak04tpc_pt_raw[ijet] < jet_pt_min) continue;
-          if (jet_ak04tpc_pt_raw[ijet] > jet_pt_max) continue;
-          if (abs(jet_ak04tpc_eta[ijet]) > jet_eta_max) continue;
+        for (ULong64_t ijet = 0; ijet < njet; ijet++) {
+          if (jet_pt_raw[ijet] < jet_pt_min) continue;
+          if (jet_pt_raw[ijet] > jet_pt_max) continue;
+          if (abs(jet_eta[ijet]) > jet_eta_max) continue;
 
           // Observables: delta phi, jet pT, pT ratio
-          Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ijet]));
-          Float_t jetpt = jet_ak04tpc_pt_raw[ijet];
+          Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_phi[ijet]));
+          Float_t jetpt = jet_pt_raw[ijet];
           Float_t ptratio = jetpt / cluster_pt[n];
 
           if (Signal and Isolated) {
