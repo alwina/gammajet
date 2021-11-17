@@ -268,6 +268,8 @@ int main(int argc, char *argv[])
   fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
   H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY );
 
+  std::string pairing_filename = configrunperiod["filelists"]["mixing"][mixlabel]["pairing"].as<std::string>();
+
   //get cluster dataset from TRIGGERED file
   const H5std_string cluster_ds_name( "cluster" );
   DataSet cluster_dataset = triggered_h5_file.openDataSet( cluster_ds_name );
@@ -333,6 +335,8 @@ int main(int argc, char *argv[])
   //A larger block size will speed things up, at the cost of more memory
 
   const int block_size = 2000;
+  const hsize_t nmix_max = 300;
+  hsize_t nmix = std::min(nmix_max, mb_eventdims[0] / block_size);
 
   //Local arrays the hyperslabs will be fed into, and ultimatley used in LOOPS
   float cluster_data_out[block_size][ncluster_max][Ncluster_Vars];
@@ -432,8 +436,6 @@ int main(int argc, char *argv[])
     }
 
     // open pairing file and prepare to loop through it
-    std::string pairing_filename;
-    int nmix = 300;
     std::ifstream pairing_textfile;
     pairing_textfile.open(pairing_filename);
 
