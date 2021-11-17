@@ -729,8 +729,9 @@ int main(int argc, char *argv[])
 
   TFile* fout;
   /* fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE"); */
-  TString basename = (TString) configrunperiod["filelists"]["mixing"][mixlabel]["correlation"].as<std::string>();
-  fout = new TFile(basename + Form("mix_%i.root", mix_start), "RECREATE");
+  std::string basename = configrunperiod["filelists"]["mixing"][mixlabel]["correlation"].as<std::string>();
+  std::string extendedname = basename.replace(basename.find(".root"), 5, "_" + mixlabel + ".root");
+  fout = new TFile((TString) extendedname + Form("mix_%i.root", mix_start), "RECREATE");
   /* std::cout << "Writing to file" << std::endl; */
 
   hTrigSR->Write();
