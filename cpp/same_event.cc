@@ -261,6 +261,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
   fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
   fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
+  std::cout << "Jet type: " << jettype << std::endl;
 
   YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
@@ -286,12 +287,22 @@ int main(int argc, char *argv[])
     std::string aux_filename = root_file.replace(root_file.find(".root"), 5, "_AUX.root");
     std::cout << "Opening " << aux_filename << std::endl;
     TFile *auxfile = TFile::Open((TString)aux_filename);
+    TTree *auxtree;
+    // the aux file is only needed in certain situations, so check for those situations
+    // things should still work even without the aux file
     if (auxfile == NULL) {
-      std::cout << "Failed to open file" << std::endl;
-      exit(EXIT_FAILURE);
+      if (jettype == "ak02tpc") {
+        std::cout << "ERROR: No aux file; cannot get jet type " << jettype << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      if (shower_shape == "cluster_5x5all") {
+        std::cout << "ERROR: No aux file; cannot get shower shape " << shower_shape << std::endl;
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
     }
 
-    TTree *auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
 
     // Set the branch addresses of the branches in the TTrees
     _tree_event->SetBranchStatus("*mc*", 0);
@@ -346,14 +357,15 @@ int main(int argc, char *argv[])
     _tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
 
-    auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
+    if (!(auxfile == NULL)) {
+      auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
+    }
 
     //_tree_event->SetBranchAddress("eg_cross_section",&eg_cross_section);
     //_tree_event->SetBranchAddress("eg_ntrial",&eg_ntrial);
 
     // Jet addresses
     // switch based on jet type
-    std::cout << "Jet type: " << jettype << std::endl;
     if (jettype == "ak04tpc") {
       _tree_event->SetBranchAddress("njet_ak04tpc", &njet);
       _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_pt_raw);
@@ -363,7 +375,7 @@ int main(int argc, char *argv[])
       auxtree->SetBranchAddress("njet_ak02tpc", &njet);
       auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", jet_pt_raw);
       auxtree->SetBranchAddress("jet_ak02tpc_eta", jet_eta);
-      auxtree->SetBranchAddress("jet_ak02tpc_phi", jet_phi);
+      auxtree->SetBranchAddress("jet_ak02tpc_phi", jet_phi);        
     } else if (jettype == "ak04its") {
       _tree_event->SetBranchAddress("njet_ak04its", &njet);
       _tree_event->SetBranchAddress("jet_ak04its_pt_raw", jet_pt_raw);
@@ -396,7 +408,9 @@ int main(int argc, char *argv[])
         }
       }
       _tree_event->GetEntry(ievent);
-      auxtree->GetEntry(ievent);
+      if (!(auxfile == NULL)) {
+        auxtree->GetEntry(ievent);
+      }
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
       Float_t purity_weight = 0;
@@ -510,7 +524,9 @@ int main(int argc, char *argv[])
       }//for nclusters
     } //for nevents
     file->Close();
-    auxfile->Close();
+    if (!(auxfile == NULL)) {
+      auxfile->Close();
+    }
     std::cout << std::endl;
   }
 
