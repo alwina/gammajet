@@ -30,17 +30,29 @@ using namespace H5;
 
 int main(int argc, char *argv[])
 {
-  if (argc < 4) {
-    fprintf(stderr, "Format: [command] [config file] [mixlabel] [mix start index] [mix end index]\n");
+  if (argc < 3 || argc > 5) {
+    fprintf(stderr, "Format: [command] [config file] [mixlabel] [mix start index (default=0)] [mix end index (default=10)]\n");
     exit(EXIT_FAILURE);
   }
 
   std::string mixlabel = argv[2];
-  int mix_start = atoi(argv[3]);
-  int mix_end = atoi(argv[4]);
+  int mix_start;
+  int mix_end;
+  if (argc > 3) {
+    if (argc < 5) {
+      fprintf(stderr, "Must define both mix start index and mix end index\n");
+      exit(EXIT_FAILURE);
+    } else {
+      mix_start = atoi(argv[3]);
+      mix_end = atoi(argv[4]);
+    }
+  } else {
+    mix_start = 0;
+    mix_end = 10;
+  }
   // try to only print once
-  bool doprint = mix_start == 0;
-  std::cout << mix_start << " - " << mix_end << std::endl;
+  bool doprint = (mix_start == 0);
+  std::cout << mix_start << "-" << mix_end << std::endl;
   // load config files
   // each config points to the next
   std::vector<YAML::Node> allconfigs;
@@ -72,7 +84,7 @@ int main(int argc, char *argv[])
 
   //double deta_max = 0;
   std::string jettype = "ak04tpc";
-  std::string isovar = "cluster_iso_its_04";
+  std::string isovar = "cluster_iso_tpc_02";
   std::string shower_shape = "DNN";
   std::string purity_deviation = "None";
 
@@ -751,7 +763,11 @@ int main(int argc, char *argv[])
   /* fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE"); */
   std::string basename = configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>();
   std::string extendedname = basename.replace(basename.find(".root"), 5, "_" + mixlabel + ".root");
-  fout = new TFile((TString) extendedname + Form("mix_%i.root", mix_start), "RECREATE");
+  if (argc > 3) {
+    fout = new TFile((TString) extendedname + Form("mix_%i.root", mix_start), "RECREATE");
+  } else {
+    fout = new TFile((TString) extendedname, "RECREATE");
+  }
   /* std::cout << "Writing to file" << std::endl; */
 
   hTrigSR->Write();
