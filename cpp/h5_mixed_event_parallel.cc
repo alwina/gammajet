@@ -38,6 +38,8 @@ int main(int argc, char *argv[])
   std::string mixlabel = argv[2];
   int mix_start = atoi(argv[3]);
   int mix_end = atoi(argv[4]);
+  // try to only print once
+  bool doprint = mix_start == 0;
   std::cout << mix_start << " - " << mix_end << std::endl;
   // load config files
   // each config points to the next
@@ -92,7 +94,7 @@ int main(int argc, char *argv[])
       brmax = config["showershape"]["brmax"].as<double>();
 
       shower_shape = config["showershape"]["ssvar"].as<std::string>();
-      std::cout << "Shower Shape: " << shower_shape << std::endl;
+      if (doprint) std::cout << "Shower Shape: " << shower_shape << std::endl;
     }
 
     if (config["clustercuts"]["all"]["cluster_pt"]) {
@@ -141,12 +143,12 @@ int main(int argc, char *argv[])
     if (config["isolation"]) {
       isoconfig = config["isolation"];
       isovar = config["isolation"]["isovar"].as<std::string>();
-      std::cout << "Isolation variable: " << isovar << std::endl;
+      if (doprint) std::cout << "Isolation variable: " << isovar << std::endl;
     }
 
     if (config["Purity_Dev"]) {
       purity_deviation = config["Purity_Dev"].as<std::string>();
-      std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
+      if (doprint) std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
     }
 
     if (config["purity"]) {
@@ -228,14 +230,16 @@ int main(int argc, char *argv[])
 
 
   //Cluster Cut Summary
-  fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
-  fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
-  fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
-  fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, srmax);
-  fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
-  fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
-  fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
-  fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
+  if (doprint) {
+    fprintf(stderr, "%d: CLUSTER CUT SUMMARY \n ", __LINE__);
+    fprintf(stderr, "%d: pT_max =  %f \n ", __LINE__, pT_max);
+    fprintf(stderr, "%d: eta max = %f \n ", __LINE__, Eta_max);
+    fprintf(stderr, "%d: SR Lambda max = %f \n ", __LINE__, srmax);
+    fprintf(stderr, "%d: ncell min = %f \n ", __LINE__, Cluster_min);
+    fprintf(stderr, "%d: Ecross/Emax = %f \n ", __LINE__, EcrossoverE_min);
+    fprintf(stderr, "%d: Dist. bad channel = %f \n ", __LINE__, Cluster_DtoBad);
+    fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);  
+  }
 
   /*---------------------------------------------------------------
     Using low level hdf5 API for data
@@ -261,14 +265,15 @@ int main(int argc, char *argv[])
 
   //Triggered and MB hdf5 files
   const H5std_string triggered_hdf5_file_name(configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>());
-  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>());
+  if (doprint) std::cout <<  configrunperiod["filelists"]["mixing"][mixlabel]["triggered"].as<std::string>() << std::endl;
   H5File triggered_h5_file( triggered_hdf5_file_name, H5F_ACC_RDONLY );
 
   const H5std_string MB_hdf5_file_name(configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
-  fprintf(stderr, (TString) configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>());
+  if (doprint) std::cout <<  configrunperiod["filelists"]["mixing"][mixlabel]["mb"].as<std::string>() << std::endl;
   H5File MB_h5_file( MB_hdf5_file_name, H5F_ACC_RDONLY );
 
   std::string pairing_filename = configrunperiod["filelists"]["mixing"][mixlabel]["pairing"].as<std::string>();
+  if (doprint) std::cout << pairing_filename << std::endl;
 
   //get cluster dataset from TRIGGERED file
   const H5std_string cluster_ds_name( "cluster" );
@@ -280,6 +285,7 @@ int main(int argc, char *argv[])
 
   // get Jet Dateset from MIN-BIAS file
   // switch based on jet type
+  if (doprint) std::cout << "Jet type: " << jettype << std::endl;
   DataSet jet_dataset;
   if (jettype == "ak04tpc" or jettype == "ak02tpc") {
     const H5std_string jet_ds_name( "jet_" + jettype );
@@ -326,10 +332,12 @@ int main(int argc, char *argv[])
   hsize_t mb_eventdims[mb_event_rank];
   mb_event_dataspace.getSimpleExtentDims(mb_eventdims, NULL);
 
-  /* fprintf(stderr, "\n%s:%d: number of cluster variables = %i\n", __FILE__, __LINE__, Ncluster_Vars); */
-  /* fprintf(stderr, "\n%s:%d: number of mixed events from file = %i\n", __FILE__, __LINE__, nmix); */
-  /* fprintf(stderr, "\n%s:%d: number of event variables = %i\n", __FILE__, __LINE__, Nevent_Vars); */
-  /* fprintf(stderr, "\n%s:%d: number of jet variables = %i\n", __FILE__, __LINE__, Njet_Vars); */
+  // if (doprint) {
+  //   fprintf(stderr, "\n%s:%d: number of cluster variables = %i\n", __FILE__, __LINE__, Ncluster_Vars); 
+  //   fprintf(stderr, "\n%s:%d: number of mixed events from file = %i\n", __FILE__, __LINE__, nmix); 
+  //   fprintf(stderr, "\n%s:%d: number of event variables = %i\n", __FILE__, __LINE__, Nevent_Vars); 
+  //   fprintf(stderr, "\n%s:%d: number of jet variables = %i\n", __FILE__, __LINE__, Njet_Vars);     
+  // }
 
   //Block size should be determined by chunk size in to_hdf5. Usually 2000 or its multiples.
   //A larger block size will speed things up, at the cost of more memory
@@ -365,7 +373,7 @@ int main(int argc, char *argv[])
 
   jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
   mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
-  /* fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "select Hyperslab OK"); */
+  /* if (doprint) fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "select Hyperslab OK"); */
 
   //Define the memory dataspace in which to place hyperslab
   DataSpace event_memspace(event_rank, eventdims );
@@ -402,7 +410,7 @@ int main(int argc, char *argv[])
 
   //First [block_size] number of events have just been read into local arrays
 
-  /* fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "datasets succesfully read into array"); */
+  /* if (doprint) fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "datasets succesfully read into array"); */
 
 
   //IMPORTANT BOOLEAN VARIABLES
@@ -418,9 +426,9 @@ int main(int argc, char *argv[])
   int mix_counter = 0;
   for (Long64_t imix = mix_start; imix < mix_end; imix++) {
     if (imix > nmix) break;
-    /* std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<mix_end<<std::endl; */
-    /* fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
-    /*     __FILE__,__LINE__,imix,omp_get_thread_num()); */
+    /* if (doprint) std::cout<<std::endl<<"Mixed Event Number "<<imix<<" / "<<mix_end<<std::endl; */
+    /* if (doprint) { fprintf(stderr,"\n %s:%d: Mixed event = %lu, thread #%d", */
+    /*     __FILE__,__LINE__,imix,omp_get_thread_num()); }*/
 
     //Grab 2000 Mixed Events at a time
     //Takes advantage of block structure used in pairing
@@ -441,13 +449,13 @@ int main(int argc, char *argv[])
 
     int offset = 0; //Offset for Triggered Events
     for (Long64_t ievent = 0; ievent < nentries; ievent++) {
-      fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix - mix_start, mix_end - mix_start, ievent, nentries);
+      if (doprint) fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix - mix_start, mix_end - mix_start, ievent, nentries);
       int i = ievent % block_size;
       //reading from file is done every [block_size] number of events
       //this variable keeps track of the current increment within a block
       // as opposed to [ievent] which is looping through all events
 
-      /* fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__,i,block_size-1); */
+      /* if (doprint) fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__,i,block_size-1); */
       if ((i == (block_size - 1)) && (ievent != nentries - 1) && (ievent < nentries - block_size - 1)) {
         //writes 1 block (2000 events) at a time. Faster/less memory
 
@@ -503,32 +511,35 @@ int main(int argc, char *argv[])
         std::istringstream parser[1];
         parser[0].str(eventline);
         // skip until we get to the mix number we're on
-        for (int jmix = 0; jmix < imix; jmix++) {
+        // <= because imix starts at 0
+        for (int jmix = 0; jmix <= imix; jmix++) {
           getline(parser[0], mixednum_string, '\t');
         }
         mix_event = stoul(mixednum_string);
       }
 
-      /* std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
+      /* if (doprint) std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
       if (mix_event  < 0) continue; //unpaired events set to negative numbers
       int mix_index = mix_event % block_size; //get the relevant index for this specific block
 
-      /* std::cout<<std::endl<<mix_index<<std::endl; */
-      /* std::cout<<std::endl<<mix_event<<std::endl; */
+      /* if (doprint) std::cout<<std::endl<<mix_index<<std::endl; */
+      /* if (doprint) std::cout<<std::endl<<mix_event<<std::endl; */
 
       float mb_primary_vertex = mb_event_data_out[mix_index][0];
       float mb_multiplicity = mb_event_data_out[mix_index][1];
       float mb_v2 = mb_event_data_out[mix_index][2];
       float mb_centrality_v0m = mb_event_data_out[mix_index][3];
 
-      /* std::cout<<std::endl<<"z = "<<primary_vertex; */
-      /* std::cout<<std::endl<<"mb z = "<<mb_primary_vertex<<std::endl; */
-      /* std::cout<<std::endl<<"multp = "<<multiplicity; */
-      /* std::cout<<std::endl<<"mb multp = "<<mb_multiplicity<<std::endl; */
-      /* std::cout<<std::endl<<"v2 = "<<v2; */
-      /* std::cout<<std::endl<<"mb v2 = "<<mb_v2<<std::endl; */
-      /* std::cout<<std::endl<<"cent = "<<centrality_v0m; */
-      /* std::cout<<std::endl<<"mb cent = "<<mb_centrality_v0m<<std::endl; */
+      // if (doprint) {
+      //  std::cout<<std::endl<<"z = "<<primary_vertex; 
+      //  std::cout<<std::endl<<"mb z = "<<mb_primary_vertex<<std::endl; 
+      //  std::cout<<std::endl<<"multp = "<<multiplicity; 
+      //  std::cout<<std::endl<<"mb multp = "<<mb_multiplicity<<std::endl; 
+      //  std::cout<<std::endl<<"v2 = "<<v2; 
+      //  std::cout<<std::endl<<"mb v2 = "<<mb_v2<<std::endl; 
+      //  std::cout<<std::endl<<"cent = "<<centrality_v0m; 
+      //  std::cout<<std::endl<<"mb cent = "<<mb_centrality_v0m<<std::endl; 
+      // }
 
       //Cluster Loop
       for (ULong64_t n = 0; n < ncluster_max; n++) {
@@ -618,11 +629,13 @@ int main(int argc, char *argv[])
 
         Signal = (shower > srmin) and (shower < srmax);
         Background = (shower > brmin) and (shower < brmax);
-        /* std::cout<<std::endl; */
-        /* std::cout<<"Isolation Bool = "<<Isolated<<std::endl; */
-        /* std::cout<<"Signal Region = "<<srmin<<" to "<<srmax<<std::endl; */
-        /* std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl; */
-        /* std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Signal BOOL = "<<Signal<<"; Background BOOL = "<<Background<<std::endl; */
+        // if (doprint) {
+        //   std::cout<<std::endl; 
+        //   std::cout<<"Isolation Bool = "<<Isolated<<std::endl; 
+        //   std::cout<<"Signal Region = "<<srmin<<" to "<<srmax<<std::endl; 
+        //   std::cout<<"Background Region = "<<brmin<<" to "<<brmax<<std::endl; 
+        //   std::cout<<"Shower = "<<shower<<"; Shower Shape = "<<shower_shape<<"; Signal BOOL = "<<Signal<<"; Background BOOL = "<<Background<<std::endl; 
+        // }
 
         float bkg_weight = 1.0;
         float track_weight = 1.0; //Fake Rate, smearing, efficiency
@@ -657,18 +670,20 @@ int main(int argc, char *argv[])
         delta_centrality->Fill(TMath::Abs(centrality_v0m - mb_centrality_v0m));
 
         //Add Delta Cuts on Event Pairing
-        /* std::cout<<std::endl<<(TMath::Abs(centrality_v0m-mb_centrality_v0m)) ; */
-        /* std::cout<<std::endl<<(TMath::Abs(primary_vertex-mb_primary_vertex)); */
-        /* std::cout<<std::endl<<(TMath::Abs(v2-mb_v2)); */
-        /* std::cout<<"HERE"<<std::endl; */
+        // if (doprint) {
+        //   std::cout<<std::endl<<(TMath::Abs(centrality_v0m-mb_centrality_v0m)) ; 
+        //   std::cout<<std::endl<<(TMath::Abs(primary_vertex-mb_primary_vertex)); 
+        //   std::cout<<std::endl<<(TMath::Abs(v2-mb_v2)); 
+        //   std::cout<<"HERE"<<std::endl; 
+        // }
 
         if (TMath::Abs(centrality_v0m - mb_centrality_v0m) > 10.) continue;
         if (TMath::Abs(primary_vertex - mb_primary_vertex) > 2.) continue;
         if (TMath::Abs(v2 - mb_v2) > 0.5) continue;
-        /* std::cout<<"HERE"<<std::endl; */
+        /* if (doprint) std::cout<<"HERE"<<std::endl; */
 
         if (Signal and Isolated) {
-          /* std::cout<<"HERE"<<__LINE__<<std::endl; */
+          /* if (doprint) std::cout<<"HERE"<<__LINE__<<std::endl; */
           nMixSR[0] = centrality_v0m;
           nMixSR[1] = cluster_pt;
           hnMixSR->Fill(nMixSR);
@@ -708,7 +723,7 @@ int main(int argc, char *argv[])
             corrSR[2] = deltaphi;
             corrSR[3] = jetpt;
             corrSR[4] = ptratio;
-            /* fprintf(stderr,"%i: cent = %f, pt = %f, deltaphi = %f, jetpt = %f, ptratio = %f\n",__LINE__,centrality_v0m,cluster_pt, deltaphi,jetpt,ptratio); */
+            /* if (doprint) fprintf(stderr,"%i: cent = %f, pt = %f, deltaphi = %f, jetpt = %f, ptratio = %f\n",__LINE__,centrality_v0m,cluster_pt, deltaphi,jetpt,ptratio); */
             hCorrSR->Fill(corrSR, purity_weight);
           }
 
@@ -729,7 +744,7 @@ int main(int argc, char *argv[])
 
   TFile* fout;
   /* fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>(), "RECREATE"); */
-  std::string basename = configrunperiod["filelists"]["mixing"][mixlabel]["correlation"].as<std::string>();
+  std::string basename = configrunperiod["filelists"]["correlations"]["mixedevent"].as<std::string>();
   std::string extendedname = basename.replace(basename.find(".root"), 5, "_" + mixlabel + ".root");
   fout = new TFile((TString) extendedname + Form("mix_%i.root", mix_start), "RECREATE");
   /* std::cout << "Writing to file" << std::endl; */
@@ -769,7 +784,7 @@ int main(int argc, char *argv[])
     hnJets[h]->Write();
 
   fout->Close();
-  std::cout << " ending " << std::endl;
+  if (doprint) std::cout << " ending " << std::endl;
 
   return EXIT_SUCCESS;
 }

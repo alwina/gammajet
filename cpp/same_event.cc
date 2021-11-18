@@ -353,6 +353,7 @@ int main(int argc, char *argv[])
 
     // Jet addresses
     // switch based on jet type
+    std::cout << "Jet type: " << jettype << std::endl;
     if (jettype == "ak04tpc") {
       _tree_event->SetBranchAddress("njet_ak04tpc", &njet);
       _tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_pt_raw);
