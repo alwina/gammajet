@@ -515,7 +515,12 @@ int main(int argc, char *argv[])
         for (int jmix = 0; jmix <= imix; jmix++) {
           getline(parser[0], mixednum_string, '\t');
         }
-        mix_event = stoul(mixednum_string);
+        // account for any blanks (once imix gets too large)
+        if (mixednum_string.size() == 0) {
+          mix_event = -999;
+        } else {
+          mix_event = stoul(mixednum_string);
+        }
       }
 
       /* if (doprint) std::cout<<std::endl<<"Mixed Event = "<<mix_event<<std::endl; */
