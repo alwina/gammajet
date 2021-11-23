@@ -55,11 +55,14 @@ The steps are as follows, beginning with a `triggeredntuple.root` and a `mbntupl
 ./to_hdf5_with_aux mbntuple.root mbntuple.root
 ```
 The names of these HDF5 files go into the config file as the `triggered` and `mb` filenames within a given `mixlabel`.
+
 2. Do the pairing. The name of this pairing file goes into the config file as the `pairing` filename within that same `mixlabel`. This only has to be done once per triggered-MB file pair, unless the pairing criteria change. So, for example, adding something to the aux file and remaking the HDF5 files in order to look at another variable does not require the pairing to be rerun, but creating new HDF5 files with a subset of the full events does require the pairing to be rerun (because there's a new triggered-MB file pair).
+
 3. Open an interactive shell on cori in order to run things in parallel:
 ```
 salloc -N 1 -C haswell -q interactive -t 04:00:00
 ```
+
 4. Once in the shell, after loading the `root`, `cray-hdf5`, and `parallel` modules, there are a few options. The easiest thing to do is to modify `multi_parallel_run_mix.sh`, which will run various configurations one after the other. However, if there are too many, the 4-hour limit will abort whatever job is running at the time, which is probably less than ideal, so be careful with that. To run a single configuration in parallel, do
 ```
 ./parallel_run_mix.sh 4 config-run-period.yaml mixlabel
@@ -70,14 +73,16 @@ To run not in parallel with 10 mixed events/triggered event, you can do
 ./cpp/build/h5_mixed_event_parallel config-run-period.yaml mixlabel
 ```
 and this will produce a file with whatever name is defined in `filelists.correlations.mixedevent`.
+
 5. In order to combine the parallel outputs into one file and delete the individual outputs, do
 ```
-hadd -f 'mixedEvent_mixlabel.root' mixedEvent_mixlabel.rootmix_*
+hadd -f mixedEvent_mixlabel.root mixedEvent_mixlabel.rootmix_*
 rm mixedEvent_mixlabel.rootmix_*
 ```
+
 6. If the goal is to produce one final mixed event file (i.e. merging the various `mixlabels`), just do
 ```
-hadd -f 'mixedEvent.root' mixedEvent_*
+hadd -f mixedEvent.root mixedEvent_*.root
 ```
 and the individual outputs can again be removed if needed.
 

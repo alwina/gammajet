@@ -6,116 +6,17 @@ import numpy as np
 import os
 import ROOT
 import root_numpy as rnp
-import struct
 import sys
 import time
 import warnings
 import yaml
 
 from alice_emcal import calculateShowerShapes5x5
+from alice_mc_clusters import getNMCPhotons, getIsPrompt, getTruthPtAndComponents, getParentPi0Pt
 from alice_mc_weights import fixedWeightProductions, getFixedWeight
 from alice_raa import getWeightWithRaa502charged
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
-
-
-def getNMCPhotons(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code):
-    photonCount = 0
-    for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
-        mcindex = cluster_mc_truth_index[i]
-        if mcindex == 65535:
-            continue
-        if mcindex >= len(mc_truth_pdg_code):
-            continue
-        if mc_truth_pdg_code[mcindex] == 22:
-            photonCount = photonCount + 1
-
-    return photonCount
-
-
-# see the ntuplizer for how mc_truth_is_prompt_photon is determined
-# it is only filled for photons and electrons (and positrons), so that needs to be checked first
-# current definition of prompt photon cluster: any cluster that contains
-# at least one photon/electron/positron that came from a prompt photon
-def getIsPrompt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code, mc_truth_is_prompt_photon):
-    for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
-        mcindex = cluster_mc_truth_index[i]
-        # if this is the dummy index, ignore it
-        if mcindex == 65535:
-            continue
-        # if this is somehow out of range, ignore it
-        if mcindex >= len(mc_truth_pdg_code):
-            continue
-        if mcindex >= len(mc_truth_is_prompt_photon):
-            continue
-        # if this is not a photon or electron, ignore it
-        if mc_truth_pdg_code[mcindex] not in (11, -11, 22):
-            continue
-        # if this is from a prompt photon, then the cluster is considered a prompt photon cluster
-        if mc_truth_is_prompt_photon[mcindex]:
-            return True
-    return False
-
-
-def getTruthPtAndComponents(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_pdg_code, mc_truth_is_prompt_photon, mc_truth_pt):
-    truthpt = 0
-    truthcomponents = 0
-    for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
-        mcindex = cluster_mc_truth_index[i]
-        # if this is the dummy index, ignore it
-        if mcindex == 65535:
-            continue
-        # if this is somehow out of range, ignore it
-        if mcindex >= len(mc_truth_pdg_code):
-            continue
-        if mcindex >= len(mc_truth_is_prompt_photon):
-            continue
-        # if this is not a photon or electron, ignore it
-        if mc_truth_pdg_code[mcindex] not in (11, -11, 22):
-            continue
-        # if it is not from a prompt photon, ignore it
-        if not mc_truth_is_prompt_photon[mcindex]:
-            continue
-
-        # account for the truth particles in this cluster: 1 = photon, 100 = electron, 10000 = positron
-        # surely I could do 1/10/100, but juuuuuust in case
-        if mc_truth_pdg_code[mcindex] == 22:
-            truthcomponents += 1
-        elif mc_truth_pdg_code[mcindex] == 11:
-            truthcomponents += 100
-        elif mc_truth_pdg_code[mcindex] == -11:
-            truthcomponents += 10000
-
-        # and then add the truth pt to the total
-        truthpt += mc_truth_pt[mcindex]
-
-    return truthpt, truthcomponents
-
-
-def getParentPi0Pt(cluster_nmc_truth, cluster_mc_truth_index, mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt):
-    parentpi0pt = -1
-    for i in range(min(cluster_nmc_truth, len(cluster_mc_truth_index))):
-        mcindex = cluster_mc_truth_index[i]
-        # if this is the dummy index, ignore it
-        if mcindex == 65535:
-            continue
-        # if this is somehow out of range, ignore it
-        if mcindex >= len(mc_truth_first_parent_pdg_code):
-            continue
-        if mcindex >= len(mc_truth_first_parent_pt):
-            continue
-        # if the parent is not a pi0, ignore it
-        # not sure if pi0 can have negative pdg code, but check just in case
-        if abs(mc_truth_first_parent_pdg_code[mcindex]) != 111:
-            continue
-        # for now, take the min pt of the pi0s we see
-        # unclear how often we end up with more than one, but just in case,
-        # we'll be consistent about which one we take
-        if parentpi0pt == -1:
-            parentpi0pt = mc_truth_first_parent_pt[mcindex]
-        else:
-            parentpi0pt = min(parentpi0pt, mc_truth_first_parent_pt[mcindex])
-
-    return parentpi0pt
+from utils import tBranchToArray
 
 
 def main(ntuplefilenames, csvfilename):
@@ -162,12 +63,6 @@ def main(ntuplefilenames, csvfilename):
             nevents = tree.GetEntries()
             totalevents = totalevents + nevents
 
-            # can't loop through these in the normal way
-            acluster_lambda_square = rnp.tree2array(tree, branches='cluster_lambda_square')
-            acluster_s_nphoton = rnp.tree2array(tree, branches='cluster_s_nphoton')
-            acluster_mc_truth_index = rnp.tree2array(tree, branches='cluster_mc_truth_index')
-            atrigger_mask = rnp.tree2array(tree, branches='trigger_mask')
-
             # compute MC weights or set to 1
             aeg_cross_section = rnp.tree2array(tree, branches='eg_cross_section')
             aeg_ntrial = rnp.tree2array(tree, branches='eg_ntrial')
@@ -201,7 +96,7 @@ def main(ntuplefilenames, csvfilename):
                 cluster_e_max = getattr(tree, 'cluster_e_max')
                 cluster_ncell = getattr(tree, 'cluster_ncell')
                 cluster_tof = getattr(tree, 'cluster_tof')
-                cluster_nlocal_maxima = getattr(tree, 'cluster_nlocal_maxima')
+                cluster_nlocal_maxima = tBranchToArray(getattr(tree, 'cluster_nlocal_maxima'), 'b', ncluster)
                 cluster_distance_to_bad_channel = getattr(tree, 'cluster_distance_to_bad_channel')
                 cluster_cell_id_max = getattr(tree, 'cluster_cell_id_max')
                 cluster_iso_tpc_01 = getattr(tree, 'cluster_iso_tpc_01')
@@ -219,8 +114,11 @@ def main(ntuplefilenames, csvfilename):
                 cluster_iso_its_04 = getattr(tree, 'cluster_iso_its_04')
                 cluster_iso_its_02_ue = getattr(tree, 'cluster_iso_its_02_ue')
                 cluster_iso_its_04_ue = getattr(tree, 'cluster_iso_its_04_ue')
+                cluster_lambda_square = tBranchToArray(getattr(tree, 'cluster_lambda_square'), 'F', (ncluster, 2))
+                cluster_s_nphoton = tBranchToArray(getattr(tree, 'cluster_s_nphoton'), 'F', (ncluster, 4))
 
-                cluster_nmc_truth = getattr(tree, 'cluster_nmc_truth')
+                cluster_nmc_truth = tBranchToArray(getattr(tree, 'cluster_nmc_truth'), 'i', ncluster)
+                cluster_mc_truth_index = cluster_mc_truth_index = tBranchToArray(getattr(tree, 'cluster_mc_truth_index'), 's', (ncluster, 32))
                 mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
                 mc_truth_pt = getattr(tree, 'mc_truth_pt')
                 mc_truth_first_parent_pdg_code = getattr(tree, 'mc_truth_first_parent_pdg_code')
@@ -238,6 +136,14 @@ def main(ntuplefilenames, csvfilename):
                 ue_estimate_its_const = getattr(tree, 'ue_estimate_its_const')
                 run_number = getattr(tree, 'run_number')
 
+                trigger_mask = getattr(tree, 'trigger_mask')
+                # combine the trigger masks into one number
+                if len(trigger_mask) > 1:
+                    fullTriggerMask = tBranchToArray(trigger_mask, 'l', 2)
+                    triggerMask = fullTriggerMask[0] + (fullTriggerMask[1] << 50)
+                else:
+                    triggerMask = tBranchToArray(trigger_mask, 'l', 1)
+
                 # somehow accidentally used this run, but it's not in the good run list
                 if run_number == 295665:
                     continue
@@ -251,8 +157,6 @@ def main(ntuplefilenames, csvfilename):
 
                 # event-based values
                 weight = aweights[ievent]
-                # combine the trigger masks into one number
-                triggerMask = atrigger_mask[ievent][0] + (int(atrigger_mask[ievent][1]) << 50)
 
                 isINT7 = isEventSelected(kINT7TriggerIds, triggerMask)
                 isCentral = isEventSelected(kCentralTriggerIds, triggerMask)
@@ -269,7 +173,7 @@ def main(ntuplefilenames, csvfilename):
                     e_max = cluster_e_max[icluster]
                     ncell = cluster_ncell[icluster]
                     tof = cluster_tof[icluster]
-                    nlm = struct.unpack('1b', cluster_nlocal_maxima[icluster])[0]
+                    nlm = cluster_nlocal_maxima[icluster]
                     dbc = cluster_distance_to_bad_channel[icluster]
                     cell_id_max = cluster_cell_id_max[icluster]
                     iso_tpc_01 = cluster_iso_tpc_01[icluster]
@@ -293,18 +197,18 @@ def main(ntuplefilenames, csvfilename):
                     frixione_tpc_04_02 = cluster_frixione_tpc_04_02[icluster]
                     frixione_tpc_04_05 = cluster_frixione_tpc_04_05[icluster]
                     frixione_tpc_04_10 = cluster_frixione_tpc_04_10[icluster]
-                    lambda0 = acluster_lambda_square[ievent][icluster][0]
-                    nn1 = acluster_s_nphoton[ievent][icluster][1]
-                    nmc_photon = getNMCPhotons(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster], mc_truth_pdg_code)
+                    lambda0 = cluster_lambda_square[icluster][0]
+                    nn1 = cluster_s_nphoton[icluster][1]
+                    nmc_photon = getNMCPhotons(cluster_nmc_truth[icluster], cluster_mc_truth_index[icluster], mc_truth_pdg_code)
                     if mc_truth_is_prompt_photon is None:
                         isprompt = False
                     else:
-                        isprompt = getIsPrompt(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster],
+                        isprompt = getIsPrompt(cluster_nmc_truth[icluster], cluster_mc_truth_index[icluster],
                                                mc_truth_pdg_code, mc_truth_is_prompt_photon)
 
                     if isprompt:
                         truth_pt, mc_truth_components = getTruthPtAndComponents(cluster_nmc_truth[icluster],
-                                                                                acluster_mc_truth_index[ievent][icluster],
+                                                                                cluster_mc_truth_index[icluster],
                                                                                 mc_truth_pdg_code,
                                                                                 mc_truth_is_prompt_photon,
                                                                                 mc_truth_pt)
@@ -312,7 +216,7 @@ def main(ntuplefilenames, csvfilename):
                     else:
                         truth_pt = -1
                         mc_truth_components = -1
-                        parentpi0pt = getParentPi0Pt(cluster_nmc_truth[icluster], acluster_mc_truth_index[ievent][icluster],
+                        parentpi0pt = getParentPi0Pt(cluster_nmc_truth[icluster], cluster_mc_truth_index[icluster],
                                                      mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt)
 
                     if pt < 15:

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import struct
 
 
 def haveSameLength(*args):
@@ -152,8 +153,49 @@ def plotTH2(th2):
 
 def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
     for (axisNumber, axisMin, axisMax) in slices:
-        thnSparse.GetAxis(axisNumber).SetRangeUser(axisMin, axisMax)
+        # https://root.cern.ch/doc/master/TAxis_8cxx_source.html#l00962
+        # SetRangeUser appears to have a non-inclusive upper bound,
+        # but just in case, we'll subtract epsilon because it doesn't hurt to do so
+        # and if things ever change, it'll still behave the way we expect
+        # to avoid precision issues, we use nextafter, which takes the number you want to change
+        # and the direction you want to change it. since we always want to go down,
+        # we set the direction to be negative infinity
+        thnSparse.GetAxis(axisNumber).SetRangeUser(axisMin, np.nextafter(axisMax, -np.inf))
     return thnSparse.Projection(*axesToProject)
+
+
+# mapping of ROOT TBranch type code to python type code for struct
+rootBranchTypeToStructType = {}
+rootBranchTypeToStructType['O'] = '?'  # boolean (boolean)
+rootBranchTypeToStructType['B'] = 'b'  # signed char (integer) 8-bit
+rootBranchTypeToStructType['b'] = 'B'  # unsigned char (integer) 8-bit
+rootBranchTypeToStructType['S'] = 'h'  # signed short (integer) 16-bit
+rootBranchTypeToStructType['s'] = 'H'  # unsigned short (integer) 16-bit
+rootBranchTypeToStructType['I'] = 'i'  # signed integer (integer) 32-bit
+rootBranchTypeToStructType['i'] = 'I'  # unsigned integer (integer) 32-bit
+rootBranchTypeToStructType['L'] = 'l'  # signed long (integer) 64-bit
+rootBranchTypeToStructType['l'] = 'L'  # unsigned long (integer) 64-bit
+rootBranchTypeToStructType['F'] = 'f'  # float (float) 32-bit
+rootBranchTypeToStructType['D'] = 'd'  # double (float) 64-bit
+
+
+def tBranchToArray(branch, branchType, arrayShape):
+    """
+    Take a multi-dimensional TBranch and return a numpy array.
+    Also useful for anything python doesn't automatically handle, like unsigned integers
+
+    branch: TBranch, usually retrieved via getattr(tree, 'branchName')
+    branchType: the ROOT corresponding to this TBranch
+    arrayShape: tuple with the dimensions of the output; for a 1D array, it's just the length
+
+    For TBranch type codes: https://root.cern.ch/doc/master/classTBranch.html#ac0412c423e6c8388b42247e0410cf822
+    numpy is smart enough to handle a non-tuple arrayShape, so no need to check for that
+    """
+    totalLength = np.product(arrayShape)
+    structType = rootBranchTypeToStructType[branchType]
+    structFormat = '{0}{1}'.format(totalLength, structType)
+    unpacked = struct.unpack(structFormat, branch)
+    return np.reshape(unpacked, arrayShape)
 
 
 def Chi2Histograms(df1, df2, var, bins):
