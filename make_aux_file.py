@@ -3,7 +3,6 @@ from __future__ import print_function
 from array import array
 import datetime
 import fastjet
-import numpy as np
 import os
 import ROOT
 import sys
