@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
   fprintf(stderr, "%d: cluster tof = %f \n ", __LINE__, cluster_time);
   std::cout << "Jet type: " << jettype << std::endl;
 
-  YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
+  YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["gjmc"];
   for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
     std::string root_file = it->as<std::string>();
     std::cout << "Opening " << root_file << std::endl;
@@ -395,9 +395,6 @@ int main(int argc, char *argv[])
       }
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
-      Float_t purity_weight = 0;
-      Float_t BR_purity_weight = 0;
-
       //Event Selection
       if (TMath::Abs(primary_vertex[2]) > 10) continue;
       if (primary_vertex[2] == 0.00) continue;
@@ -411,9 +408,8 @@ int main(int argc, char *argv[])
         if ( not(cluster_e_cross[n] / cluster_e_max[n] > EcrossoverE_min)) continue; //removes "spiky" clusters
         if ( not(cluster_distance_to_bad_channel[n] >= Cluster_DtoBad)) continue; //removes clusters near bad channels
         if ( not(cluster_nlocal_maxima[n] < 3)) continue; //require to have at most 2 local maxima.
-        if ( not(abs(cluster_tof[n]) < cluster_time)) continue;
         if ( not(cluster_is_prompt[n])) continue;
-
+        
         float isolation;
         if (isovar == "cluster_iso_tpc_04") isolation = cluster_iso_tpc_04[n];
         else if (isovar == "cluster_iso_its_04") isolation = cluster_iso_its_04[n];
@@ -462,7 +458,7 @@ int main(int argc, char *argv[])
           // we don't have to do anything else with the non-SR photons
           continue;
         }
-
+        
         // correlations with all jets
         for (ULong64_t ijet = 0; ijet < njet; ijet++) {
           if (jet_pt_raw[ijet] < jet_pt_min) continue;
@@ -480,18 +476,18 @@ int main(int argc, char *argv[])
           corr[3] = deltaphi;
           corr[4] = jetpt;
           corr[5] = ptratio;
-          hCorrSRAll->Fill(corr, purity_weight);
+          hCorrSRAll->Fill(corr);
         }//for ijets
 
         // correlations with truth jets
         for (ULong64_t ijet = 0; ijet < njet_charged_truth; ijet++) {
-          if (jet_charged_truth_pt_raw[ijet] < jet_pt_min) continue;
-          if (jet_charged_truth_pt_raw[ijet] > jet_pt_max) continue;
+          if (jet_charged_truth_pt[ijet] < jet_pt_min) continue;
+          if (jet_charged_truth_pt[ijet] > jet_pt_max) continue;
           if (abs(jet_charged_truth_eta[ijet]) > jet_eta_max) continue;
 
           // Observables: delta phi, jet pT, pT ratio
           Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_charged_truth_phi[ijet]));
-          Float_t jetpt = jet_charged_truth_pt_raw[ijet];
+          Float_t jetpt = jet_charged_truth_pt[ijet];
           Float_t ptratio = jetpt / cluster_pt[n];
 
           corr[0] = centrality_v0m;
@@ -500,7 +496,7 @@ int main(int argc, char *argv[])
           corr[3] = deltaphi;
           corr[4] = jetpt;
           corr[5] = ptratio;
-          hCorrSRTruth->Fill(corr, purity_weight);
+          hCorrSRTruth->Fill(corr);
         }//for ijets      
       }//for nclusters
     } //for nevents
@@ -513,13 +509,13 @@ int main(int argc, char *argv[])
 
   // Write to fout
   TFile* fout;
-  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["sameevent"].as<std::string>(), "RECREATE");
+  fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["gjmcchecks"].as<std::string>(), "RECREATE");
   std::cout << "Writing to file" << std::endl;
 
+  hTrigPhoton->Write();
   hTrigSR->Write();
-  hCorrSR->Write();
-  hTrigBR->Write();
-  hCorrBR->Write();
+  hCorrSRAll->Write();
+  hCorrSRTruth->Write();
 
   fout->Close();
   std::cout << " ending " << std::endl;
