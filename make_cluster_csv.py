@@ -12,8 +12,7 @@ import warnings
 import yaml
 
 from alice_emcal import calculateShowerShapes5x5
-from alice_mc_clusters import getNMCPhotons, getIsPrompt, getTruthPtAndComponents, getParentPi0Pt
-from alice_mc_weights import fixedWeightProductions, getFixedWeight
+from alice_mc import getNMCPhotons, getIsPrompt, getTruthPtAndComponents, getParentPi0Pt, fixedWeightProductions, getFixedWeight
 from alice_raa import getWeightWithRaa502charged
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
 from utils import tBranchToArray
