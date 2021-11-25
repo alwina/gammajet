@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from array import array
 import datetime
 import fastjet
@@ -9,7 +7,7 @@ import sys
 import yaml
 
 from alice_emcal import calculateShowerShapes5x5
-from alice_mc_clusters import getIsPrompt
+from alice_mc import getIsPrompt, pdgCodeToCharge
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
 from utils import tBranchToArray
 
@@ -36,23 +34,39 @@ def createAuxFile(ntuplefilename):
     jet_ak02tpc_area = array('f', 10000 * [0])
     jet_ak02tpc_multiplicity_raw = array('H', 10000 * [0])
 
+    njet_charged_truth_ak02 = array('i', [0])
+    jet_charged_truth_ak02_pt = array('f', 10000 * [0])
+    jet_charged_truth_ak02_eta = array('f', 10000 * [0])
+    jet_charged_truth_ak02_phi = array('f', 10000 * [0])
+    jet_charged_truth_ak02_area = array('f', 10000 * [0])
+    jet_charged_truth_ak02_multiplicity = array('H', 10000 * [0])
+
     # set up new branches
     outfile = ROOT.TFile.Open(ntuplefilename.replace('.root', '_AUX.root'), 'RECREATE')
     outtree = ROOT.TTree('ntupleaux', 'ntupleaux')
+
     outtree.Branch('ncluster', outncluster, 'ncluster/i')
     outtree.Branch('cluster_5x5all', cluster_5x5all, 'cluster5x5all[ncluster]/F')
     outtree.Branch('cluster_is_prompt', cluster_is_prompt, 'cluster_is_prompt[ncluster]/O')
+
     outtree.Branch('isINT7', isINT7, 'isINT7/O')
     outtree.Branch('isCentral', isCentral, 'isCentral/O')
     outtree.Branch('isSemiCentral', isSemiCentral, 'isSemiCentral/O')
     outtree.Branch('isEMCEGA', isEMCEGA, 'isEMCEGA/O')
+
     outtree.Branch('njet_ak02tpc', njet_ak02tpc, 'njet_ak02tpc/i')
-    # this naming is in line with the ntuplizer, but it is with the UE subtracted
     outtree.Branch('jet_ak02tpc_pt_raw', jet_ak02tpc_pt_raw, 'jet_ak02tpc_pt_raw[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_eta', jet_ak02tpc_eta, 'jet_ak02tpc_eta[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_phi', jet_ak02tpc_phi, 'jet_ak02tpc_phi[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_area', jet_ak02tpc_area, 'jet_ak02tpc_area[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_multiplicity_raw', jet_ak02tpc_multiplicity_raw, 'jet_ak02tpc_multiplicity_raw[njet_ak02tpc]/s')
+
+    outtree.Branch('njet_charged_truth_ak02', njet_charged_truth_ak02, 'njet_charged_truth_ak02/i')
+    outtree.Branch('jet_charged_truth_ak02_pt', jet_charged_truth_ak02_pt, 'jet_charged_truth_ak02_pt[njet_charged_truth_ak02]/F')
+    outtree.Branch('jet_charged_truth_ak02_eta', jet_charged_truth_ak02_eta, 'jet_charged_truth_ak02_eta[njet_charged_truth_ak02]/F')
+    outtree.Branch('jet_charged_truth_ak02_phi', jet_charged_truth_ak02_phi, 'jet_charged_truth_ak02_phi[njet_charged_truth_ak02]/F')
+    outtree.Branch('jet_charged_truth_ak02_area', jet_charged_truth_ak02_area, 'jet_charged_truth_ak02_area[njet_charged_truth_ak02]/F')
+    outtree.Branch('jet_charged_truth_ak02_multiplicity', jet_charged_truth_ak02_multiplicity, 'jet_charged_truth_ak02_multiplicity[njet_charged_truth_ak02]/s')
 
     jetdef = fastjet.JetDefinition(fastjet.antikt_algorithm, 0.2)
     areadef = fastjet.AreaDefinition(fastjet.VoronoiAreaSpec())
@@ -65,30 +79,40 @@ def createAuxFile(ntuplefilename):
             print('{0} Processing event {1}/{2}'.format(datetime.datetime.now(), ievent, nevents))
         tree.GetEntry(ievent)
 
+        # retrieve event info
         run_number = getattr(tree, 'run_number')
         trigger_mask = getattr(tree, 'trigger_mask')
+        ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
 
+        # retrieve cluster info
         ncluster = getattr(tree, 'ncluster')
         cluster_e = getattr(tree, 'cluster_e')
         cluster_cell_id_max = getattr(tree, 'cluster_cell_id_max')
-        cell_e = getattr(tree, 'cell_e')
-        cell_cluster_index = getattr(tree, 'cell_cluster_index')
         cluster_nmc_truth = tBranchToArray(getattr(tree, 'cluster_nmc_truth'), 'i', ncluster)
         cluster_mc_truth_index = tBranchToArray(getattr(tree, 'cluster_mc_truth_index'), 's', (ncluster, 32))
 
+        # retrieve cell info
+        cell_e = getattr(tree, 'cell_e')
+        cell_cluster_index = getattr(tree, 'cell_cluster_index')
+
+        # retrieve MC info
         nmc_truth = getattr(tree, 'nmc_truth')
+        mc_truth_pt = getattr(tree, 'mc_truth_pt')
+        mc_truth_eta = getattr(tree, 'mc_truth_eta')
+        mc_truth_phi = getattr(tree, 'mc_truth_phi')
+        mc_truth_e = getattr(tree, 'mc_truth_e')
         mc_truth_pdg_code = tBranchToArray(getattr(tree, 'mc_truth_pdg_code'), 'S', nmc_truth)
         try:
             mc_truth_is_prompt_photon = tBranchToArray(getattr(tree, 'mc_truth_is_prompt_photon'), 'O', nmc_truth)
         except AttributeError:
             mc_truth_is_prompt_photon = None
 
+        # retrieve track info
         ntrack = getattr(tree, 'ntrack')
         track_pt = getattr(tree, 'track_pt')
         track_eta = getattr(tree, 'track_eta')
         track_phi = getattr(tree, 'track_phi')
         track_e = getattr(tree, 'track_e')
-        ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
 
         # trigger info
         if run_number != previous_run_number:
@@ -124,7 +148,7 @@ def createAuxFile(ntuplefilename):
 
         outncluster[0] = ncluster
 
-        # jet info
+        # jet R=0.2 info
         pjs = []
         for itrack in range(ntrack):
             pt = track_pt[itrack]
@@ -146,9 +170,10 @@ def createAuxFile(ntuplefilename):
             lv = ROOT.Math.PtEtaPhiEVector(pt, eta, phi, e)
             pjs.append(fastjet.PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E()))
 
-        # need to keep this in scope in order for other stuff to work
+        # need to keep this (csa) in scope in order for other stuff to work
         csa = fastjet.ClusterSequenceArea(pjs, jetdef, areadef)
         jets = csa.inclusive_jets()
+        njet_ak02tpc[0] = len(jets)
         for ijet, jet in enumerate(jets):
             jet_ak02tpc_pt_raw[ijet] = jet.perp() - (ue_estimate_tpc_const * jet.area())
             jet_ak02tpc_eta[ijet] = jet.eta()
@@ -156,7 +181,39 @@ def createAuxFile(ntuplefilename):
             jet_ak02tpc_area[ijet] = jet.area()
             jet_ak02tpc_multiplicity_raw[ijet] = len(jet.constituents())
 
-        njet_ak02tpc[0] = len(jets)
+        # truth charged jet R=0.2 info
+        pjs = []
+        for imc in range(nmc_truth):
+            # for some reason, python can't read the mc_truth_charge branch
+            # because it's a Char_t and the \0xfd character is not utf-8
+            # actually figuring this out is too hard, so instead, we use the PDG code
+            # so far, it seems there's a relatively small number of codes that
+            # actually exist in the embedded ntuples
+            # [-3334 -3322 -3312 -3222 -3122 -3112 -2212 -2112  -321  -211   -16   -14
+            #    -13   -12   -11    11    12    13    14    16    22   130   211   310
+            #    321  2112  2212  3112  3122  3222  3312  3322  3334]
+            pdg_code = mc_truth_pdg_code[imc]
+            charge = pdgCodeToCharge[pdg_code]
+            if charge == 0:
+                continue
+
+            pt = mc_truth_pt[imc]
+            eta = mc_truth_eta[imc]
+            phi = mc_truth_phi[imc]
+            e = mc_truth_e[imc]
+
+            lv = ROOT.Math.PtEtaPhiEVector(pt, eta, phi, e)
+            pjs.append(fastjet.PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E()))
+
+        csa = fastjet.ClusterSequenceArea(pjs, jetdef, areadef)
+        jets = csa.inclusive_jets()
+        njet_charged_truth_ak02[0] = len(jets)
+        for ijet, jet in enumerate(jets):
+            jet_charged_truth_ak02_pt[ijet] = jet.perp()
+            jet_charged_truth_ak02_eta[ijet] = jet.eta()
+            jet_charged_truth_ak02_phi[ijet] = jet.phi_std()
+            jet_charged_truth_ak02_area[ijet] = jet.area()
+            jet_charged_truth_ak02_multiplicity[ijet] = len(jet.constituents())
 
         outtree.Fill()
 
