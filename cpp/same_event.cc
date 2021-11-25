@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
     _tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
 
-    if (!(auxfile == NULL)) {
+    if (auxfile != NULL) {
       auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
     }
 
@@ -408,7 +408,7 @@ int main(int argc, char *argv[])
         }
       }
       _tree_event->GetEntry(ievent);
-      if (!(auxfile == NULL)) {
+      if (auxfile != NULL) {
         auxtree->GetEntry(ievent);
       }
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
@@ -524,7 +524,7 @@ int main(int argc, char *argv[])
       }//for nclusters
     } //for nevents
     file->Close();
-    if (!(auxfile == NULL)) {
+    if (auxfile != NULL) {
       auxfile->Close();
     }
     std::cout << std::endl;

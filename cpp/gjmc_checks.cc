@@ -184,6 +184,7 @@ int main(int argc, char *argv[])
   Float_t ue_estimate_its_const;
   Float_t ue_estimate_tpc_const;
   Float_t centrality_v0m;
+  Bool_t isINT7;
 
   //Clusters
   UInt_t ncluster;
@@ -280,6 +281,13 @@ int main(int argc, char *argv[])
     std::string aux_filename = root_file.replace(root_file.find(".root"), 5, "_AUX.root");
     std::cout << "Opening " << aux_filename << std::endl;
     TFile *auxfile = TFile::Open((TString)aux_filename);
+
+    // for these tests, the aux file is non-optional
+    if (auxfile == NULL) {
+      std::cout << "Failed to open aux file" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
     TTree *auxtree;
     // the aux file is only needed in certain situations, so check for those situations
     // things should still work even without the aux file
@@ -298,14 +306,15 @@ int main(int argc, char *argv[])
 
 
     // Set the branch addresses of the branches in the TTrees
-    _tree_event->SetBranchStatus("*mc*", 0);
-
     //event Addresses
     _tree_event->SetBranchAddress("primary_vertex", primary_vertex);
     _tree_event->SetBranchAddress("is_pileup_from_spd_5_08", &is_pileup_from_spd_5_08);
     _tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
     _tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
     _tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
+    if (auxfile != NULL) {
+      auxtree->SetBranchAddress("isINT7", &isINT7);
+    }
 
     //Cluster Addresses
     _tree_event->SetBranchAddress("ncluster", &ncluster);
@@ -335,7 +344,7 @@ int main(int argc, char *argv[])
     _tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
     _tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
 
-    if (!(auxfile == NULL)) {
+    if (auxfile != NULL) {
       auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
       auxtree->SetBranchAddress("cluster_is_prompt", cluster_is_prompt);
     }
@@ -390,12 +399,13 @@ int main(int argc, char *argv[])
     //MAIN CORRELATION LOOP
     for (Long64_t ievent = 0; ievent < nentries ; ievent++) {
       _tree_event->GetEntry(ievent);
-      if (!(auxfile == NULL)) {
+      if (auxfile != NULL) {
         auxtree->GetEntry(ievent);
       }
       fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nentries);
 
       //Event Selection
+      if (!isINT7) continue;
       if (TMath::Abs(primary_vertex[2]) > 10) continue;
       if (primary_vertex[2] == 0.00) continue;
       if (do_pile && is_pileup_from_spd_5_08) continue;
@@ -501,7 +511,7 @@ int main(int argc, char *argv[])
       }//for nclusters
     } //for nevents
     file->Close();
-    if (!(auxfile == NULL)) {
+    if (auxfile != NULL) {
       auxfile->Close();
     }
     std::cout << std::endl;
