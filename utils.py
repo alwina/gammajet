@@ -175,7 +175,11 @@ def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
 
     # reset the axes so that we aren't carrying around these cuts
     for axis in thnSparse.GetListOfAxes():
-        axis.UnZoom()
+        # apparently axis.UnZoom doesn't actually work, because why would it
+        axis.SetRangeUser(-np.inf, np.inf)
+
+    if thnSparse.Projection(0).Integral() != thnSparse.GetEntries():
+        print('Warning: integral of THnSparse does not match GetEntries')
 
     return projection
 
