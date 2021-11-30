@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 
   // dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio
   Int_t ndimCorr = 5;
-  Int_t nbinsCorr[ndimCorr] = {10, 50, 120, 120, 120};
+  Int_t nbinsCorr[ndimCorr] = {10, 50, 120, 100, 120};
   Double_t minbinsCorr[ndimCorr] = {0, 15, 0, 0, 0};
   Double_t maxbinsCorr[ndimCorr] = {100, 40, M_PI, 50, 2};
   THnSparseF* hCorrSR = new THnSparseF("hCorrSR", "Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);

@@ -243,3 +243,8 @@ def getTimeText(duration):
     else:
         timetext = '{0:0.0f} hours {1:0.0f} minutes'.format(duration / 3600, (duration % 3600) / 60.0)
     return timetext
+
+
+def getMixedEventFilename(config, mixlabel):
+    basename = config['filelists']['correlations']['mixedevent']
+    return basename.replace('.root', '_{0}.root'.format(mixlabel))
