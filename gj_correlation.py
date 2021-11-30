@@ -271,15 +271,4 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                 # add to dictionary
                 allCorr[centrange][photonptrange][observable] = gjCorr
 
-                # reset any per-observable cuts that were done
-                resetCuts = []
-                for cut in observableInfo[observable]['cuts']:
-                    cutobs = cut['var']
-                    resetCuts.append((AxisNum[cutobs].value, observableInfo[cutobs]['min'], observableInfo[cutobs]['max']))
-
-                sliceAndProjectTHnSparse(sehCorrSR, resetCuts, 0)
-                sliceAndProjectTHnSparse(sehCorrBR, resetCuts, 0)
-                sliceAndProjectTHnSparse(mehCorrSR, resetCuts, 0)
-                sliceAndProjectTHnSparse(mehCorrBR, resetCuts, 0)
-
     return allCorr

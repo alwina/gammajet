@@ -129,18 +129,18 @@ def th1ToArrays(th1):
 
 def plotTH1(th1, **kwargs):
     hist, err, binCenters, binWidths = th1ToArrays(th1)
-    plt.errorbar(binCenters, hist, yerr=err, xerr=binWidths, **kwargs)
+    plt.errorbar(binCenters, hist, yerr=err, xerr=binWidths / 2.0, **kwargs)
 
 
-def plotTH2(th2):
+def plotTH2(th2, **kwargs):
     nBinsX = th2.GetNbinsX()
     nBinsY = th2.GetNbinsY()
 
-    hist2d = np.zeros((nBinsX + 1, nBinsY + 1))
+    hist2d = np.zeros((nBinsY, nBinsX))
     for binX in range(1, nBinsX + 1):
         for binY in range(1, nBinsY + 1):
             globalBinNumber = th2.GetBin(binX, binY)
-            hist2d[binX][binY] = th2.GetBinContent(globalBinNumber)
+            hist2d[binY - 1][binX - 1] = th2.GetBinContent(globalBinNumber)
     # set 0 values to be white when plotting
     hist2d[hist2d == 0] = np.nan
 
@@ -148,10 +148,20 @@ def plotTH2(th2):
     maxX = th2.GetXaxis().GetXmax()
     minY = th2.GetYaxis().GetXmin()
     maxY = th2.GetYaxis().GetXmax()
-    plt.imshow(hist2d, origin='lower', extent=(minX, maxX, minY, maxY))
+    plt.imshow(hist2d, origin='lower', extent=(minX, maxX, minY, maxY), **kwargs)
 
 
 def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
+    """
+    Make cuts on a THnSparse and return a TH* projection
+
+    thnSparse: the THnSparse to manipulate
+    slices: cuts in the form of a list of tuples of the form (axisNumber, axisMin, axisMax)
+    axesToProject: the axes numbers to pass to THnSparse::Projection
+
+    the slices/cuts use the actual values, not the bin numbers. they should correspond to bin edges though
+    the axes numbers should be passed in "reverse" order; (y, x) or (z, y, x), for example
+    """
     for (axisNumber, axisMin, axisMax) in slices:
         # https://root.cern.ch/doc/master/TAxis_8cxx_source.html#l00962
         # SetRangeUser appears to have a non-inclusive upper bound,
@@ -161,7 +171,13 @@ def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
         # and the direction you want to change it. since we always want to go down,
         # we set the direction to be negative infinity
         thnSparse.GetAxis(axisNumber).SetRangeUser(axisMin, np.nextafter(axisMax, -np.inf))
-    return thnSparse.Projection(*axesToProject)
+    projection = thnSparse.Projection(*axesToProject)
+
+    # reset the axes so that we aren't carrying around these cuts
+    for axis in thnSparse.GetListOfAxes():
+        axis.UnZoom()
+
+    return projection
 
 
 # mapping of ROOT TBranch type code to python type code for struct
