@@ -129,7 +129,7 @@ def th1ToArrays(th1):
 
 def plotTH1(th1, **kwargs):
     hist, err, binCenters, binWidths = th1ToArrays(th1)
-    plt.errorbar(binCenters, hist, yerr=err, xerr=binWidths / 2.0, **kwargs)
+    plt.errorbar(binCenters, hist, yerr=err, xerr=np.divide(binWidths, 2.0), **kwargs)
 
 
 def plotTH2(th2, **kwargs):
@@ -177,9 +177,6 @@ def sliceAndProjectTHnSparse(thnSparse, slices, *axesToProject):
     for axis in thnSparse.GetListOfAxes():
         # apparently axis.UnZoom doesn't actually work, because why would it
         axis.SetRangeUser(-np.inf, np.inf)
-
-    if thnSparse.Projection(0).Integral() != thnSparse.GetEntries():
-        print('Warning: integral of THnSparse does not match GetEntries')
 
     return projection
 

@@ -295,12 +295,15 @@ int main(int argc, char *argv[])
   const H5std_string event_ds_name( "event" );
   DataSet event_dataset = triggered_h5_file.openDataSet( event_ds_name );
 
-  // get Jet Dateset from MIN-BIAS file
+  // get jet dataset from MIN-BIAS file
   // switch based on jet type
   if (doprint) std::cout << "Jet type: " << jettype << std::endl;
   DataSet jet_dataset;
   if (jettype == "ak04tpc" or jettype == "ak02tpc") {
     const H5std_string jet_ds_name( "jet_" + jettype );
+    jet_dataset = MB_h5_file.openDataSet( jet_ds_name );
+  } else if (jettype == "none") {
+    const H5std_string jet_ds_name( "jet" );
     jet_dataset = MB_h5_file.openDataSet( jet_ds_name );
   } else if (jettype == "ak04its") {
     std::cout << "ERROR: Jet type ak04its not yet supported. Aborting" << std::endl;
@@ -310,6 +313,10 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  // get track dataset from MIN-BIAS file
+  const H5std_string track_ds_name( "track" );
+  DataSet track_dataset = MB_h5_file.openDataSet( track_ds_name );
+
   //MINBIAS EVENT DATA
   DataSet mb_event_dataset = MB_h5_file.openDataSet( event_ds_name );
 
@@ -317,6 +324,7 @@ int main(int argc, char *argv[])
   DataSpace cluster_dataspace = cluster_dataset.getSpace();
   DataSpace event_dataspace = event_dataset.getSpace();
   DataSpace jet_dataspace = jet_dataset.getSpace();
+  DataSpace track_dataspace = track_dataset.getSpace();
   DataSpace mb_event_dataspace = mb_event_dataset.getSpace();
 
   //Load the dimensions of datasets from file, to be used in dataspace/hyperslab
@@ -339,6 +347,12 @@ int main(int argc, char *argv[])
   jet_dataspace.getSimpleExtentDims(jetdims, NULL);
   UInt_t njet = jetdims[1];
   UInt_t Njet_Vars = jetdims[2];
+
+  const int track_rank = track_dataspace.getSimpleExtentNdims();
+  hsize_t trackdims[track_rank];
+  track_dataspace.getSimpleExtentDims(trackdims, NULL);
+  UInt_t ntrack = trackdims[1];
+  UInt_t Ntrack_Vars = trackdims[2];
 
   const int mb_event_rank = mb_event_dataspace.getSimpleExtentNdims();
   hsize_t mb_eventdims[mb_event_rank];
@@ -363,6 +377,7 @@ int main(int argc, char *argv[])
   float event_data_out[block_size][Nevent_Vars];
 
   float jet_data_out[block_size][njet][Njet_Vars];
+  float track_data_out[block_size][ntrack][Ntrack_Vars];
   float mb_event_data_out[block_size][Nevent_Vars];
 
   //Define hyperslab size and offset to be read from FILE;
@@ -374,6 +389,8 @@ int main(int argc, char *argv[])
   //FIXME: Get MinBias to use block logic as well
   hsize_t jet_offset[3] = {0, 0, 0};
   hsize_t jet_count[3] = {block_size, njet, Njet_Vars};
+  hsize_t track_offset[3] = {0, 0, 0};
+  hsize_t track_count[3] = {block_size, ntrack, Ntrack_Vars};
   hsize_t mb_event_offset[2] = {0, 0};
   hsize_t mb_event_count[2] = {block_size, Nevent_Vars};
 
@@ -384,6 +401,7 @@ int main(int argc, char *argv[])
   cluster_dataspace.selectHyperslab( H5S_SELECT_SET, cluster_count, cluster_offset );
 
   jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
+  track_dataspace.selectHyperslab( H5S_SELECT_SET, track_count, track_offset );
   mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
   /* if (doprint) fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, "select Hyperslab OK"); */
 
@@ -392,6 +410,7 @@ int main(int argc, char *argv[])
   DataSpace cluster_memspace(cluster_rank, clusterdims );
 
   DataSpace jet_memspace(jet_rank, jetdims );
+  DataSpace track_memspace(track_rank, trackdims );
   DataSpace mb_event_memspace(mb_event_rank, mb_eventdims );
 
   //Define DataSpace offset for hypreslab starting at begining:
@@ -400,24 +419,28 @@ int main(int argc, char *argv[])
   hsize_t event_offset_out[2] = {0};
   hsize_t cluster_offset_out[3] = {0};
   hsize_t jet_offset_out[3] = {0};
+  hsize_t track_offset_out[3] = {0};
   hsize_t mb_event_offset_out[2] = {0};
 
   //define dimensions of hyperslab in memory (aka memspace)
   hsize_t event_count_out[2] = {block_size, Nevent_Vars};
   hsize_t cluster_count_out[3] = {block_size, ncluster_max, Ncluster_Vars};
   hsize_t jet_count_out[3] = {block_size, njet, Njet_Vars};
+  hsize_t track_count_out[3] = {block_size, ntrack, Ntrack_Vars};
   hsize_t mb_event_count_out[2] = {block_size, Nevent_Vars};
 
   //Apply the offset and dimensions from the previous two code blocks to the memspace
   event_memspace.selectHyperslab( H5S_SELECT_SET, event_count_out, event_offset_out );
   cluster_memspace.selectHyperslab( H5S_SELECT_SET, cluster_count_out, cluster_offset_out );
   jet_memspace.selectHyperslab( H5S_SELECT_SET, jet_count_out, jet_offset_out );
+  track_memspace.selectHyperslab( H5S_SELECT_SET, track_count_out, track_offset_out );
   mb_event_memspace.selectHyperslab( H5S_SELECT_SET, mb_event_count_out, mb_event_offset_out );
 
   //FINALLY use the well-defined memspace to read data from the dataspace, INTO the local array
   event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
   cluster_dataset.read( cluster_data_out, PredType::NATIVE_FLOAT, cluster_memspace, cluster_dataspace );
   jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+  track_dataset.read( track_data_out, PredType::NATIVE_FLOAT, track_memspace, track_dataspace );
   mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
 
   //First [block_size] number of events have just been read into local arrays
@@ -453,6 +476,10 @@ int main(int argc, char *argv[])
       jet_offset[0] = imix * block_size;
       jet_dataspace.selectHyperslab( H5S_SELECT_SET, jet_count, jet_offset );
       jet_dataset.read( jet_data_out, PredType::NATIVE_FLOAT, jet_memspace, jet_dataspace );
+
+      track_offset[0] = imix * block_size;
+      track_dataspace.selectHyperslab( H5S_SELECT_SET, track_count, track_offset );
+      track_dataset.read( track_data_out, PredType::NATIVE_FLOAT, track_memspace, track_dataspace );
     }
 
     // open pairing file and prepare to loop through it
@@ -546,6 +573,7 @@ int main(int argc, char *argv[])
       float mb_multiplicity = mb_event_data_out[mix_index][1];
       float mb_v2 = mb_event_data_out[mix_index][2];
       float mb_centrality_v0m = mb_event_data_out[mix_index][3];
+      float mb_ue_estimate_tpc_const = mb_event_data_out[mix_index][6];
 
       // if (doprint) {
       //  std::cout<<std::endl<<"z = "<<primary_vertex; 
@@ -609,23 +637,31 @@ int main(int argc, char *argv[])
         if ( not(cluster_nlocal_maxima < 3)) continue; //require to have at most 2 local maxima.
         if ( not(abs(cluster_tof) < cluster_time)) continue;
 
-        float isolation;
-        if (isovar == "cluster_iso_tpc_04") isolation = cluster_iso_tpc_04;
-        else if (isovar == "cluster_iso_its_04") isolation = cluster_iso_its_04;
-        else if (isovar == "cluster_iso_its_04_sub") {
-          isolation = cluster_iso_its_04 + cluster_iso_its_04_ue - ue_estimate_its_const * 3.1416 * 0.4 * 0.4;
-        }
-        else if (isovar == "cluster_iso_tpc_04_sub") {
-          isolation = cluster_iso_tpc_04 + cluster_iso_tpc_04_ue - ue_estimate_tpc_const * 3.1416 * 0.4 * 0.4;
-        }
-        else if (isovar == "cluster_iso_tpc_02_sub") {
-          isolation = cluster_iso_tpc_02 + cluster_iso_tpc_02_ue - ue_estimate_tpc_const * 3.1416 * 0.2 * 0.2;
-        }
-        else if (isovar == "cluster_frixione_tpc_04_02") isolation = cluster_frixione_tpc_04_02;
-        else if (isovar == "cluster_frixione_its_04_02") isolation = cluster_frixione_its_04_02;
-        else {
-          std::cout << "ERROR: Isolation variable " << isovar << " not recognized. Aborting" << std::endl;
+        // calculate isolation based on MB tracks
+        // for this, it only matters what the radius is, not the track type
+        // since the making of the HDF5 file keeps track of which track type it wants
+        float cone;
+        if (isovar == "cluster_iso_tpc_04_sub" || isovar == "cluster_iso_its_04_sub") {
+          cone = 0.4;
+        } else if (isovar == "cluster_iso_tpc_02_sub") {
+          cone = 0.2;
+        } else {
+          std::cout << "ERROR: Isolation variable " << isovar << " not currently calculable from MB event. Aborting" << std::endl;
           exit(EXIT_FAILURE);
+        }
+
+        // start with the UE subtraction, because why not?
+        float isolation = -3.1415927 * cone * cone * mb_ue_estimate_tpc_const;
+        for (int itrack = 0; itrack < ntrack; itrack++) {
+          if (std::isnan(track_data_out[mix_index][itrack][0])) break;
+          float track_pt = track_data_out[mix_index][itrack][1];
+          float track_eta = track_data_out[mix_index][itrack][2];
+          float track_phi = track_data_out[mix_index][itrack][3];
+
+          // if we're within the cone, add the track pT to the isolation energy
+          if (((cluster_phi - track_phi) * (cluster_phi - track_phi) + (cluster_eta - track_eta) * (cluster_eta - track_eta)) < (cone * cone)) {
+            isolation += track_pt;
+          }
         }
 
         Isolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
