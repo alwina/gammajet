@@ -4,7 +4,7 @@ import numpy as np
 import iminuit
 
 from utils import getBinRange, getCenters, getWidths, normalizeHistAndErr, quadSumPairwise, getHistAndErr, getNormHistAndErr, divideHistsAndErrs
-from plotstyle import upperRightText
+from plotstyle import upperRightText, setTicks
 from params import centralitycuttext, ptcuttext
 from uncertainty_background_template_correction import getDoubleRatioFitAndError, plotDoubleRatioAndFit
 from fit_functions import SingleParameterLinearFit
@@ -12,10 +12,10 @@ from fit_functions import SingleParameterLinearFit
 
 def getPurity(normsignal, normbkg, binEdges, frac, purityMin, purityMax):
     pmin, pmax = getBinRange(binEdges, purityMin, purityMax)
-    signal = frac * normsignal[pmin:pmax]
-    bkg = (1 - frac) * normbkg[pmin:pmax]
+    signal = frac * np.sum(normsignal[pmin:pmax])
+    bkg = (1 - frac) * np.sum(normbkg[pmin:pmax])
 
-    return np.sum(signal) / (np.sum(signal) + np.sum(bkg))
+    return signal / (signal + bkg)
 
 
 def modifyBkgWeights(weights, binEdges, modFunction):
@@ -30,7 +30,7 @@ def applyBkgWeights(weights, hist, histerr):
     return normalizeHistAndErr(newhist, newhisterr)
 
 
-# Requires all histograms as normalized numpy arrays
+# Requires all histograms as (normalized, in the case of signal and bkg) numpy arrays
 # In particular, the background weights must already be applied
 class TemplateFit:
     def __init__(self, data, dataerr, signal, signalerr, bkg, bkgerr, ssParams, verbosity=0):
@@ -64,15 +64,18 @@ class TemplateFit:
         def Chi2(f):
             model = self.N * (f * self.signal + (1 - f) * self.bkg)
             totalerr = quadSumPairwise(self.dataerr, self.N * (1 - f) * self.bkgerr)
-            return np.sum(np.power(np.divide(self.data - model, totalerr, where=np.array(totalerr) != 0), 2.0)[self.fitRange])
+            residuals = np.divide(model - self.data, totalerr, where=(totalerr != 0))
+            return np.sum(np.square(residuals[self.fitRange]))
 
         for initf in [0.1, 0.2, 0.4, 0.8, 0.05, 0.02, 0.01, 0.005]:
             mt = iminuit.Minuit(Chi2, f=initf, error_f=0.01, limit_f=(0.0, 1.0), errordef=1, print_level=self.verbosity)
             mt.migrad()
 
+            # break if it appears to have converged
             if not np.isnan(mt.values['f']) and mt.migrad_ok():
                 break
 
+        # check for convergence and print lots of info if it failed
         if np.isnan(mt.values['f']) or not mt.migrad_ok():
             print('Warning: template fit did not converge')
             print('Data:', self.data)
@@ -91,14 +94,19 @@ class TemplateFit:
 
         fitTotal = self.fitSignal + self.fitBkg
         totalerr = quadSumPairwise(self.dataerr, self.fitBkgerr)
-        self.residuals = np.divide(fitTotal - self.data, totalerr, where=np.array(totalerr) != 0)
+        self.residuals = np.divide(fitTotal - self.data, totalerr, where=(totalerr != 0))
         self.chi2 = Chi2(self.fitf)
         self.dof = len(self.data[self.fitRange]) - 1  # number of fit parameters
+
+        # sanity check here on chi2 function and residuals
+        # expect to never ever hit this, but definitely want to know if it happens
+        if self.chi2 != np.sum(np.square(self.residuals[self.fitRange])):
+            print('Warning: chi2 from residuals ({0}) and chi2 from fit function ({1}) are not equal'.format(np.sum(np.square(self.residuals[self.fitRange])), self.chi2))
 
     def getChi2DofInRange(self, rangeMin, rangeMax):
         binmin, binmax = getBinRange(self.binEdges, rangeMin, rangeMax)
         dof = len(self.residuals[binmin:binmax]) - 1
-        chi2 = np.sum(np.power(self.residuals[binmin:binmax], 2.0))
+        chi2 = np.sum(np.square(self.residuals[binmin:binmax]))
 
         return chi2 / dof
 
@@ -115,20 +123,20 @@ class TemplateFit:
 
     # returns list of handles: data, bkg, signal, chi2, purity
     def plotFit(self, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg'):
-        norm = self.N * (self.binCenters[1] - self.binCenters[0])
+        # this normalization causes the sum to be 1
+        norm = self.N
         totalerr = quadSumPairwise(self.dataerr, self.fitBkgerr)
 
         dataplot = plt.errorbar(self.binCenters, self.data / norm, yerr=self.dataerr / norm, label=dataLabel, fmt='ko')
-        bkgplot = plt.bar(self.binCenters, self.fitBkg / norm, width=self.binWidths, align='center', label=bkgLabel, capsize=0, color=self.bkgColor, ec=self.bkgColor)
-        signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, 'Bkg'), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
-        # signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, bkgLabel), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
+        bkgplot = plt.bar(self.binCenters, self.fitBkg / norm, width=self.binWidths, align='center', label=bkgLabel, color=self.bkgColor, ec=self.bkgColor)
+        signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, bkgLabel), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
 
         chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:2.2f}/{1:2.0f}'.format(self.chi2, self.dof))
         puritytext, = plt.plot([], [], ' ', label='Purity = ${0:2.1f} \pm {1:2.1f}$%'.format(100 * self.purity, 100 * self.purityerr))
 
         ax = plt.gca()
         pmin, pmax = getBinRange(self.binEdges, self.purityMin, self.purityMax)
-        ax.axvspan(self.binCenters[pmin] - self.binWidths[pmin] / 2.0, self.binCenters[pmax] - self.binWidths[pmax] / 2.0, color='black', alpha=0.1)
+        ax.axvspan(self.binEdges[pmin], self.binEdges[pmax], color='black', alpha=0.1)
 
         return dataplot, bkgplot, signalplot, chi2text, puritytext
 
@@ -154,20 +162,17 @@ class TemplateFit:
     def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
         fig = plt.figure()
 
+        # plot template fit
         fig.add_axes((0.1, 0.3, 0.88, 0.6))
-
         ax = plt.gca()
-        ax.minorticks_on()
-        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
-        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+        setTicks(ax)
 
-        fig.add_axes((0.1, 0.3, 0.88, 0.6))
         dataplot, bkgplot, signalplot, chi2text, puritytext = self.plotFit(dataLabel, signalLabel, bkgLabel)
 
         datapoint, = plt.plot([], [], 'ko', label=dataLabel)
         plt.legend(handles=[datapoint, signalplot, bkgplot, chi2text, puritytext], ncol=1, numpoints=1, loc=1, fontsize=22, frameon=False)
 
-        pttext = '{0} < pT < {1} GeV/$c$'.format(ptrange[0], ptrange[1])
+        pttext = '${0} \leq p_\mathrm{{T}} < {1}$ GeV/$c$'.format(ptrange[0], ptrange[1])
         infotext = pttext
         if centrange:
             centtext = '{0}-{1}% {2}'.format(centrange[0], centrange[1], system)
@@ -177,12 +182,10 @@ class TemplateFit:
         plt.annotate(infotext, xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
         plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
 
+        # plot residuals
         fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
-
         ax = plt.gca()
-        ax.minorticks_on()
-        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
-        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+        setTicks(ax)
 
         self.plotResiduals(ylim=ylim)
         average = np.average(self.residuals)
@@ -195,7 +198,7 @@ class TemplateFit:
             fig.savefig(figfilename)
 
 
-# Requires all histograms as normalized numpy arrays
+# Requires all histograms as numpy arrays; bkg should be normalized
 # In particular, the background weights must already be applied
 class BackgroundFit:
     def __init__(self, data, dataerr, bkg, bkgerr, ssParams, verbosity=0):
@@ -221,13 +224,18 @@ class BackgroundFit:
         def Chi2(N):
             model = N * self.bkg
             totalerr = quadSumPairwise(self.dataerr, N * self.bkgerr)
-            return np.sum(np.power(np.divide(self.data - model, totalerr, where=np.array(totalerr) != 0), 2.0)[self.fitRange])
+            residuals = np.divide(model - self.data, totalerr, where=(totalerr != 0))
+            return np.sum(np.square(residuals[self.fitRange]))
 
         mt = iminuit.Minuit(Chi2, N=np.sum(self.data) / np.sum(self.bkg), error_N=1, errordef=1, print_level=self.verbosity)
         mt.migrad()
 
-        if not mt.migrad_ok():
-            print('Warning: template fit did not converge')
+        if np.isnan(mt.values['N']) or not mt.migrad_ok():
+            print('Warning: background fit did not converge')
+            print('Data:', self.data)
+            print('Bkg:', self.bkg)
+            print('Data err:', self.dataerr)
+            print('Bkg err:', self.bkgerr)
 
         self.fitN = mt.values['N']
         self.fitNerr = mt.errors['N']
@@ -237,14 +245,19 @@ class BackgroundFit:
 
         totalerr = quadSumPairwise(self.dataerr, self.fitBkgerr)
 
-        self.residuals = np.divide(self.fitBkg - self.data, totalerr, where=np.array(totalerr) != 0)
+        self.residuals = np.divide(self.fitBkg - self.data, totalerr, where=(totalerr != 0))
         self.chi2 = Chi2(self.fitN)
         self.dof = len(self.data[self.fitRange]) - 1  # number of fit parameters
+
+        # sanity check here on chi2 function and residuals
+        # expect to never ever hit this, but definitely want to know if it happens
+        if self.chi2 != np.sum(np.square(self.residuals[self.fitRange])):
+            print('Warning: chi2 from residuals ({0}) and chi2 from fit function ({1}) are not equal'.format(np.sum(np.square(self.residuals[self.fitRange])), self.chi2))
 
     def getChi2DofInRange(self, rangeMin, rangeMax):
         binmin, binmax = getBinRange(self.binEdges, rangeMin, rangeMax)
         dof = len(self.residuals[binmin:binmax]) - 1
-        chi2 = np.sum(np.power(self.residuals[binmin:binmax], 2.0))
+        chi2 = np.sum(np.square(self.residuals[binmin:binmax]))
 
         return chi2 / dof
 
@@ -276,50 +289,39 @@ class BackgroundFit:
         ax.axvspan(self.binEdges[pmin], self.binEdges[pmax], color='black', alpha=0.2)
         ax.axvspan(self.binEdges[self.fitRange.start], self.binEdges[self.fitRange.stop], color='red', alpha=0.2)
 
-        plt.xlabel(self.xlabel)
-        plt.ylabel('Entries')
-
         return dataplot, bkgplot, chi2text, puritytext
 
     def plotResiduals(self, ylim=[-8.9, 8.9]):
         plt.plot(self.binCenters[self.fitRange], self.residuals[self.fitRange], 'ko', alpha=0.65)
-        plt.xlabel(self.xlabel)
         plt.ylabel('(Fit - Data)/Dataerr')
-        plt.xlim([self.binCenters[0], self.binCenters[-1]])
         plt.ylim(ylim)
 
     def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
         fig = plt.figure()
 
+        # plot background fit
         fig.add_axes((0.1, 0.3, 0.88, 0.6))
-
         ax = plt.gca()
-        ax.minorticks_on()
-        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
-        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+        setTicks(ax)
 
-        fig.add_axes((0.1, 0.3, 0.88, 0.6))
         dataplot, bkgplot, chi2text, puritytext = self.plotFit(dataLabel, bkgLabel)
 
         datapoint, = plt.plot([], [], 'ko', label=dataLabel)
         plt.legend(handles=[datapoint, bkgplot, chi2text, puritytext], ncol=1, numpoints=1, loc=1, fontsize=22, frameon=False)
 
-        pttext = '{0} < pT < {1} GeV/$c$'.format(ptrange[0], ptrange[1])
+        pttext = '${0} \leq p_\mathrm{{T}} < {1}$ GeV/$c$'.format(ptrange[0], ptrange[1])
         if centrange:
             centtext = '{0}-{1}% {2}'.format(centrange[0], centrange[1], system)
         infotext = pttext
         if centrange:
             infotext = infotext + '\n' + centtext
-        # centtext = '{0}-{1}% Pb-Pb\n$\sqrt{{s_{{NN}}}}=5.02$ TeV'.format(centrange[0], centrange[1])
         plt.annotate(infotext, xy=(0.95, 0.4), xycoords='axes fraction', va='top', ha='right', fontsize=22)
         plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
 
+        # plot residuals
         fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
-
         ax = plt.gca()
-        ax.minorticks_on()
-        ax.tick_params(axis='both', which='major', length=8, width=2, direction='in')
-        ax.tick_params(axis='both', which='minor', length=4, width=1, direction='in')
+        setTicks(ax)
 
         self.plotResiduals(ylim=ylim)
         average = np.average(self.residuals)
@@ -332,6 +334,9 @@ class BackgroundFit:
             fig.savefig(figfilename)
 
 
+# this was used for the study of how to incorporate anti-isolated gamma-jet MC
+# it's essentially deprecated (and therefore not checked or maintained)
+# but it's kept here for future reference
 class ExtendedTemplateFit:
     def __init__(self, dfs, ptrange, centrange, isoParams, ssParams, usezeta=False, usedoubleratio=False, verbosity=0):
         bincut = '{0} and {1}'.format(centralitycuttext(centrange), ptcuttext(ptrange))

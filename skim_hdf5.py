@@ -30,7 +30,7 @@ def skimHDF5Centrality(filename, centrange, eventgroupsize=100000, chunksize=200
         jet04tpc = fullfile['jet_ak04tpc'][startevent:min(startevent + eventgroupsize, neventsfull)]
         jet02tpc = fullfile['jet_ak02tpc'][startevent:min(startevent + eventgroupsize, neventsfull)]
 
-        event_pass_indices = np.logical_and(centrange[0] < event[:, centrality_index], event[:, centrality_index] < centrange[1])
+        event_pass_indices = np.logical_and(centrange[0] <= event[:, centrality_index], event[:, centrality_index] < centrange[1])
         neventsskim = np.count_nonzero(event_pass_indices)
 
         if skimevent is None:

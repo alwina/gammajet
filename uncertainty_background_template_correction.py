@@ -11,7 +11,7 @@ def modifyBkgWeights(weights, binEdges, modFunction):
     return np.multiply(weights, mods)
 
 
-# after getDoubleRatioAndError
+# after getting the double ratio and error
 # result gets saved into doubleRatioFit
 # this performs the fit, which means it's slow!
 def getDoubleRatioFitAndError(doubleratio, doubleratioerr, ssParams, doubleRatioFit):
@@ -32,8 +32,10 @@ def plotDoubleRatioFitOnly(doubleRatioFit, ssParams):
     binCenters = getCenters(ssParams.doubleRatioBinEdges)
     fitRange = slice(*getBinRange(ssParams.doubleRatioBinEdges, *ssParams.doubleRatioFitRange))
 
-    plt.plot(binCenters, list(map(doubleRatioFit.getFunctionFit(), binCenters)), 'r:')
+    # plot within the fit range
     plt.plot(binCenters[fitRange], list(map(doubleRatioFit.getFunctionFit(), binCenters[fitRange])), 'r-')
+    # extend beyond the fit range
+    plt.plot(binCenters, list(map(doubleRatioFit.getFunctionFit(), binCenters)), 'r:')
     plt.annotate(doubleRatioFit.getResultText(), (0.95, 0.9), xycoords='axes fraction', ha='right', va='top', color='r')
 
 

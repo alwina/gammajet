@@ -15,7 +15,7 @@ from alice_emcal import calculateShowerShapes5x5
 from alice_mc import getNMCPhotons, getIsPrompt, getTruthPtAndComponents, getParentPi0Pt, fixedWeightProductions, getFixedWeight
 from alice_raa import getWeightWithRaa502charged
 from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentralTriggerIds, getEMCEGATriggerIds, isEventSelected
-from utils import tBranchToArray
+from utils import tBranchToArray, getTimeText, getSizeText
 
 
 def main(ntuplefilenames, csvfilename):
@@ -42,9 +42,11 @@ def main(ntuplefilenames, csvfilename):
         ntuplefilenames.sort()
         # initial loop to count nevents per pthat bin, because that's what we actually need for weights
         pthat_nevents = {}
+        print('{0} Counting events per pthat bin'.format(datetime.datetime.now()))
         for ntuplefilename in ntuplefilenames:
             if 'pthat' not in ntuplefilename:
                 continue
+            # this only works for single-digit pthat bin numbers
             pthat = ntuplefilename.split('pthat')[1][0]
             if pthat not in pthat_nevents:
                 pthat_nevents[pthat] = 0
@@ -117,7 +119,7 @@ def main(ntuplefilenames, csvfilename):
                 cluster_s_nphoton = tBranchToArray(getattr(tree, 'cluster_s_nphoton'), 'F', (ncluster, 4))
 
                 cluster_nmc_truth = tBranchToArray(getattr(tree, 'cluster_nmc_truth'), 'i', ncluster)
-                cluster_mc_truth_index = cluster_mc_truth_index = tBranchToArray(getattr(tree, 'cluster_mc_truth_index'), 's', (ncluster, 32))
+                cluster_mc_truth_index = tBranchToArray(getattr(tree, 'cluster_mc_truth_index'), 's', (ncluster, 32))
                 mc_truth_pdg_code = getattr(tree, 'mc_truth_pdg_code')
                 mc_truth_pt = getattr(tree, 'mc_truth_pt')
                 mc_truth_first_parent_pdg_code = getattr(tree, 'mc_truth_first_parent_pdg_code')
@@ -198,6 +200,14 @@ def main(ntuplefilenames, csvfilename):
                     frixione_tpc_04_10 = cluster_frixione_tpc_04_10[icluster]
                     lambda0 = cluster_lambda_square[icluster][0]
                     nn1 = cluster_s_nphoton[icluster][1]
+                    if pt < 15:
+                        continue
+
+                    # not sure how this happens with the pt cut, but avoiding ZeroDivisionErrors is good
+                    if e == 0 or e_max == 0:
+                        continue
+
+                    # calculations take time, so put them after the cuts
                     nmc_photon = getNMCPhotons(cluster_nmc_truth[icluster], cluster_mc_truth_index[icluster], mc_truth_pdg_code)
                     if mc_truth_is_prompt_photon is None:
                         isprompt = False
@@ -218,17 +228,10 @@ def main(ntuplefilenames, csvfilename):
                         parentpi0pt = getParentPi0Pt(cluster_nmc_truth[icluster], cluster_mc_truth_index[icluster],
                                                      mc_truth_first_parent_pdg_code, mc_truth_first_parent_pt)
 
-                    if pt < 15:
-                        continue
-
-                    # not sure how this happens with the pt cut, but avoiding ZeroDivisionErrors is good
-                    if e == 0 or e_max == 0:
-                        continue
-
-                    # this takes time, so put it after the pT cut
                     weightwithraa = getWeightWithRaa502charged(weight, parentpi0pt, centrality_v0m)
                     showershapes5x5 = calculateShowerShapes5x5(icluster, e, cell_id_max, cell_e, cell_cluster_index)
 
+                    # write out to the CSV
                     row = {}
                     row['cluster_pt'] = pt
                     row['cluster_eta'] = eta
@@ -284,23 +287,10 @@ def main(ntuplefilenames, csvfilename):
             rootfile.Close()
 
     end = time.time()
-    duration = end - start
-    if duration < 120:
-        timetext = '{0:0.0f} seconds'.format(duration)
-    elif duration < 3600:
-        timetext = '{0:0.0f} minutes'.format(duration / 60.0)
-    else:
-        timetext = '{0:0.0f} hours {1:0.0f} minutes'.format(duration / 3600, (duration % 3600) / 60.0)
+    timetext = getTimeText(end - start)
 
     csvsize = float(os.path.getsize(csvfilename))
-    if csvsize < 1024:
-        sizetext = '{0} B'.format(csvsize)
-    elif csvsize < 1024 * 1024:
-        sizetext = '{0} kB'.format(csvsize / 1024)
-    elif csvsize < 1024 * 1024 * 1024:
-        sizetext = '{0:0.1f} MB'.format(csvsize / (1024 * 1024))
-    else:
-        sizetext = '{0:0.1f} GB'.format(csvsize / (1024 * 1024 * 1024))
+    sizetext = getSizeText(csvsize)
 
     print('Took {0} to produce {1} ({2}, {3:0.0f} clusters, {4:0.0f} events)'.format(timetext, os.path.basename(csvfilename), sizetext, clustercount, totalevents))
 

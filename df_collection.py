@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from params import ptcuttext, centralitycuttext
+from params import ptcuttext, centralitycuttext, parseCut
 from template_fit import applyBkgWeights, TemplateFit, BackgroundFit
 from utils import getHistAndErr, getNormHistAndErr, divideHistsAndErrs
 
@@ -34,24 +34,6 @@ def applyCuts(inputdf, cuts, verbose=True):
         if verbose:
             print('{0}: {1}'.format(cut, df.shape[0]))
     return df
-
-
-def parseCut(cutvar, cuttype, cutval):
-    if cuttype == 'min':
-        cuttext = '{0} > {1}'.format(cutvar, cutval)
-    elif cuttype == 'max':
-        cuttext = '{0} < {1}'.format(cutvar, cutval)
-    elif cuttype == 'incmin':
-        cuttext = '{0} >= {1}'.format(cutvar, cutval)
-    elif cuttype == 'incmax':
-        cuttext = '{0} <= {1}'.format(cutvar, cutval)
-    elif cuttype == 'equals':
-        cuttext = '{0} == {1}'.format(cutvar, cutval)
-    else:
-        print('Cut type {0} not recognized'.format(cutval))
-        cuttext = ''
-
-    return cuttext
 
 
 def getDataframeCollection(config):
@@ -187,40 +169,6 @@ class DataframeCollection:
 
     # much cleaner to split off the calculation of the background weights,
     # even though it means there will always be this extra call
-    def getBkgWeights(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts={}):
-        isojjmcdf = self.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
-        antiisogjmcdf = self.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
-        antiisojjmcdf = self.fulljjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))
-
-        if centrange:
-            isojjmcdf = isojjmcdf.query(centralitycuttext(centrange))
-            antiisogjmcdf = antiisogjmcdf.query(centralitycuttext(centrange))
-            antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
-
-        if 'gjmc' in additionalCuts:
-            for cut in additionalCuts['gjmc']:
-                antiisogjmcdf = antiisogjmcdf.query(cut)
-
-        if 'jjmc' in additionalCuts:
-            for cut in additionalCuts['jjmc']:
-                isojjmcdf = isojjmcdf.query(cut)
-                antiisojjmcdf = antiisojjmcdf.query(cut)
-
-        if useraa:
-            antiisomcdf = pd.concat([antiisogjmcdf, antiisojjmcdf])
-            weightvar = 'cluster_weight_with_raa'
-        else:
-            antiisomcdf = antiisojjmcdf
-            weightvar = 'weights'
-
-        isohist, _ = getNormHistAndErr(isojjmcdf, ssParams.ssvar, ssParams.binEdges, weightvar=weightvar)
-        antiisohist, _ = getNormHistAndErr(antiisomcdf, ssParams.ssvar, ssParams.binEdges, weightvar=weightvar)
-
-        weights = np.ones_like(isohist)
-        np.divide(isohist, antiisohist, out=weights, where=antiisohist != 0)
-
-        return weights
-
     def getBkgWeightsAndErrs(self, ptrange, isoParams, ssParams, centrange=None, useraa=True, additionalCuts={}):
         isojjmcdf = self.fulljjmcdf.query(isoParams.isocuttext()).query(ptcuttext(ptrange))
         antiisogjmcdf = self.fullgjmcdf.query(isoParams.antiisocuttext()).query(ptcuttext(ptrange))

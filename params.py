@@ -3,11 +3,15 @@ import numpy as np
 
 class IsolationParams:
     # set defaults here or override via keywords
-    def __init__(self, **kwargs):
-        self.isovar = kwargs.get('isovar', 'cluster_iso_tpc_02_sub')
-        self.isocut = kwargs.get('isocut', 1.5)
-        self.antiisocutlow = kwargs.get('antiisocutlow', 5.0)
-        self.antiisocuthigh = kwargs.get('antiisocuthigh', 10.0)
+    def __init__(self, isovar='cluster_iso_tpc_02_sub'):
+        self.isovar = isovar
+
+    def setFromConfig(self, config):
+        if 'isovar' in config:
+            self.isovar = config['isovar']
+        self.isocut = config['isocut']
+        self.antiisocutlow = config['antiisocutlow']
+        self.antiisocuthigh = config['antiisocuthigh']
 
     def isocuttext(self):
         return '{0} < {1}'.format(self.isovar, self.isocut)
@@ -36,8 +40,8 @@ class ShowerShapeParams:
         self.purityRange = (config['srmin'], config['srmax'])
         self.bkgFitRange = (config['brmin'], config['brmax'])
         self.tfFitRange = config.get('tffitrange', None)
-        self.axisLabel = config.get('axislabel')
-        self.legendLabel = config.get('legendlabel')
+        self.axisLabel = config.get('axislabel', self.ssvar)
+        self.legendLabel = config.get('legendlabel', self.ssvar)
         self.doubleRatioBinEdges = config['doubleratiobinedges']
         self.doubleRatioFitRange = config['doubleratiofitrange']
 
@@ -68,13 +72,29 @@ class ShowerShapeParams:
         self.doubleRatioFitRange = (0.0, 0.6)
 
 
-def cuttext(cutvar, cutrange):
-    return '{1} < {0} and {0} < {2}'.format(cutvar, *cutrange)
-
-
 def ptcuttext(ptrange):
-    return cuttext('cluster_pt', ptrange)
+    return '{1} <= {0} and {0} < {2}'.format('cluster_pt', *ptrange)
 
 
-def centralitycuttext(centrality):
-    return cuttext('centrality_v0m', centrality)
+def centralitycuttext(centrange):
+    return '{1} <= {0} and {0} < {2}'.format('centrality_v0m', *centrange)
+
+
+def parseCut(cutvar, cuttype, cutval):
+    if cuttype == 'min':
+        cuttext = '{0} > {1}'.format(cutvar, cutval)
+    elif cuttype == 'max':
+        cuttext = '{0} < {1}'.format(cutvar, cutval)
+    elif cuttype == 'incmin':
+        cuttext = '{0} >= {1}'.format(cutvar, cutval)
+    elif cuttype == 'incmax':
+        cuttext = '{0} <= {1}'.format(cutvar, cutval)
+    elif cuttype == 'equals':
+        cuttext = '{0} == {1}'.format(cutvar, cutval)
+    elif cuttype == 'absmax':
+        cuttext = 'abs({0}) < {1}'.format(cutvar, cutval)
+    else:
+        print('Cut type {0} not recognized'.format(cutval))
+        cuttext = ''
+
+    return cuttext

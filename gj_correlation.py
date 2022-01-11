@@ -7,7 +7,6 @@ import root_numpy as rnp
 from unfolder import Unfolder
 from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToArrays, sliceAndProjectTHnSparse
 
-
 # instructions for use
 # 1. initialize with the observable name
 # 2. call setSameEvent, setMixedEvent, and setResponseMatrix (optional)
@@ -15,6 +14,8 @@ from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToA
 # 4. call subtractBkgRegion and/or subtractMixedEvent
 # 5. call getSignalCorrelation
 # 6. optionally, do stuff with the unfolder
+
+
 class GammaJetCorrelation:
     """Manipulate ROOT objects for same- and mixed-event correlations to get various
     stages of subtracted correlations and generate plots"""
@@ -23,8 +24,8 @@ class GammaJetCorrelation:
         self.unfolder = Unfolder()
 
         self.nBins = -1
-        self.minBin = -1
-        self.maxBin = -1
+        self.minBin = np.inf
+        self.maxBin = -np.inf
 
     def binsMatch(self, th1):
         if self.nBins < 0:
@@ -44,12 +45,6 @@ class GammaJetCorrelation:
                 return False
             return True
 
-    def setBinEdges(self):
-        self.binEdges = np.linspace(self.minBin, self.maxBin, self.nBins + 1)
-        self.centers = getCenters(self.binEdges)
-        self.xerr = getXerrForPlot(self.binEdges)
-        self.widths = getWidths(self.binEdges)
-
     def setSameEvent(self, srth1, brth1, ntrigsr, ntrigbr):
         if self.binsMatch(srth1):
             self.sesrth1 = srth1
@@ -64,19 +59,17 @@ class GammaJetCorrelation:
         self.sesrntrig = ntrigsr
         self.sebrntrig = ntrigbr
 
-    def setMixedEvent(self, srth1, brth1, ntrigsr, ntrigbr, srnmix, brnmix):
+    def setMixedEvent(self, srth1, brth1, srnmix, brnmix):
         if self.binsMatch(srth1):
             self.mesrth1 = srth1
         if self.binsMatch(brth1):
             self.mebrth1 = brth1
 
-        # scale by number of events, which already also counts number of triggers
+        # scale by number trigger-event pairs
         if srnmix != 0:
             self.mesrth1.Scale(1.0 / srnmix)
         if brnmix != 0:
             self.mebrth1.Scale(1.0 / brnmix)
-        self.mesrntrig = ntrigsr
-        self.mebrntrig = ntrigbr
         self.srnmix = srnmix
         self.brnmix = brnmix
 
@@ -85,23 +78,37 @@ class GammaJetCorrelation:
 
     def convertAndDivideWidths(self, th1):
         hist, err, centers, widths = th1ToArrays(th1)
-        return np.divide(hist, widths), np.divide(err, widths)
+
+        if centers != self.centers:
+            print('Warning: TH1 centers do not match calculated centers')
+        if widths != self.widths:
+            print('Warning: TH1 widths do not match calculated widths')
+
+        # jet pT is 1/pT dN/dpT
+        if self.observable == 'jetpt':
+            denominator = np.multiply(centers, widths)
+        # all others are just dN/dObservable
+        else:
+            denominator = widths
+        return np.divide(hist, denominator), np.divide(err, denominator)
 
     def useNbins(self, nBins):
-        rebin = self.nBins / nBins
-        self.sesrth1.Rebin(rebin)
-        self.sebrth1.Rebin(rebin)
-        self.mesrth1.Rebin(rebin)
-        self.mebrth1.Rebin(rebin)
+        rebinFactor = self.nBins / nBins
+        self.sesrth1.Rebin(rebinFactor)
+        self.sebrth1.Rebin(rebinFactor)
+        self.mesrth1.Rebin(rebinFactor)
+        self.mebrth1.Rebin(rebinFactor)
 
         # set bin info
         self.nBins = nBins
-        self.minBin = self.sesrth1.GetXaxis().GetXmin()
-        self.maxBin = self.sesrth1.GetXaxis().GetXmax()
         self.binEdges = np.linspace(self.minBin, self.maxBin, self.nBins + 1)
         self.centers = getCenters(self.binEdges)
         self.xerr = getXerrForPlot(self.binEdges)
         self.widths = getWidths(self.binEdges)
+
+        # check for issues with rebinning
+        if not (self.binsMatch(self.sesrth1) and self.binsMatch(self.sebrth1) and self.binsMatch(self.mesrth1) and self.binsMatch(self.mebrth1)):
+            print('Warning: issue with rebinning')
 
         # turn into numpy arrays and divide by bin widths here
         self.sesrhist, self.sesrerr = self.convertAndDivideWidths(self.sesrth1)
@@ -110,18 +117,25 @@ class GammaJetCorrelation:
         self.mebrhist, self.mebrerr = self.convertAndDivideWidths(self.mebrth1)
 
     def subtractBkgRegion(self):
-        self.sehist = np.subtract(self.sesrhist, self.sebrhist)
-        self.seerr = quadSumPairwise(self.sesrerr, self.sebrerr)
-        self.mehist = np.subtract(self.mesrhist, self.mebrhist)
-        self.meerr = quadSumPairwise(self.mesrerr, self.mebrerr)
+        try:
+            self.sehist = np.subtract(self.sesrhist, self.sebrhist)
+            self.seerr = quadSumPairwise(self.sesrerr, self.sebrerr)
+            self.mehist = np.subtract(self.mesrhist, self.mebrhist)
+            self.meerr = quadSumPairwise(self.mesrerr, self.mebrerr)
+        except AttributeError:
+            print('Must call useNbins before calling subtractBkgRegion')
+            raise
 
     def subtractMixedEvent(self):
-        self.srhist = np.subtract(self.sesrhist, self.mesrhist)
-        self.srerr = quadSumPairwise(self.sesrerr, self.mesrerr)
-        self.brhist = np.subtract(self.sebrhist, self.mebrhist)
-        self.brerr = quadSumPairwise(self.sebrerr, self.mebrerr)
+        try:
+            self.srhist = np.subtract(self.sesrhist, self.mesrhist)
+            self.srerr = quadSumPairwise(self.sesrerr, self.mesrerr)
+            self.brhist = np.subtract(self.sebrhist, self.mebrhist)
+            self.brerr = quadSumPairwise(self.sebrerr, self.mebrerr)
+        except AttributeError:
+            print('Must call useNbins before calling subtractMixedEvent')
+            raise
 
-    # rebin before calling this
     def getSignalCorrelation(self):
         # it absolutely should not matter if we do (SESR-SEBR)-(MESR-MEBR)
         # or (SESR-MESR)-(SEBR-MEBR); just take the one that exists
@@ -130,8 +144,12 @@ class GammaJetCorrelation:
             self.corrhist = np.subtract(self.sehist, self.mehist)
             self.correrr = quadSumPairwise(self.seerr, self.meerr)
         except AttributeError:
-            self.corrhist = np.subtract(self.srhist, self.brhist)
-            self.correrr = quadSumPairwise(self.srerr, self.brerr)
+            try:
+                self.corrhist = np.subtract(self.srhist, self.brhist)
+                self.correrr = quadSumPairwise(self.srerr, self.brerr)
+            except AttributeError:
+                print('Must call subtractBkgRegion and/or subtractMixedEvent before calling getSignalCorrelation')
+                raise
 
         # convert to TH1 and feed to unfolder
         self.corrth1 = ROOT.TH1F("{0}_measured".format(self.observable), "{0} measured".format(self.observable), self.nBins, self.minBin, self.maxBin)
@@ -146,12 +164,8 @@ class GammaJetCorrelation:
         # set zero values to nan for plotting
         hist[hist == 0] = np.nan
 
-        # jet pT is 1/pT dN/dpT
-        if self.observable == 'jetpt':
-            plt.errorbar(self.centers, np.divide(hist, np.multiply(self.widths, self.centers)),
-                         yerr=err, xerr=self.xerr, **kwargs)
-        else:
-            plt.errorbar(self.centers, np.divide(hist, self.widths), yerr=err, xerr=self.xerr, **kwargs)
+        # plot
+        plt.errorbar(self.centers, hist, yerr=err, xerr=self.xerr, **kwargs)
 
 
 class AxisNum(Enum):
@@ -186,12 +200,10 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
     rootfile.Close()
 
     rootfile = ROOT.TFile.Open(rootfileME)
-    mehTrigSR = rootfile.Get('hTrigSR')
-    mehTrigBR = rootfile.Get('hTrigBR')
-    mehCorrSR = rootfile.Get('hCorrSR')
-    mehCorrBR = rootfile.Get('hCorrBR')
     mehnMixSR = rootfile.Get('hnMixSR')
     mehnMixBR = rootfile.Get('hnMixBR')
+    mehCorrSR = rootfile.Get('hCorrSR')
+    mehCorrBR = rootfile.Get('hCorrBR')
     rootfile.Close()
 
     if rootfileRM:
@@ -213,24 +225,18 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
             slices.append((AxisNum.centrality.value, centrange[0], centrange[1]))
             slices.append((AxisNum.clusterpt.value, photonptrange[0], photonptrange[1]))
 
-            # get the number of triggers for each bin
-            hTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            # get the number of triggers for each bin in the same-event
+            hTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, 0)
             nTrigSESR = hTrigSESR.Integral()
 
-            hTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            hTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, 0)
             nTrigSEBR = hTrigSEBR.Integral()
 
-            hTrigMESR = sliceAndProjectTHnSparse(mehTrigSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
-            nTrigMESR = hTrigMESR.Integral()
-
-            hTrigMEBR = sliceAndProjectTHnSparse(mehTrigBR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
-            nTrigMEBR = hTrigMEBR.Integral()
-
-            # also count number of mixed events, which includes the number of triggers
-            hnMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            # get the number of trigger-MB event pairs for each bin in the mixed-event
+            hnMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, 0)
             nMixSR = hnMixSR.Integral()
 
-            hnMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, AxisNum.clusterpt.value, AxisNum.centrality.value)
+            hnMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0)
             nMixBR = hnMixBR.Integral()
 
             for observable in observableInfo:
@@ -250,7 +256,7 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                 # project and scale the mixed-event
                 srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum[observable].value)
                 brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum[observable].value)
-                gjCorr.setMixedEvent(srTH1, brTH1, nTrigMESR, nTrigMEBR, nMixSR, nMixBR)
+                gjCorr.setMixedEvent(srTH1, brTH1, nMixSR, nMixBR)
 
                 # rebin
                 gjCorr.useNbins(observableInfo[observable]['nbins'])
@@ -258,14 +264,14 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                 # subtract BR in each of SE and ME
                 gjCorr.subtractBkgRegion()
 
-                # subtract mixed-event in each of SR and BR, in case we want to see this for some reason
+                # subtract mixed-event in each of SR and BR, because sometimes we also want to look at this
                 gjCorr.subtractMixedEvent()
 
                 # second subtraction
                 gjCorr.getSignalCorrelation()
 
                 # set response matrix if it exists
-                # TO-DO: split by centrality, pT
+                # TO-DO: split by pT
                 gjCorr.setResponseMatrix(rooUnfoldResponses[observable][centrange])
 
                 # add to dictionary

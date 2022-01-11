@@ -2,6 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
+mpl.rc('figure', figsize=(8, 8), titlesize=20)  # repeat this line in an attempt to get it to actually work
 mpl.rc('figure', figsize=(8, 8), titlesize=20)
 mpl.rc('savefig', bbox='tight', facecolor='white')
 mpl.rc('legend', edgecolor='white', framealpha=0.0, fontsize=20)

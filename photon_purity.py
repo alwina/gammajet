@@ -8,13 +8,12 @@ from utils import quadSumAll
 
 
 class PhotonPurity:
-    def __init__(self, inputValues=None):
-        if inputValues:
-            for key in inputValues:
-                setattr(self, key, inputValues[key])
+    def __init__(self, **kwargs):
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
 
     def computePurityAndUncertainties(self, dfs, ptrange, isoParams, ssParams, computeSystematics=True, verbose=False):
-        bkgWeights = dfs.getBkgWeights(ptrange, isoParams, ssParams)
+        bkgWeights, _ = dfs.getBkgWeightsAndErrs(ptrange, isoParams, ssParams)
         tf = dfs.getTemplateFit(ptrange, isoParams, ssParams, bkgWeights=bkgWeights)
         self.purity = tf.purity
         self.staterr = tf.purityerr

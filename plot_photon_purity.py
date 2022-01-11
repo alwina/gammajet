@@ -11,7 +11,7 @@ class PurityPlotParams:
         self.marker = 'o'
         self.boxFill = False
         self.boxAlpha = 0.1
-        # self.boxHatch = '/'
+        self.boxHatch = '/'
         self.boxLinewidth = 1.25
         self.linestyle = '--'
         self.linewidth = 1.5

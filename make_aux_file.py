@@ -12,10 +12,13 @@ from alice_triggers import getINT7TriggerIds, getCentralTriggerIds, getSemiCentr
 from utils import tBranchToArray
 
 
-def createAuxFile(ntuplefilename):
+def createAuxFile(ntuplefilename, maxnevents=-1):
+    # open ntuple and get tree
     rootfile = ROOT.TFile.Open(ntuplefilename, 'READ')
     tree = rootfile.Get('AliAnalysisTaskNTGJ/_tree_event')
     nevents = tree.GetEntries()
+    if maxnevents > 0:
+        nevents = min(nevents, maxnevents)
 
     # set up variables for new branches
     outncluster = array('i', [0])
@@ -27,24 +30,25 @@ def createAuxFile(ntuplefilename):
     isSemiCentral = array('B', [0])
     isEMCEGA = array('B', [0])
 
-    njet_ak02tpc = array('i', [0])
+    njet_ak02tpc = array('I', [0])
     jet_ak02tpc_pt_raw = array('f', 10000 * [0])
     jet_ak02tpc_eta = array('f', 10000 * [0])
     jet_ak02tpc_phi = array('f', 10000 * [0])
     jet_ak02tpc_area = array('f', 10000 * [0])
     jet_ak02tpc_multiplicity_raw = array('H', 10000 * [0])
 
-    njet_charged_truth_ak02 = array('i', [0])
+    njet_charged_truth_ak02 = array('I', [0])
     jet_charged_truth_ak02_pt = array('f', 10000 * [0])
     jet_charged_truth_ak02_eta = array('f', 10000 * [0])
     jet_charged_truth_ak02_phi = array('f', 10000 * [0])
     jet_charged_truth_ak02_area = array('f', 10000 * [0])
     jet_charged_truth_ak02_multiplicity = array('H', 10000 * [0])
 
-    # set up new branches
+    # create aux file and tree
     outfile = ROOT.TFile.Open(ntuplefilename.replace('.root', '_AUX.root'), 'RECREATE')
     outtree = ROOT.TTree('ntupleaux', 'ntupleaux')
 
+    # set up new branches
     outtree.Branch('ncluster', outncluster, 'ncluster/i')
     outtree.Branch('cluster_5x5all', cluster_5x5all, 'cluster5x5all[ncluster]/F')
     outtree.Branch('cluster_is_prompt', cluster_is_prompt, 'cluster_is_prompt[ncluster]/O')
@@ -68,6 +72,7 @@ def createAuxFile(ntuplefilename):
     outtree.Branch('jet_charged_truth_ak02_area', jet_charged_truth_ak02_area, 'jet_charged_truth_ak02_area[njet_charged_truth_ak02]/F')
     outtree.Branch('jet_charged_truth_ak02_multiplicity', jet_charged_truth_ak02_multiplicity, 'jet_charged_truth_ak02_multiplicity[njet_charged_truth_ak02]/s')
 
+    # set jet reconstruction parameters
     jetdef = fastjet.JetDefinition(fastjet.antikt_algorithm, 0.2)
     areadef = fastjet.AreaDefinition(fastjet.VoronoiAreaSpec())
 
@@ -81,8 +86,12 @@ def createAuxFile(ntuplefilename):
 
         # retrieve event info
         run_number = getattr(tree, 'run_number')
-        trigger_mask = getattr(tree, 'trigger_mask')
         ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
+
+        # branch_trigger_mask needs to be parsed further,
+        # but how it's handled depends on its size, which is variable
+        # therefore for now, we just grab the TBranch
+        branch_trigger_mask = getattr(tree, 'trigger_mask')
 
         # retrieve cluster info
         ncluster = getattr(tree, 'ncluster')
@@ -123,11 +132,11 @@ def createAuxFile(ntuplefilename):
             previous_run_number = run_number
 
         # combine the trigger masks into one number
-        if len(trigger_mask) > 1:
-            fullTriggerMask = tBranchToArray(trigger_mask, 'l', 2)
+        if len(branch_trigger_mask) > 1:
+            fullTriggerMask = tBranchToArray(branch_trigger_mask, 'l', 2)
             triggerMask = fullTriggerMask[0] + (fullTriggerMask[1] << 50)
         else:
-            triggerMask = tBranchToArray(trigger_mask, 'l', 1)
+            triggerMask = tBranchToArray(branch_trigger_mask, 'l', 1)
 
         isINT7[0] = isEventSelected(kINT7TriggerIds, triggerMask)
         isCentral[0] = isEventSelected(kCentralTriggerIds, triggerMask)
@@ -163,7 +172,7 @@ def createAuxFile(ntuplefilename):
             if pt > 100000:
                 continue
 
-            # this cut should already exist, but check just in case
+            # this cut should already exist, but do it just in case
             if pt < 0.15:
                 continue
 
@@ -184,14 +193,7 @@ def createAuxFile(ntuplefilename):
         # truth charged jet R=0.2 info
         pjs = []
         for imc in range(nmc_truth):
-            # for some reason, python can't read the mc_truth_charge branch
-            # because it's a Char_t and the \0xfd character is not utf-8
-            # actually figuring this out is too hard, so instead, we use the PDG code
-            # so far, it seems there's a relatively small number of codes that
-            # actually exist in the embedded ntuples
-            # [-3334 -3322 -3312 -3222 -3122 -3112 -2212 -2112  -321  -211   -16   -14
-            #    -13   -12   -11    11    12    13    14    16    22   130   211   310
-            #    321  2112  2212  3112  3122  3222  3312  3322  3334]
+            # see note in alice_mc.py for why we use the pdg_code and not mc_truth_charge
             pdg_code = mc_truth_pdg_code[imc]
             charge = pdgCodeToCharge[pdg_code]
             if charge == 0:
