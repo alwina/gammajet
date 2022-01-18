@@ -7,7 +7,7 @@ import pandas as pd
 
 from params import ptcuttext, centralitycuttext, parseCut
 from template_fit import applyBkgWeights, TemplateFit, BackgroundFit
-from utils import getHistAndErr, getNormHistAndErr, divideHistsAndErrs
+from utils import getHistAndErr, getNormHistAndErr, divideHistsAndErrs, getWidths
 
 
 def getDfFromCsv(filename):
@@ -144,6 +144,15 @@ class DataframeCollection:
         if len(bkgWeights) > 0:
             bkg, bkgerr = applyBkgWeights(bkgWeights, bkg, bkgerr)
 
+        # divide by bin widths now
+        binWidths = getWidths(ssParams.binEdges)
+        data = np.divide(data, binWidths)
+        dataerr = np.divide(dataerr, binWidths)
+        signal = np.divide(signal, binWidths)
+        signalerr = np.divide(signalerr, binWidths)
+        bkg = np.divide(bkg, binWidths)
+        bkgerr = np.divide(bkgerr, binWidths)
+
         return TemplateFit(data, dataerr, signal, signalerr, bkg, bkgerr, ssParams, verbosity)
 
     def getBackgroundFit(self, ptrange, isoParams, ssParams, bkgWeights=[], verbosity=0, centrange=None, additionalCuts={}):
@@ -164,6 +173,13 @@ class DataframeCollection:
 
         if len(bkgWeights) > 0:
             bkg, bkgerr = applyBkgWeights(bkgWeights, bkg, bkgerr)
+
+        # divide by bin widths now
+        binWidths = getWidths(ssParams.binEdges)
+        data = np.divide(data, binWidths)
+        dataerr = np.divide(dataerr, binWidths)
+        bkg = np.divide(bkg, binWidths)
+        bkgerr = np.divide(bkgerr, binWidths)
 
         return BackgroundFit(data, dataerr, bkg, bkgerr, ssParams, verbosity)
 

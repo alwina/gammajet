@@ -4,6 +4,7 @@ plots/
 config/
 root/
 cpp/build/
+pre-2022/
 
 *.pyc
 *.ipynb
