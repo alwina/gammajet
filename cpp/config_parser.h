@@ -53,7 +53,6 @@ void parseConfig()
 			brmax = config["showershape"]["brmax"].as<double>();
 
 			shower_shape = config["showershape"]["ssvar"].as<std::string>();
-			std::cout << "Shower Shape: " << shower_shape << std::endl;
 		}
 
 		if (config["clustercuts"]["all"]["cluster_pt"]) {
@@ -102,12 +101,10 @@ void parseConfig()
 		if (config["isolation"]) {
 			isoconfig = config["isolation"];
 			isovar = config["isolation"]["isovar"].as<std::string>();
-			std::cout << "Isolation variable: " << isovar << std::endl;
 		}
 
 		if (config["Purity_Dev"]) {
 			purity_deviation = config["Purity_Dev"].as<std::string>();
-			std::cout << "Purity Deviation Change: " << purity_deviation << std::endl;
 		}
 
 		if (config["purity"]) {

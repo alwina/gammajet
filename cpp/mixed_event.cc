@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 	YAML::Node configglobal = YAML::LoadFile(configsystem["globalconfig"].as<std::string>());
 	allconfigs.push_back(configglobal);
 	parseConfig();
-	printCutSummary();
+	if (doprint) printCutSummary();
 	if (doprint) std::cout << "Mix label: " << mixlabel << std::endl;
 
 	// set up THnSparses
@@ -138,7 +138,6 @@ int main(int argc, char *argv[])
 
 	const int mb_event_rank = mb_event_dataspace.getSimpleExtentNdims();
 	hsize_t mb_eventdims[mb_event_rank];
-	long nmb_event = mb_eventdims[0];
 	mb_event_dataspace.getSimpleExtentDims(mb_eventdims, NULL);
 
 	// Block size should be determined by chunk size in to_hdf5. Usually 2000 or its multiples.
@@ -224,7 +223,7 @@ int main(int argc, char *argv[])
 
 		// Grab 2000 Mixed Events at a time
 		// Takes advantage of block structure used in pairing
-		if (imix * block_size < nmb_event - block_size - 1) {
+		if (imix * block_size < mb_eventdims[0] - block_size - 1) {
 			mb_event_offset[0] = imix * block_size;
 			mb_event_dataspace.selectHyperslab( H5S_SELECT_SET, mb_event_count, mb_event_offset );
 			mb_event_dataset.read( mb_event_data_out, PredType::NATIVE_FLOAT, mb_event_memspace, mb_event_dataspace );
@@ -249,9 +248,9 @@ int main(int argc, char *argv[])
 		int offset = 0; //Offset for Triggered Events
 		nevent = std::min(nevent, nevents_max);
 		for (Long64_t ievent = 0; ievent < nevent; ievent++) {
-			if (doprint) fprintf(stdout, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix - mix_start, mix_end - mix_start, ievent, nevent);
-			//reading from file is done every [block_size] number of events
-			//this variable keeps track of the current increment within a block
+			if (doprint) fprintf(stderr, "\r%s:%d: mix %llu / %llu, event %llu / %llu", __FILE__, __LINE__, imix - mix_start, mix_end - mix_start, ievent, nevent);
+			// reading from file is done every [block_size] number of events
+			// this variable keeps track of the current increment within a block
 			// as opposed to [ievent] which is looping through all events
 			int ieventinblock = ievent % block_size;
 			offset += block_size;
@@ -537,7 +536,7 @@ void parseInputs(int argc, char *argv[])
 
 	// try to only print once
 	doprint = (mix_start == 0);
-	std::cout << mix_start << "-" << mix_end << std::endl;
+	// std::cout << mix_start << "-" << mix_end << std::endl;
 }
 
 // Print cut summary

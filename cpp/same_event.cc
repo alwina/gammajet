@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 			if (auxfile != NULL) {
 				auxtree->GetEntry(ievent);
 			}
-			fprintf(stdout, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
+			fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
 
 			// event selection
 			if (abs(primary_vertex[2]) > 10) continue;

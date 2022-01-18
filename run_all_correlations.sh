@@ -1,4 +1,6 @@
-#!/usr/bin/bash
+#!/bin/bash
+
+set -o errexit # exit on error
 
 # make sure that modules are loaded and directories are set
 if [[ -z "$ROOT_DIR" ]]; then
@@ -46,75 +48,92 @@ if [[ -z $maxevents ]]; then
 	maxevents=999999999999999
 fi
 
-echo date
-
-# make working directory, copy in configs, and move there
-yaml() {
-	python -c “import yaml; print(yaml.safe_load(open(‘$1’))$2)”
-}
-
-systemconfig=$(yaml $runconfig “[‘systemconfig’]”)
-globalconfig=$(yaml $systemconfig “[‘globalconfig’]”)
-
 workingdir=iterations/$itername
 if [[ -d $workingdir ]]; then
-	echo "${workingdir} already exists"
-	exit 1
+    echo "${workingdir} already exists"
+    exit 1
 fi
-
-echo "Making ${workingdir} and moving configs"
-
 mkdir $workingdir
-cp ${runconfig} ${workingdir}/runconfig.yaml
-cp ${systemconfig} ${workingdir}/systemconfig.yaml
-cp ${globalconfig} ${workingdir}/globalconfig.yaml
-cd $workingdir
 
-# run same event
-date
-echo "Running same event"
-./../cpp/build/same_event $runconfig maxevents
+# this yaml parsing solution comes from https://stackoverflow.com/a/47791935
+yaml() {
+    python3 -c "import yaml; print(yaml.safe_load(open('$1'))$2)"
+}
 
-# define mixed event labels to run
-mixlabels=()
-mixlabels+=("18q_int7_1")
-mixlabels+=("18q_int7_2")
-mixlabels+=("18q_int7_3")
-
-mixlabels_skimcent5090=()
-mixlabels_skimcent5090+=("skimcent5090_18q_int7_1")
-mixlabels_skimcent5090+=("skimcent5090_18q_int7_2")
-mixlabels_skimcent5090+=("skimcent5090_18q_int7_3")
-
-# get the name of the mixed event correlation from the config
-mixcorrelation=$(yaml $runconfig "['filelists']['correlations']['mixedevent']")
-mixcorrbase=${mixcorrelation%.*}
-
-for mixlabel in "${mixlabels[@]}"
-do
+main() {
 	date
-	echo "Running mixed event: ${mixlabel}"
-	./parallel_run_mix.sh 4 $runconfig $mixlabel
-	# for now, keep the individual files from each mixlabel juuuust in case
-	mixcorrlabelbase=${mixcorrbase}_${mixlabel}
-	hadd -f ${mixcorrlabelbase}.root ${mixcorrlabelbase}.rootmix_*
-	rm ${mixcorrlabelbase}.rootmix_*
-done
+	echo "runconfig: ${runconfig}, itername: ${itername}, maxevents: ${maxevents}"
 
-# merge all mixed event correlations
-hadd -f ${mixcorrelation} ${mixcorrbase}*.root
+	# make working directory, copy in configs, and move there
+	systemconfig=$(yaml $runconfig "['systemconfig']")
+	globalconfig=$(yaml $systemconfig "['globalconfig']")
 
-# do the same for the skimcent5090 mixed event correlations
-# since they're small, we can just merge them all together
+	gjdir=$(pwd)
+	echo "Moving configs"
 
-for mixlabel in "${mixlabels_skimcent5090[@]}"
-do
+	mkdir $workingdir/config
+	mkdir $workingdir/root
+	cp ${runconfig} ${workingdir}/config/
+	cp ${systemconfig} ${workingdir}/config/
+	cp ${globalconfig} ${workingdir}/config/
+	# also make a copy with generic names
+	cp ${runconfig} ${workingdir}/config/runconfig.yaml
+	cp ${systemconfig} ${workingdir}/config/systemconfig.yaml
+	cp ${globalconfig} ${workingdir}/config/globalconfig.yaml
+
+	cd $workingdir
+
+	# run same event
+	echo "Running same event"
+	$gjdir/cpp/build/same_event $runconfig $maxevents
+
+	# define mixed event labels to run
+	mixlabels=()
+	mixlabels+=("18q_int7_1")
+	mixlabels+=("18q_int7_2")
+	mixlabels+=("18q_int7_3")
+
+	mixlabels_skimcent5090=()
+	mixlabels_skimcent5090+=("skimcent5090_18q_int7_1")
+	mixlabels_skimcent5090+=("skimcent5090_18q_int7_2")
+	mixlabels_skimcent5090+=("skimcent5090_18q_int7_3")
+
+	# get the name of the mixed event correlation from the config
+	mixcorrelation=$(yaml $runconfig "['filelists']['correlations']['mixedevent']")
+	mixcorrbase=${mixcorrelation%.*}
+
+	for mixlabel in "${mixlabels[@]}"
+	do
+		echo
+		date
+		echo "Running mixed event: ${mixlabel}"
+		$gjdir/parallel_run_mix.sh 4 $runconfig $mixlabel $maxevents $gjdir
+		# for now, keep the individual files from each mixlabel juuuust in case
+		mixcorrlabelbase=${mixcorrbase}_${mixlabel}
+		hadd -f ${mixcorrlabelbase}.root ${mixcorrlabelbase}.rootmix_*
+		rm ${mixcorrlabelbase}.rootmix_*
+	done
+
+	# merge all mixed event correlations
+	echo
+	hadd -f ${mixcorrelation} ${mixcorrbase}*.root
+
+	# do the same for the skimcent5090 mixed event correlations
+	# since they're small, we can just merge them all together
+	for mixlabel in "${mixlabels_skimcent5090[@]}"
+	do
+		echo
+		date
+		echo "Running mixed event: ${mixlabel}"
+		$gjdir/parallel_run_mix.sh 4 $runconfig $mixlabel $maxevents $gjdir
+	done
+	
+	echo
+	hadd -f ${mixcorrbase}_skimcent5090.root ${mixcorrbase}_skimcent5090*rootmix*
+	rm ${mixcorrbase}_skimcent5090*rootmix*
+
 	date
-	echo "Running mixed event: ${mixlabel}"
-	./parallel_run_mix 4 $runconfig $mixlabel
-done
-hadd -f ${mixcorrbase}_skimcent5090.root ${mixcorrbase}_skimcent5090*rootmix*
-rm ${mixcorrbase}_skimcent5090*rootmix*
+}
 
-echo date
+main | tee "${workingdir}/output.log"
 exit 0
