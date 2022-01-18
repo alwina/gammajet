@@ -253,13 +253,14 @@ int main(int argc, char *argv[])
 			// this variable keeps track of the current increment within a block
 			// as opposed to [ievent] which is looping through all events
 			int ieventinblock = ievent % block_size;
-			offset += block_size;
 
 			/*--------------------------------------------------------------
 			Loop through triggered events within block
 			--------------------------------------------------------------*/
 			if ((ieventinblock == (block_size - 1)) && (ievent != nevent - 1) && (ievent < nevent - block_size - 1)) {
 				// load 1 block (2000 events) at a time. Faster/less memory
+				offset += block_size;
+				
 				event_offset[0] = offset;
 				event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
 				event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
