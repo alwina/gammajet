@@ -79,10 +79,10 @@ class GammaJetCorrelation:
     def convertAndDivideWidths(self, th1):
         hist, err, centers, widths = th1ToArrays(th1)
 
-        if centers != self.centers:
-            print('Warning: TH1 centers do not match calculated centers')
-        if widths != self.widths:
-            print('Warning: TH1 widths do not match calculated widths')
+        if not np.allclose(centers, self.centers):
+            print('Warning: TH1 centers {0} do not match calculated centers {1}'.format(centers, self.centers))
+        if not np.allclose(widths, self.widths):
+            print('Warning: TH1 widths {0} do not match calculated widths {1}'.format(widths, self.widths))
 
         # jet pT is 1/pT dN/dpT
         if self.observable == 'jetpt':
@@ -245,8 +245,9 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
 
                 # add any additional cuts for the particular observable
                 additionalCuts = []
-                for cut in observableInfo[observable]['cuts']:
-                    additionalCuts.append((AxisNum[cut['var']].value, cut['min'], cut['max']))
+                for cutvar in observableInfo[observable]['cuts']:
+                    cut = observableInfo[observable]['cuts'][cutvar]
+                    additionalCuts.append((AxisNum[cutvar].value, cut['min'], cut['max']))
 
                 # project and scale the same-event
                 srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices + additionalCuts, AxisNum[observable].value)

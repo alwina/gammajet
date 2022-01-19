@@ -8,7 +8,6 @@ pre-2022/
 iterations/
 
 *.pyc
-*.ipynb
 *.pkl
 *.hdf5
 
