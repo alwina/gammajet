@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	for (YAML::const_iterator fileit = filenames.begin(); fileit != filenames.end(); fileit++) {
 		std::string root_filename = fileit->as<std::string>();
 		openFilesAndGetTTrees(root_filename);
-        setBranchAddresses();
+		setBranchAddresses();
 
 		/*--------------------------------------------------------------
 		Loop through events
@@ -246,7 +246,7 @@ bool rejectCluster(int icluster)
 // Calculate isolation
 float getIsolation(int icluster)
 {
-    float isolation;
+	float isolation;
 	if (isovar == "cluster_iso_tpc_04") {
 		isolation = cluster_iso_tpc_04[icluster];
 	} else if (isovar == "cluster_iso_its_04") {
@@ -271,7 +271,7 @@ float getIsolation(int icluster)
 // Get shower shape value
 float getShower(int icluster)
 {
-    float shower;
+	float shower;
 	if (shower_shape == "cluster_Lambda") {
 		shower = cluster_lambda_square[icluster][0];
 	} else if (shower_shape == "cluster_NN1") {
@@ -345,19 +345,18 @@ void openFilesAndGetTTrees(std::string root_filename)
 	}
 }
 
-// Set the branch addresses of the branches in the TTrees
 void setBranchAddresses()
 {
 	_tree_event->SetBranchStatus("*mc*", 0);
 
-	// event Addresses
+	// event addresses
 	_tree_event->SetBranchAddress("primary_vertex", primary_vertex);
 	_tree_event->SetBranchAddress("is_pileup_from_spd_5_08", &is_pileup_from_spd_5_08);
 	_tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
 	_tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
 	_tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
 
-	//track Addresses
+	// track addresses
 	_tree_event->SetBranchAddress("primary_vertex", primary_vertex);
 	_tree_event->SetBranchAddress("ntrack", &ntrack);
 	_tree_event->SetBranchAddress("track_e", track_e);
@@ -372,7 +371,7 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("track_dca_xy", &track_dca_xy);
 	_tree_event->SetBranchAddress("track_dca_z", &track_dca_z);
 
-	//Cluster Addresses
+	// cluster addresses
 	_tree_event->SetBranchAddress("ncluster", &ncluster);
 	_tree_event->SetBranchAddress("cluster_e", cluster_e);
 	_tree_event->SetBranchAddress("cluster_e_max", cluster_e_max);
@@ -404,7 +403,7 @@ void setBranchAddresses()
 		auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
 	}
 
-	// Jet addresses
+	// jet addresses
 	// switch based on jet type
 	if (jettype == "ak04tpc") {
 		_tree_event->SetBranchAddress("njet_ak04tpc", &njet);

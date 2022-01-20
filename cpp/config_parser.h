@@ -35,6 +35,11 @@ std::string purity_deviation = "None";
 
 YAML::Node purityconfig;
 YAML::Node isoconfig;
+YAML::Node centralityranges;
+
+int ncentralityranges;
+bool keepFakes;
+bool keepMisses;
 
 void parseConfig()
 {
@@ -109,6 +114,16 @@ void parseConfig()
 
 		if (config["purity"]) {
 			purityconfig = config["purity"];
+		}
+
+		if (config["responsematrix"]) {
+		  keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
+		  keepFakes = config["responsematrix"]["keepfakes"].as<bool>();
+		}
+
+		if (config["centralityranges"]) {
+		  centralityranges = config["centralityranges"];
+		  ncentralityranges = centralityranges.size();
 		}
 
 		if (config["observables"]) {

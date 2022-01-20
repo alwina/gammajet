@@ -1,7 +1,10 @@
 #include <TROOT.h>
 #include <TFile.h>
 #include <TTree.h>
-#include <THnSparse.h>
+
+#include <vector>
+
+#include "RooUnfoldResponse.h"
 
 #define NTRACK_MAX (1U << 14)
 
@@ -15,13 +18,10 @@ TTree *auxtree;
 Long64_t nevents_max;
 long nevents;
 
-// THnSparses
-THnSparseF* hTrigSR;
-THnSparseF* hTrigBR;
-THnSparseF* hCorrSR;
-THnSparseF* hCorrBR;
-int ndimTrig;
-int ndimCorr;
+// RooUnfoldResponse vectors
+std::vector<RooUnfoldResponse> deltaphiResponses;
+std::vector<RooUnfoldResponse> jetptResponses;
+std::vector<RooUnfoldResponse> ptratioResponses;
 
 // correlation variables
 bool isSignal;
@@ -29,16 +29,24 @@ bool isBackground;
 bool isIsolated;
 float purity_weight;
 
+// jet matching
+std::vector<std::pair<int, int>> matchedJetIndices;
+std::set<int> unmatchedTruth;
+std::set<int> unmatchedReco;
+std::pair<int, int> matchedIndex;
+
 /*--------------------------------------------------------------
 Helper functions
 --------------------------------------------------------------*/
 void printCutSummary();
-void initializeTHnSparses();
+void initializeRooUnfoldResponses();
 void openFilesAndGetTTrees(std::string root_filename);
 void setBranchAddresses();
+void matchJetsInEvent();
 bool rejectCluster(int icluster);
 float getIsolation(int icluster);
 float getShower(int icluster);
+int getCentBinNumber(float centrality, YAML::Node centralityranges);
 
 /*--------------------------------------------------------------
 Variables from TTrees
@@ -98,6 +106,12 @@ Float_t jet_pt_raw[NTRACK_MAX];
 Float_t jet_eta[NTRACK_MAX];
 Float_t jet_phi[NTRACK_MAX];
 
+// Truth jets
+UInt_t njet_charged_truth;
+Float_t jet_charged_truth_pt[NTRACK_MAX];
+Float_t jet_charged_truth_eta[NTRACK_MAX];
+Float_t jet_charged_truth_phi[NTRACK_MAX];
+
 // MC
 unsigned int nmc_truth;
 Float_t mc_truth_pt[NTRACK_MAX];
@@ -106,6 +120,7 @@ Float_t mc_truth_phi[NTRACK_MAX];
 short mc_truth_pdg_code[NTRACK_MAX];
 short mc_truth_first_parent_pdg_code[NTRACK_MAX];
 char mc_truth_charge[NTRACK_MAX];
+Bool_t mc_truth_is_prompt_photon[NTRACK_MAX];
 
 Float_t mc_truth_first_parent_e[NTRACK_MAX];
 Float_t mc_truth_first_parent_pt[NTRACK_MAX];
