@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
         if (not(isSignal)) continue;
 
         // get the centrality bin number
-        int centbin = getCentBinNumber(centrality_v0m, centralityranges);
+        int centbin = getCentBinNumber(centrality_v0m);
 
         /*--------------------------------------------------------------
         Loop through matched jets to fill response matrices
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
   }
 
   fout->Close();
-  std::cout << " ending " << std::endl;
+  std::cout << "Ending" << std::endl;
   return EXIT_SUCCESS;
 }
 
@@ -173,10 +173,6 @@ void printCutSummary()
 
 void initializeRooUnfoldResponses()
 {
-  std::vector<RooUnfoldResponse> deltaphiResponses;
-  std::vector<RooUnfoldResponse> jetptResponses;
-  std::vector<RooUnfoldResponse> ptratioResponses;
-
   for (int i = 0; i < ncentralityranges; i++) {
     RooUnfoldResponse deltaphiResponse(10, 0, M_PI, 10, 0, M_PI);
     RooUnfoldResponse jetptResponse(9, 5, 50, 9, 5, 50);
@@ -447,9 +443,8 @@ float getShower(int icluster)
 }
 
 // need to make a response matrix per centrality
-int getCentBinNumber(float centrality, YAML::Node centralityranges)
+int getCentBinNumber(float centrality)
 {
-  int ncentralityranges = centralityranges.size();
   int binNumber = -1;
 
   for (int icent = 0; icent < ncentralityranges; icent++) {

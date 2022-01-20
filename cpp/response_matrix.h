@@ -46,7 +46,7 @@ void matchJetsInEvent();
 bool rejectCluster(int icluster);
 float getIsolation(int icluster);
 float getShower(int icluster);
-int getCentBinNumber(float centrality, YAML::Node centralityranges);
+int getCentBinNumber(float centrality);
 
 /*--------------------------------------------------------------
 Variables from TTrees
