@@ -42,6 +42,44 @@ def getIetaIphi(cellId, sm, nphi):
     return ieta, iphi
 
 
+def getRealNearbyCells(cellId, cells, maxdistance):
+    sm = getSuperModule(cellId)
+    nphi = getNphi(sm)
+    ieta, iphi = getIetaIphi(cellId, sm, nphi)
+
+    keepcells = []
+
+    # a cluster is allowed to be shared across adjacent supermodules, which are (0, 1), (2, 3), etc
+    if sm % 2 == 0:
+        sharedSM = sm + 1
+    else:
+        sharedSM = sm - 1
+
+    # so only keep the cells that are in the allowed supermodules
+    # possibly this still keeps a few invalid cells in very specific cases
+    # but the numbering is too complicated to readily see if that is an actual issue
+    for cell in cells:
+        cellsm = getSuperModule(cell)
+        cellnphi = getNphi(cellsm)
+        cellieta, celliphi = getIetaIphi(cell, cellsm, cellnphi)
+
+        # just in case the stuff below is slow, short circuit if it's in the same SM
+        # because it can't be wrong in that case (I presume)
+        if (cellsm == sm):
+            keepcells.append(cell)
+        else:
+            if cellsm != sharedSM:
+                continue
+            if abs(iphi - celliphi) > maxdistance:
+                continue
+            if abs(((sm % 2) * 48 + ieta) - ((cellsm % 2) * 48 + cellieta)) > maxdistance:
+                continue
+
+            keepcells.append(cell)
+
+    return keepcells
+
+
 def get5x5Cells(cellId):
     sm = getSuperModule(cellId)
     nphi = getNphi(sm)
@@ -64,7 +102,7 @@ def get5x5Cells(cellId):
 
         cells.append(cellId + 2 * nphi - 4 + dn)
 
-    return cells
+    return getRealNearbyCells(cellId, cells, 2)
 
 
 def getCrossCells(cellId):
@@ -85,7 +123,7 @@ def getCrossCells(cellId):
     else:
         cells.append(cellId - 1)
 
-    return cells
+    return getRealNearbyCells(cellId, cells, 1)
 
 
 # port from http://alidoc.cern.ch/AliRoot/v5-09-11/_ali_e_m_c_a_l_rec_point_8cxx_source.html#l01002
@@ -105,8 +143,7 @@ def calculateShowerShapeFromCells(cellIds, cell_e, cluster_e):
         # this handles shared clusters but also doesn't do anything for
         # clusters in a single supermodule, so don't bother checking
         # specifically for shared clusters
-        if (sm % 2):
-            ieta = ieta + 48
+        ieta = ieta + 48 * (sm % 2)
 
         w = max(0, 4.5 + math.log(cell_e[cellId] / cluster_e))
         dxx = dxx + w * ieta * ieta
