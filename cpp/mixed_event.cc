@@ -142,9 +142,9 @@ int main(int argc, char *argv[])
 
 	// Block size should be determined by chunk size in to_hdf5. Usually 2000 or its multiples.
 	// A larger block size will speed things up, at the cost of more memory
-	block_size = 2000;
-	nmix_max = 300;
-	nmix = std::min(nmix_max, mb_eventdims[0] / block_size);
+	const int block_size = 2000;
+	const hsize_t nmix_max = 300;
+	hsize_t nmix = std::min(nmix_max, mb_eventdims[0] / block_size);
 
 	// Local arrays the hyperslabs will be fed into, and ultimately used in loops
 	float cluster_data_out[block_size][ncluster_max][Ncluster_Vars];
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 
 	/*--------------------------------------------------------------
 	Main correlation loop
-	Begin by looping through number of events to mix with
+	Loop through number of events to mix with
 	--------------------------------------------------------------*/
 	for (Long64_t imix = mix_start; imix < mix_end; imix++) {
 		if (imix > nmix) break;
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
 		pairing_textfile.open(pairing_filename);
 
 		/*--------------------------------------------------------------
-		Loop through triggered event blocks
+		Loop through triggered events
 		--------------------------------------------------------------*/
 		int offset = 0; //Offset for Triggered Events
 		nevent = std::min(nevent, nevents_max);
@@ -254,13 +254,10 @@ int main(int argc, char *argv[])
 			// as opposed to [ievent] which is looping through all events
 			int ieventinblock = ievent % block_size;
 
-			/*--------------------------------------------------------------
-			Loop through triggered events within block
-			--------------------------------------------------------------*/
 			if ((ieventinblock == (block_size - 1)) && (ievent != nevent - 1) && (ievent < nevent - block_size - 1)) {
 				// load 1 block (2000 events) at a time. Faster/less memory
 				offset += block_size;
-				
+
 				event_offset[0] = offset;
 				event_dataspace.selectHyperslab( H5S_SELECT_SET, event_count, event_offset );
 				event_dataset.read( event_data_out, PredType::NATIVE_FLOAT, event_memspace, event_dataspace );
@@ -283,9 +280,8 @@ int main(int argc, char *argv[])
 			centrality_triggered->Fill(centrality_v0m);
 			multiplicity_triggered->Fill(multiplicity);
 
-			// figure out which mixed event this event is paired with
-			// long mix_event = getMixEventNumber(pairing_textfile, ievent, imix);
-			long mix_event;
+			// parse pairing file to get event number to mix with
+			Long64_t mix_event = -1;
 			std::string eventline;
 			if (ievent > 0) {
 				// skips \n that separates each triggered event's pairings list
@@ -308,148 +304,149 @@ int main(int argc, char *argv[])
 				if (mixednum_string.size() == 0) {
 					mix_event = -999;
 				} else {
-					mix_event = stol(mixednum_string);
+					mix_event = stoul(mixednum_string);
+				}
+			}
+
+			if (mix_event < 0) continue; // unpaired events set to negative numbers
+			mix_index = mix_event % block_size; // get the relevant index for this specific block
+			setMBEventVariables(mb_event_data_out[mix_index]);
+
+			// fill mixing debug histograms
+			z_vertices_MinBias->Fill(mb_primary_vertex);
+			flow_MinBias->Fill(mb_v2);
+			multiplicity_MinBias->Fill(mb_multiplicity);
+			centrality_MinBias->Fill(mb_centrality_v0m);
+
+			delta_z_vertices->Fill(abs(primary_vertex - mb_primary_vertex));
+			delta_flow->Fill(abs(v2 - mb_v2));
+			delta_multiplicity->Fill(abs(multiplicity - mb_multiplicity));
+			delta_centrality->Fill(abs(centrality_v0m - mb_centrality_v0m));
+
+			// event pairing cuts - move this earlier so we can skip the cluster loop
+			if (abs(centrality_v0m - mb_centrality_v0m) > 10.) continue;
+			if (abs(primary_vertex - mb_primary_vertex) > 2.) continue;
+			if (abs(v2 - mb_v2) > 0.5) continue;
+
+			/*--------------------------------------------------------------
+			Loop through clusters in triggered event
+			--------------------------------------------------------------*/
+			for (ULong64_t icluster = 0; icluster < ncluster_max; icluster++) {
+				if (std::isnan(cluster_data_out[ieventinblock][icluster][0])) break;
+				setClusterVariables(cluster_data_out[ieventinblock][icluster]);
+
+				// fill cluster debug histograms
+				hClusterpT->Fill(cluster_pt);
+				hClusterLambda->Fill(cluster_lambda_square);
+				hClustereta->Fill(cluster_eta);
+				hClusterIso->Fill(cluster_iso_tpc_04_ue);
+
+				// apply cluster cuts
+				if (rejectCluster()) continue;
+
+				// determine whether the cluster is isolated
+				// calculate isolation based on MB tracks
+				// for this, it only matters what the radius is, not the track type
+				// since the making of the HDF5 file keeps track of which track type it wants
+				// since we need the track array, we don't separate out getIsolation()
+				float cone;
+				float ue_estimate;
+				if (isovar == "cluster_iso_tpc_04_sub") {
+					cone = 0.4;
+					ue_estimate = mb_ue_estimate_tpc_const;
+				} else if (isovar == "cluster_iso_its_04_sub") {
+					cone = 0.4;
+					ue_estimate = mb_ue_estimate_its_const;
+				} else if (isovar == "cluster_iso_tpc_02_sub") {
+					cone = 0.2;
+					ue_estimate = mb_ue_estimate_tpc_const;
+				} else {
+					std::cout << "ERROR: Isolation variable " << isovar << " not currently calculable from MB event. Aborting" << std::endl;
+					exit(EXIT_FAILURE);
 				}
 
-				if (mix_event < 0) continue; // unpaired events set to negative numbers
-				mix_index = mix_event % block_size; // get the relevant index for this specific block
-				setMBEventVariables(mb_event_data_out[mix_index]);
+				// start with the UE subtraction, because why not?
+				float isolation = -M_PI * cone * cone * ue_estimate;
+				for (int itrack = 0; itrack < ntrack; itrack++) {
+					if (std::isnan(track_data_out[mix_index][itrack][0])) break;
+					setTrackVariables(track_data_out[mix_index][itrack]);
+
+					// if we're within the cone, add the track pT to the isolation energy
+					float dist2 = (cluster_phi - track_phi) * (cluster_phi - track_phi) + (cluster_eta - track_eta) * (cluster_eta - track_eta);
+					if (dist2 < (cone * cone)) {
+						isolation += track_pt;
+					}
+				}
+
+				isIsolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
+				if (not(isIsolated)) continue;
+
+				// determine whether it is SR or BR (or neither), calculate purity, and fill trigger THnSparse
+				float shower = getShower();
+				isSignal = (shower > srmin) and (shower < srmax);
+				isBackground = (shower > brmin) and (shower < brmax);
+				if (not(isSignal or isBackground)) continue;
+
+				float purity = getPurity(cluster_pt, centrality_v0m, purityconfig);
+
+				trig[0] = centrality_v0m;
+				trig[1] = cluster_pt;
+
+				// count number of cluster-ME pairs
+				if (isSignal) {
+					purity_weight = 1.0 / purity;
+					hnMixSR->Fill(trig);
+					SR_mixed_event_counter->Fill(mix_event);
+					if (imix == 0) {
+						// this should cause hTrigSR to be filled at most once
+						// and therefore be a pretty good estimate of how many clusters were paired
+						hTrigSR->Fill(trig);
+					}
+				}
+
+				if (isBackground) {
+					purity_weight = 1.0 / purity - 1;
+					hnMixBR->Fill(trig);
+					BR_mixed_event_counter->Fill(mix_event);
+					if (imix == 0) {
+						// this should cause hTrigBR to be filled at most once
+						// and therefore be a pretty good estimate of how many clusters were paired
+						hTrigBR->Fill(trig);
+					}
+				}
 
 				/*--------------------------------------------------------------
-				Loop through clusters in triggered event
+				Loop through jets
 				--------------------------------------------------------------*/
-				for (ULong64_t icluster = 0; icluster < ncluster_max; icluster++) {
-					if (std::isnan(cluster_data_out[ieventinblock][icluster][0])) break;
-					setClusterVariables(cluster_data_out[ieventinblock][icluster]);
+				for (ULong64_t ijet = 0; ijet < njet; ijet++) {
+					if (std::isnan(jet_data_out[mix_index][ijet][0])) break;
+					setJetVariables(jet_data_out[mix_index][ijet]);
 
-					// fill cluster debug histograms
-					hClusterpT->Fill(cluster_pt);
-					hClusterLambda->Fill(cluster_lambda_square);
-					hClustereta->Fill(cluster_eta);
-					hClusterIso->Fill(cluster_iso_tpc_04_ue);
+					// apply jet cuts
+					if (not(jet_pt_raw > jet_pt_min and jet_pt_raw < jet_pt_max)) continue;
+					if (not(abs(jet_eta) < jet_eta_max)) continue;
 
-					// apply cluster cuts
-					if (rejectCluster()) continue;
+					// Observables: delta phi, jet pT, pT ratio
+					Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi - jet_phi));
+					Float_t jetpt = jet_pt_raw;
+					Float_t ptratio = jetpt / cluster_pt;
 
-					// determine whether the cluster is isolated
-					// calculate isolation based on MB tracks
-					// for this, it only matters what the radius is, not the track type
-					// since the making of the HDF5 file keeps track of which track type it wants
-					// since we need the track array, we don't separate out getIsolation()
-					float cone;
-					if (isovar == "cluster_iso_tpc_04_sub" or isovar == "cluster_iso_its_04_sub") {
-						cone = 0.4;
-					} else if (isovar == "cluster_iso_tpc_02_sub") {
-						cone = 0.2;
-					} else {
-						std::cout << "ERROR: Isolation variable " << isovar << " not currently calculable from MB event. Aborting" << std::endl;
-						exit(EXIT_FAILURE);
-					}
-
-					// start with the UE subtraction, because why not?
-					float isolation = -M_PI * cone * cone * mb_ue_estimate_tpc_const;
-					for (int itrack = 0; itrack < ntrack; itrack++) {
-						if (std::isnan(track_data_out[mix_index][itrack][0])) break;
-						setTrackVariables(track_data_out[mix_index][itrack]);
-
-						// if we're within the cone, add the track pT to the isolation energy
-						if (((cluster_phi - track_phi) * (cluster_phi - track_phi) + (cluster_eta - track_eta) * (cluster_eta - track_eta)) < (cone * cone)) {
-							isolation += track_pt;
-						}
-					}
-
-					isIsolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
-					if (not(isIsolated)) continue;
-
-					// determine whether it is SR or BR (or neither), calculate purity, and fill trigger THnSparse
-					float shower = getShower();
-					isSignal = (shower > srmin) and (shower < srmax);
-					isBackground = (shower > brmin) and (shower < brmax);
-					if (not(isSignal or isBackground)) continue;
-
-					float purity = getPurity(cluster_pt, centrality_v0m, purityconfig);
-
-					trig[0] = centrality_v0m;
-					trig[1] = cluster_pt;
+					corr[0] = centrality_v0m;
+					corr[1] = cluster_pt;
+					corr[2] = deltaphi;
+					corr[3] = jetpt;
+					corr[4] = ptratio;
 
 					if (isSignal) {
-						purity_weight = 1.0 / purity;
-						if (imix == 0) {
-							// this should cause hTrigSR to be filled at most once
-							// and therefore be a pretty good estimate of how many clusters were paired
-							hTrigSR->Fill(trig);
-						}
+						hCorrSR->Fill(corr, purity_weight);
 					}
 
 					if (isBackground) {
-						purity_weight = 1.0 / purity - 1;
-						if (imix == 0) {
-							// this should cause hTrigBR to be filled at most once
-							// and therefore be a pretty good estimate of how many clusters were paired
-							hTrigBR->Fill(trig);
-						}
+						hCorrBR->Fill(corr, purity_weight);
 					}
-
-					// fill mixing debug histograms
-					z_vertices_MinBias->Fill(mb_primary_vertex);
-					flow_MinBias->Fill(mb_v2);
-					multiplicity_MinBias->Fill(mb_multiplicity);
-					centrality_MinBias->Fill(mb_centrality_v0m);
-
-					delta_z_vertices->Fill(abs(primary_vertex - mb_primary_vertex));
-					delta_flow->Fill(abs(v2 - mb_v2));
-					delta_multiplicity->Fill(abs(multiplicity - mb_multiplicity));
-					delta_centrality->Fill(abs(centrality_v0m - mb_centrality_v0m));
-
-					// event pairing cuts
-					if (abs(centrality_v0m - mb_centrality_v0m) > 10.) continue;
-					if (abs(primary_vertex - mb_primary_vertex) > 2.) continue;
-					if (abs(v2 - mb_v2) > 0.5) continue;
-
-					// count number of cluster-ME pairs
-					if (isSignal) {
-						hnMixSR->Fill(trig);
-						SR_mixed_event_counter->Fill(mix_event);
-					}
-
-					if (isBackground) {
-						hnMixBR->Fill(trig);
-						BR_mixed_event_counter->Fill(mix_event);
-					}
-
-					/*--------------------------------------------------------------
-					Loop through jets
-					--------------------------------------------------------------*/
-					for (ULong64_t ijet = 0; ijet < njet; ijet++) {
-						if (std::isnan(jet_data_out[mix_index][ijet][0])) break;
-						setJetVariables(jet_data_out[mix_index][ijet]);
-
-						// apply jet cuts
-						if (not(jet_pt_raw > jet_pt_min and jet_pt_raw < jet_pt_max)) continue;
-						if (not(abs(jet_eta) < jet_eta_max)) continue;
-
-						// Observables: delta phi, jet pT, pT ratio
-						Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi - jet_phi));
-						Float_t jetpt = jet_pt_raw;
-						Float_t ptratio = jetpt / cluster_pt;
-
-						corr[0] = centrality_v0m;
-						corr[1] = cluster_pt;
-						corr[2] = deltaphi;
-						corr[3] = jetpt;
-						corr[4] = ptratio;
-
-						if (isSignal) {
-							hCorrSR->Fill(corr, purity_weight);
-						}
-
-						if (isBackground) {
-							hCorrBR->Fill(corr, purity_weight);
-						}
-					} // end jet loop
-				} // end cluster loop
-			} // end triggered event within block loop
-		} // end triggered event block loop
+				} // end jet loop
+			} // end cluster loop
+		} // end triggered event loop
 		pairing_textfile.close();
 	} // end number of mixed events loop
 
@@ -498,8 +495,9 @@ int main(int argc, char *argv[])
 	hClustereta->Write();
 	hClusterIso->Write();
 
-	for (int h = 0; h < 10; h++)
+	for (int h = 0; h < 10; h++) {
 		hnJets[h]->Write();
+	}
 
 	fout->Close();
 	if (doprint) std::cout << "Ending" << std::endl;
@@ -528,7 +526,7 @@ void parseInputs(int argc, char *argv[])
 		mix_start = 0;
 		mix_end = 10;
 	}
-	
+
 	if (argc > 5) {
 		nevents_max = std::stol(argv[5]);
 	} else {

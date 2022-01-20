@@ -11,9 +11,6 @@ bool doprint;
 std::string mixlabel;
 int mix_start;
 int mix_end;
-hsize_t block_size;
-hsize_t nmix_max;
-hsize_t nmix;
 int mix_index;
 
 // THnSparses
