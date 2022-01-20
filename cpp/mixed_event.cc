@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
 	}
 
 	fout->Close();
-	if (doprint) std::cout << "Ending" << std::endl;
+	if (doprint) std::cout << std::endl << "Ending" << std::endl;
 
 	return EXIT_SUCCESS;
 }
@@ -680,6 +680,7 @@ void setMBEventVariables(float mb_event_data_values[])
 	mb_multiplicity = mb_event_data_values[1];
 	mb_v2 = mb_event_data_values[2];
 	mb_centrality_v0m = mb_event_data_values[3];
+	mb_ue_estimate_its_const = mb_event_data_values[5];
 	mb_ue_estimate_tpc_const = mb_event_data_values[6];
 }
 

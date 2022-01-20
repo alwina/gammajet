@@ -86,6 +86,7 @@ float mb_primary_vertex;
 float mb_multiplicity;
 float mb_v2;
 float mb_centrality_v0m;
+float mb_ue_estimate_its_const;
 float mb_ue_estimate_tpc_const;
 
 // cluster variables
