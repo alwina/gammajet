@@ -7,7 +7,7 @@ import pandas as pd
 
 from params import ptcuttext, centralitycuttext, parseCut
 from template_fit import applyBkgWeights, TemplateFit, BackgroundFit
-from utils import getHistAndErr, getNormHistAndErr, divideHistsAndErrs, getWidths
+from utils import getHistAndErr, getNormHistAndErr, divideHistsAndErrs, getWidths, normalizeHistAndErr
 
 
 def getDfFromCsv(filename):
@@ -138,8 +138,8 @@ class DataframeCollection:
                 isogjmcdf = isogjmcdf.query(cut)
 
         data, dataerr = getHistAndErr(isodatadf, ssParams.ssvar, ssParams.binEdges)
-        signal, signalerr = getNormHistAndErr(isogjmcdf, ssParams.ssvar, ssParams.binEdges)
-        bkg, bkgerr = getNormHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.binEdges)
+        signal, signalerr = getHistAndErr(isogjmcdf, ssParams.ssvar, ssParams.binEdges)
+        bkg, bkgerr = getHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.binEdges)
 
         if len(bkgWeights) > 0:
             bkg, bkgerr = applyBkgWeights(bkgWeights, bkg, bkgerr)
@@ -152,6 +152,10 @@ class DataframeCollection:
         signalerr = np.divide(signalerr, binWidths)
         bkg = np.divide(bkg, binWidths)
         bkgerr = np.divide(bkgerr, binWidths)
+
+        # now normalize the templates
+        signal, signalerr = normalizeHistAndErr(signal, signalerr)
+        bkg, bkgerr = normalizeHistAndErr(bkg, bkgerr)
 
         return TemplateFit(data, dataerr, signal, signalerr, bkg, bkgerr, ssParams, verbosity)
 
@@ -169,7 +173,7 @@ class DataframeCollection:
                 antiisodatadf = antiisodatadf.query(cut)
 
         data, dataerr = getHistAndErr(isodatadf, ssParams.ssvar, ssParams.binEdges)
-        bkg, bkgerr = getNormHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.binEdges)
+        bkg, bkgerr = getHistAndErr(antiisodatadf, ssParams.ssvar, ssParams.binEdges)
 
         if len(bkgWeights) > 0:
             bkg, bkgerr = applyBkgWeights(bkgWeights, bkg, bkgerr)
@@ -180,6 +184,9 @@ class DataframeCollection:
         dataerr = np.divide(dataerr, binWidths)
         bkg = np.divide(bkg, binWidths)
         bkgerr = np.divide(bkgerr, binWidths)
+
+        # normalize the template
+        bkg, bkgerr = normalizeHistAndErr(bkg, bkgerr)
 
         return BackgroundFit(data, dataerr, bkg, bkgerr, ssParams, verbosity)
 

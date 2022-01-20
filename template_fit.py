@@ -100,7 +100,7 @@ class TemplateFit:
 
         # sanity check here on chi2 function and residuals
         # expect to never ever hit this, but definitely want to know if it happens
-        if self.chi2 != np.sum(np.square(self.residuals[self.fitRange])):
+        if not np.allclose(self.chi2, np.sum(np.square(self.residuals[self.fitRange]))):
             print('Warning: chi2 from residuals ({0}) and chi2 from fit function ({1}) are not equal'.format(np.sum(np.square(self.residuals[self.fitRange])), self.chi2))
 
     def getChi2DofInRange(self, rangeMin, rangeMax):
@@ -251,7 +251,7 @@ class BackgroundFit:
 
         # sanity check here on chi2 function and residuals
         # expect to never ever hit this, but definitely want to know if it happens
-        if self.chi2 != np.sum(np.square(self.residuals[self.fitRange])):
+        if not np.allclose(self.chi2 != np.sum(np.square(self.residuals[self.fitRange]))):
             print('Warning: chi2 from residuals ({0}) and chi2 from fit function ({1}) are not equal'.format(np.sum(np.square(self.residuals[self.fitRange])), self.chi2))
 
     def getChi2DofInRange(self, rangeMin, rangeMax):

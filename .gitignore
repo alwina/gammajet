@@ -6,6 +6,8 @@ root/
 cpp/build/
 pre-2022/
 iterations/
+tf-iterations/
+abcd-plots/
 
 *.pyc
 *.pkl
