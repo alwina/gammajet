@@ -1,5 +1,8 @@
+#include <TLorentzVector.h>
 #include <iostream>
 #include <math.h>
+
+#include "yaml-cpp/yaml.h"
 
 #include "response_matrix.h"
 #include "config_parser.h"
@@ -13,7 +16,7 @@ int main(int argc, char *argv[])
   }
 
   if (argc > 2) {
-    nevents_max = std::stol(argv[2])
+    nevents_max = std::stol(argv[2]);
   } else {
     nevents_max = 999999999999999;
   }
@@ -36,7 +39,7 @@ int main(int argc, char *argv[])
   Loop through files
   --------------------------------------------------------------*/
   YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["gjmc"];
-  for (YAML::const_iterator it = filenames.begin(); it != filenames.end(); it++) {
+  for (YAML::const_iterator fileit = filenames.begin(); fileit != filenames.end(); fileit++) {
     std::string root_filename = fileit->as<std::string>();
     openFilesAndGetTTrees(root_filename);
     setBranchAddresses();
@@ -87,32 +90,32 @@ int main(int argc, char *argv[])
           int itruth = matchedIndex.first;
           int ireco = matchedIndex.second;
 
-          float j_truth_pt = jet_charged_truth_ak04_pt[itruth];
-          float j_truth_phi = jet_charged_truth_ak04_phi[itruth];
-          float j_reco_pt = jet_ak04tpc_pt_raw[ireco];
-          float j_reco_phi = jet_ak04tpc_phi[ireco];
+          float j_truth_pt = jet_charged_truth_pt[itruth];
+          float j_truth_phi = jet_charged_truth_phi[itruth];
+          float j_reco_pt = jet_pt_raw[ireco];
+          float j_reco_phi = jet_phi[ireco];
 
-          float deltaphi_truth = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - j_truth_phi));
-          float deltaphi_reco = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - j_reco_phi));
+          float deltaphi_truth = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - j_truth_phi));
+          float deltaphi_reco = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - j_reco_phi));
 
           deltaphiResponses[centbin].Fill(deltaphi_reco, deltaphi_truth);
           jetptResponses[centbin].Fill(j_reco_pt, j_truth_pt);
-          ptratioResponses[centbin].Fill(j_reco_pt / cluster_pt[n], j_truth_pt / cluster_pt[n]);
+          ptratioResponses[centbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / cluster_pt[icluster]);
         }
 
         if (keepMisses) {
           for (int itruth : unmatchedTruth) {
-            deltaphiResponses[centbin].Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_charged_truth_ak04_phi[itruth])));
-            jetptResponses[centbin].Miss(jet_charged_truth_ak04_pt[itruth]);
-            ptratioResponses[centbin].Miss(jet_charged_truth_ak04_pt[itruth] / cluster_pt[n]);
+            deltaphiResponses[centbin].Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_charged_truth_phi[itruth])));
+            jetptResponses[centbin].Miss(jet_charged_truth_pt[itruth]);
+            ptratioResponses[centbin].Miss(jet_charged_truth_pt[itruth] / cluster_pt[icluster]);
           }
         }
 
         if (keepFakes) {
           for (int ireco : unmatchedReco) {
-            deltaphiResponses[centbin].Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[n] - jet_ak04tpc_phi[ireco])));
-            jetptResponses[centbin].Fake(jet_ak04tpc_pt_raw[ireco]);
-            ptratioResponses[centbin].Fake(jet_ak04tpc_pt_raw[ireco] / cluster_pt[n]);
+            deltaphiResponses[centbin].Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ireco])));
+            jetptResponses[centbin].Fake(jet_pt_raw[ireco]);
+            ptratioResponses[centbin].Fake(jet_pt_raw[ireco] / cluster_pt[icluster]);
           }
         }
       } // end cluster loop
@@ -261,6 +264,7 @@ void setBranchAddresses()
   _tree_event->SetBranchAddress("cluster_eta", cluster_eta);
   _tree_event->SetBranchAddress("cluster_phi", cluster_phi);
   _tree_event->SetBranchAddress("cluster_s_nphoton", cluster_s_nphoton);
+  _tree_event->SetBranchAddress("cluster_nmc_truth", cluster_nmc_truth);	
   _tree_event->SetBranchAddress("cluster_mc_truth_index", cluster_mc_truth_index);
   _tree_event->SetBranchAddress("cluster_lambda_square", cluster_lambda_square);
   _tree_event->SetBranchAddress("cluster_iso_tpc_02", cluster_iso_tpc_02);
@@ -358,7 +362,7 @@ void matchJetsInEvent()
         unmatchedTruth.insert(itruth);
       } else {
         // save off this matched pair
-        matchedIndex = make_pair(itruth, minDistanceIndex);
+        matchedIndex = std::make_pair(itruth, minDistanceIndex);
         matchedJetIndices.push_back(matchedIndex);
         // remove the reco jet from the set of unmatched reco jets
         unmatchedReco.erase(minDistanceIndex);

@@ -86,6 +86,7 @@ Float_t cluster_iso_its_04[NTRACK_MAX];
 Float_t cluster_frixione_tpc_04_02[NTRACK_MAX];
 Float_t cluster_frixione_its_04_02[NTRACK_MAX];
 Float_t cluster_s_nphoton[NTRACK_MAX][4];
+UInt_t cluster_nmc_truth[NTRACK_MAX];
 unsigned short cluster_mc_truth_index[NTRACK_MAX][32];
 Int_t cluster_ncell[NTRACK_MAX];
 UShort_t  cluster_cell_id_max[NTRACK_MAX];
