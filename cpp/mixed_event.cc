@@ -343,8 +343,14 @@ int main(int argc, char *argv[])
 
 				// apply cluster cuts
 				if (rejectCluster()) continue;
+				
+				// determine whether the cluster is isolated in the triggered event
+				// otherwise, we're looking at a different sample of clusters
+				float triggeredIsolation = getTriggeredIsolation();
+				bool isTrigIsolated = GetIsIsolated(triggeredIsolation, centrality_v0m, isoconfig);
+				if (not(isTrigIsolated)) continue;
 
-				// determine whether the cluster is isolated
+				// determine whether the cluster is isolated in the MB event
 				// calculate isolation based on MB tracks
 				// for this, it only matters what the radius is, not the track type
 				// since the making of the HDF5 file keeps track of which track type it wants
@@ -745,6 +751,30 @@ bool rejectCluster()
 	if (not(cluster_nlocal_maxima < cluster_nlm_max)) return true;
 	if (not(abs(cluster_tof) < cluster_tof_max)) return true;
 	return false;
+}
+
+float getTriggeredIsolation()
+{
+	float isolation;
+	if (isovar == "cluster_iso_tpc_04") {
+		isolation = cluster_iso_tpc_04;
+	} else if (isovar == "cluster_iso_its_04") {
+		isolation = cluster_iso_its_04;
+	} else if (isovar == "cluster_iso_its_04_sub") {
+		isolation = cluster_iso_its_04 + cluster_iso_its_04_ue - ue_estimate_its_const * M_PI * 0.4 * 0.4;
+	} else if (isovar == "cluster_iso_tpc_02_sub") {
+		isolation = cluster_iso_tpc_02 + cluster_iso_tpc_02_ue - ue_estimate_tpc_const * M_PI * 0.2 * 0.2;
+	} else if (isovar == "cluster_iso_tpc_04_sub") {
+		isolation = cluster_iso_tpc_04 + cluster_iso_tpc_04_ue - ue_estimate_tpc_const * M_PI * 0.4 * 0.4;
+	} else if (isovar == "cluster_frixione_tpc_04_02") {
+		isolation = cluster_frixione_tpc_04_02;
+	} else if (isovar == "cluster_frixione_its_04_02") {
+		isolation = cluster_frixione_its_04_02;
+	} else {
+		std::cout << "ERROR: Isolation variable " << isovar << " not recognized. Aborting" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+	return isolation;
 }
 
 float getShower()

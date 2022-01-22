@@ -67,6 +67,7 @@ void setTrackVariables(float track_data_values[]);
 void setJetVariables(float jet_data_values[]);
 
 bool rejectCluster();
+float getTriggeredIsolation();
 float getShower();
 
 /*--------------------------------------------------------------
