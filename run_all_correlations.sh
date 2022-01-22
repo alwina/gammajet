@@ -81,6 +81,10 @@ main() {
 	cp ${systemconfig} ${workingdir}/config/systemconfig.yaml
 	cp ${globalconfig} ${workingdir}/config/globalconfig.yaml
 
+	cp example-gj-correlations.ipynb ${workingdir}/gj-correlations-${itername}.ipynb
+	responsematrix=$(yaml $runconfig "['filelists']['correlations']['responsematrix']")
+	cp $responsematrix ${workingdir}/${responsematrix}
+
 	cd $workingdir
 
 	# run same event

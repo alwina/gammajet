@@ -260,7 +260,7 @@ void setBranchAddresses()
   _tree_event->SetBranchAddress("cluster_eta", cluster_eta);
   _tree_event->SetBranchAddress("cluster_phi", cluster_phi);
   _tree_event->SetBranchAddress("cluster_s_nphoton", cluster_s_nphoton);
-  _tree_event->SetBranchAddress("cluster_nmc_truth", cluster_nmc_truth);	
+  _tree_event->SetBranchAddress("cluster_nmc_truth", cluster_nmc_truth);
   _tree_event->SetBranchAddress("cluster_mc_truth_index", cluster_mc_truth_index);
   _tree_event->SetBranchAddress("cluster_lambda_square", cluster_lambda_square);
   _tree_event->SetBranchAddress("cluster_iso_tpc_02", cluster_iso_tpc_02);
