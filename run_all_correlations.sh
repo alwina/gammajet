@@ -137,6 +137,7 @@ main() {
 	rm ${mixcorrbase}_skimcent5090*rootmix*
 
 	date
+	echo "Done"
 }
 
 main | tee "${workingdir}/output.log"
