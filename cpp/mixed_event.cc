@@ -327,6 +327,14 @@ int main(int argc, char *argv[])
 			if (abs(centrality_v0m - mb_centrality_v0m) > 10.) continue;
 			if (abs(primary_vertex - mb_primary_vertex) > 2.) continue;
 			if (abs(v2 - mb_v2) > 0.5) continue;
+			
+			// get the jet multiplicity correction
+			// which is the average number of jets in a triggered event within this triggered event's 1% centrality range
+			// divided by the average number of jets in a MB event within this MB event's 1% centrality range
+			// the bin index is just the floor of the centrality
+			// as a shortcut, casting this to int is equivalent to taking the floor, since it is always positive
+			// since evidently floor still gives you a float
+			jetmultcorrection = avg_njet_ak02tpc_trig[(int) centrality_v0m] / avg_njet_ak02tpc_mb[(int) mb_centrality_v0m];
 
 			/*--------------------------------------------------------------
 			Loop through clusters in triggered event
@@ -446,11 +454,15 @@ int main(int argc, char *argv[])
 					if (isSignal) {
 						hCorrSR->Fill(corr, purity_weight);
 						hCorr1ptSR->Fill(corr, purity_weight / jetpt);
+						hCorrSR_jetmultcorrected->Fill(corr, purity_weight * jetmultcorrection);
+						hCorr1ptSR_jetmultcorrected->Fill(corr, purity_weight / jetpt * jetmultcorrection);
 					}
 
 					if (isBackground) {
 						hCorrBR->Fill(corr, purity_weight);
 						hCorr1ptBR->Fill(corr, purity_weight / jetpt);
+						hCorrBR_jetmultcorrected->Fill(corr, purity_weight * jetmultcorrection);
+						hCorr1ptBR_jetmultcorrected->Fill(corr, purity_weight / jetpt * jetmultcorrection);
 					}
 				} // end jet loop
 			} // end cluster loop
@@ -637,6 +649,15 @@ void initializeTHnSparses()
 	hCorrBR->Sumw2();
 	hCorr1ptSR->Sumw2();
 	hCorr1ptBR->Sumw2();
+	
+	hCorrSR_jetmultcorrected = new THnSparseF("hCorrSR_jetmultcorrected", "ME Correlations (SR) with jet multiplicity correction", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrBR_jetmultcorrected = new THnSparseF("hCorrBR_jetmultcorrected", "ME Correlations (BR) with jet multiplicity correction", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptSR_jetmultcorrected = new THnSparseF("hCorr1ptSR_jetmultcorrected", "ME Correlations with 1/jetpt weight (SR) with jet multiplicity correction", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptBR_jetmultcorrected = new THnSparseF("hCorr1ptBR_jetmultcorrected", "ME Correlations with 1/jetpt weight (BR) with jet multiplicity correction", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrSR_jetmultcorrected->Sumw2();
+	hCorrBR_jetmultcorrected->Sumw2();
+	hCorr1ptSR_jetmultcorrected->Sumw2();
+	hCorr1ptBR_jetmultcorrected->Sumw2();
 }
 
 void initializeDebuggingHistograms()
