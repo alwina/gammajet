@@ -128,10 +128,12 @@ int main(int argc, char *argv[])
 					// fill correlation THnSparse
 					if (isSignal) {
 						hCorrSR->Fill(corr, purity_weight);
+						hCorr1ptSR->Fill(corr, purity_weight / jetpt);
 					}
 
 					if (isBackground) {
 						hCorrBR->Fill(corr, purity_weight);
+						hCorr1ptBR->Fill(corr, purity_weight / jetpt);
 					}
 				} // end jet loop
 			} // end cluster loop
@@ -226,8 +228,12 @@ void initializeTHnSparses()
 
 	hCorrSR = new THnSparseF("hCorrSR", "Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrBR = new THnSparseF("hCorrBR", "Correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptSR = new THnSparseF("hCorr1ptSR", "Correlations with 1/jetpt weight (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptBR = new THnSparseF("hCorr1ptBR", "Correlations with 1/jetpt weight (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrSR->Sumw2();
 	hCorrBR->Sumw2();
+	hCorr1ptSR->Sumw2();
+	hCorr1ptBR->Sumw2();
 }
 
 // Apply cluster cuts

@@ -445,10 +445,12 @@ int main(int argc, char *argv[])
 
 					if (isSignal) {
 						hCorrSR->Fill(corr, purity_weight);
+						hCorr1ptSR->Fill(corr, purity_weight / jetpt);
 					}
 
 					if (isBackground) {
 						hCorrBR->Fill(corr, purity_weight);
+						hCorr1ptBR->Fill(corr, purity_weight / jetpt);
 					}
 				} // end jet loop
 			} // end cluster loop
@@ -627,10 +629,14 @@ void initializeTHnSparses()
 	minbinsCorr[4] = ptratio_min;
 	maxbinsCorr[4] = ptratio_max;
 
-	hCorrSR = new THnSparseF("hCorrSR", "Mixed Event Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-	hCorrBR = new THnSparseF("hCorrBR", "Mixed Event Correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrSR = new THnSparseF("hCorrSR", "ME Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrBR = new THnSparseF("hCorrBR", "ME Correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptSR = new THnSparseF("hCorr1ptSR", "ME Correlations with 1/jetpt weight (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptBR = new THnSparseF("hCorr1ptBR", "ME Correlations with 1/jetpt weight (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrSR->Sumw2();
 	hCorrBR->Sumw2();
+	hCorr1ptSR->Sumw2();
+	hCorr1ptBR->Sumw2();
 }
 
 void initializeDebuggingHistograms()

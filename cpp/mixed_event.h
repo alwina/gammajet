@@ -20,6 +20,8 @@ THnSparseF* hnMixSR;
 THnSparseF* hnMixBR;
 THnSparseF* hCorrSR;
 THnSparseF* hCorrBR;
+THnSparseF* hCorr1ptSR;
+THnSparseF* hCorr1ptBR;
 int ndimTrig;
 int ndimCorr;
 
