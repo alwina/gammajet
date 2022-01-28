@@ -93,6 +93,14 @@ class GammaJetCorrelation:
         return np.divide(hist, denominator), np.divide(err, denominator)
 
     def useNbins(self, nBins):
+        # calculate the mean of the distribution before rebinning
+        signalth1 = self.sesrth1.Clone()
+        signalth1.Add(self.sebrth1, -1.0)
+        signalth1.Add(self.mesrth1, -1.0)
+        signalth1.Add(self.mebrth1, 1.0)
+        self.mean = signalth1.GetMean()
+        self.meanerr = signalth1.GetMeanError()
+
         rebinFactor = self.nBins / nBins
         self.sesrth1.Rebin(rebinFactor)
         self.sebrth1.Rebin(rebinFactor)
@@ -116,40 +124,28 @@ class GammaJetCorrelation:
         self.mesrhist, self.mesrerr = self.convertAndDivideWidths(self.mesrth1)
         self.mebrhist, self.mebrerr = self.convertAndDivideWidths(self.mebrth1)
 
-    def subtractBkgRegion(self):
+    def getSignalCorrelation(self):
+        # it absolutely should not matter if we do (SESR-SEBR)-(MESR-MEBR)
+        # or (SESR-MESR)-(SEBR-MEBR); just do SE - ME
+        # totalbkg = MESR + SEBR - MEBR = SEBR + MESR - MEBR
         try:
             self.sehist = np.subtract(self.sesrhist, self.sebrhist)
             self.seerr = quadSumPairwise(self.sesrerr, self.sebrerr)
             self.mehist = np.subtract(self.mesrhist, self.mebrhist)
             self.meerr = quadSumPairwise(self.mesrerr, self.mebrerr)
-        except AttributeError:
-            print('Must call useNbins before calling subtractBkgRegion')
-            raise
 
-    def subtractMixedEvent(self):
-        try:
             self.srhist = np.subtract(self.sesrhist, self.mesrhist)
             self.srerr = quadSumPairwise(self.sesrerr, self.mesrerr)
             self.brhist = np.subtract(self.sebrhist, self.mebrhist)
             self.brerr = quadSumPairwise(self.sebrerr, self.mebrerr)
         except AttributeError:
-            print('Must call useNbins before calling subtractMixedEvent')
+            print('Must call useNbins before calling getSignalCorrelation')
             raise
 
-    def getSignalCorrelation(self):
-        # it absolutely should not matter if we do (SESR-SEBR)-(MESR-MEBR)
-        # or (SESR-MESR)-(SEBR-MEBR); just take the one that exists
-        # and do SE-ME by default
-        try:
-            self.corrhist = np.subtract(self.sehist, self.mehist)
-            self.correrr = quadSumPairwise(self.seerr, self.meerr)
-        except AttributeError:
-            try:
-                self.corrhist = np.subtract(self.srhist, self.brhist)
-                self.correrr = quadSumPairwise(self.srerr, self.brerr)
-            except AttributeError:
-                print('Must call subtractBkgRegion and/or subtractMixedEvent before calling getSignalCorrelation')
-                raise
+        self.corrhist = np.subtract(self.sehist, self.mehist)
+        self.correrr = quadSumPairwise(self.seerr, self.meerr)
+        self.totalbkghist = np.add(self.sebrhist, self.mehist)
+        self.totalbkgerr = quadSumPairwise(self.sebrerr, self.meerr)
 
         # convert to TH1 and feed to unfolder
         self.corrth1 = ROOT.TH1F("{0}_measured".format(self.observable), "{0} measured".format(self.observable), self.nBins, self.minBin, self.maxBin)
