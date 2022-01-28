@@ -59,17 +59,17 @@ class GammaJetCorrelation:
         self.sesrntrig = ntrigsr
         self.sebrntrig = ntrigbr
 
-    def setMixedEvent(self, srth1, brth1, srnmix, brnmix):
+    def setMixedEvent(self, srth1, brth1, srnmix, brnmix, mesrscale=1.0, mebrscale=1.0):
         if self.binsMatch(srth1):
             self.mesrth1 = srth1
         if self.binsMatch(brth1):
             self.mebrth1 = brth1
 
-        # scale by number trigger-event pairs
+        # scale by number of trigger-event pairs and any other scaling
         if srnmix != 0:
-            self.mesrth1.Scale(1.0 / srnmix)
+            self.mesrth1.Scale(mesrscale / srnmix)
         if brnmix != 0:
-            self.mebrth1.Scale(1.0 / brnmix)
+            self.mebrth1.Scale(mebrscale / brnmix)
         self.srnmix = srnmix
         self.brnmix = brnmix
 
@@ -171,9 +171,11 @@ class AxisNum(Enum):
     deltaphi = 2
     jetpt = 3
     ptratio = 4
+    jetarea = 5
+    jetmultiplicity = 6
 
 
-def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileME, rootfileRM=''):
+def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileME, rootfileRM='', **kwargs):
     """
     Parse ROOT files and generate GammaJetCorrelation objects for each centrality range, ptrange, and observable
 
@@ -189,17 +191,21 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
 
     # parsing ROOT files - extracting THnSparses
     rootfile = ROOT.TFile.Open(rootfileSE)
-    sehTrigSR = rootfile.Get('hTrigSR')
-    sehTrigBR = rootfile.Get('hTrigBR')
-    sehCorrSR = rootfile.Get('hCorrSR')
-    sehCorrBR = rootfile.Get('hCorrBR')
+    sehTrigSR = rootfile.Get(kwargs.get('sehTrigSR', 'hTrigSR'))
+    sehTrigBR = rootfile.Get(kwargs.get('sehTrigBR', 'hTrigBR'))
+    sehCorrSR = rootfile.Get(kwargs.get('sehCorrSR', 'hCorrSR'))
+    sehCorrBR = rootfile.Get(kwargs.get('sehCorrBR', 'hCorrBR'))
+    sehCorr1ptSR = rootfile.Get(kwargs.get('sehCorr1ptSR', 'hCorr1ptSR'))
+    sehCorr1ptBR = rootfile.Get(kwargs.get('sehCorr1ptBR', 'hCorr1ptBR'))
     rootfile.Close()
 
     rootfile = ROOT.TFile.Open(rootfileME)
-    mehnMixSR = rootfile.Get('hnMixSR')
-    mehnMixBR = rootfile.Get('hnMixBR')
-    mehCorrSR = rootfile.Get('hCorrSR')
-    mehCorrBR = rootfile.Get('hCorrBR')
+    mehnMixSR = rootfile.Get(kwargs.get('mehnMixSR', 'hnMixSR'))
+    mehnMixBR = rootfile.Get(kwargs.get('mehnMixBR', 'hnMixBR'))
+    mehCorrSR = rootfile.Get(kwargs.get('mehCorrSR', 'hCorrSR'))
+    mehCorrBR = rootfile.Get(kwargs.get('mehCorrBR', 'hCorrBR'))
+    mehCorr1ptSR = rootfile.Get(kwargs.get('mehCorr1ptSR', 'hCorr1ptSR'))
+    mehCorr1ptBR = rootfile.Get(kwargs.get('mehCorr1ptBR', 'hCorr1ptBR'))
     rootfile.Close()
 
     if rootfileRM:
@@ -235,6 +241,14 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
             hnMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0)
             nMixBR = hnMixBR.Integral()
 
+            # look for more mixed-event scaling
+            try:
+                mesrscale = kwargs['mescaling'][centrange][photonptrange]['sr']
+                mebrscale = kwargs['mescaling'][centrange][photonptrange]['br']
+            except KeyError:
+                mesrscale = 1.0
+                mebrscale = 1.0
+
             for observable in observableInfo:
                 # set up the correlation object
                 gjCorr = GammaJetCorrelation(observable)
@@ -246,25 +260,40 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                     additionalCuts.append((AxisNum[cutvar].value, cut['min'], cut['max']))
 
                 # project and scale the same-event
-                srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices + additionalCuts, AxisNum[observable].value)
-                brTH1 = sliceAndProjectTHnSparse(sehCorrBR, slices + additionalCuts, AxisNum[observable].value)
+                if observable == 'jetpt':
+                    try:
+                        srTH1 = sliceAndProjectTHnSparse(sehCorr1ptSR, slices + additionalCuts, AxisNum[observable].value)
+                        brTH1 = sliceAndProjectTHnSparse(sehCorr1ptBR, slices + additionalCuts, AxisNum[observable].value)
+                    except AttributeError:
+                        srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices + additionalCuts, AxisNum[observable].value)
+                        brTH1 = sliceAndProjectTHnSparse(sehCorrBR, slices + additionalCuts, AxisNum[observable].value)
+                        print('Warning: SE jetpt distribution does not have 1/pT factor')
+                else:
+                    srTH1 = sliceAndProjectTHnSparse(sehCorrSR, slices + additionalCuts, AxisNum[observable].value)
+                    brTH1 = sliceAndProjectTHnSparse(sehCorrBR, slices + additionalCuts, AxisNum[observable].value)
+
                 gjCorr.setSameEvent(srTH1, brTH1, nTrigSESR, nTrigSEBR)
 
                 # project and scale the mixed-event
-                srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum[observable].value)
-                brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum[observable].value)
-                gjCorr.setMixedEvent(srTH1, brTH1, nMixSR, nMixBR)
+                if observable == 'jetpt':
+                    try:
+                        srTH1 = sliceAndProjectTHnSparse(mehCorr1ptSR, slices + additionalCuts, AxisNum[observable].value)
+                        brTH1 = sliceAndProjectTHnSparse(mehCorr1ptBR, slices + additionalCuts, AxisNum[observable].value)
+                    except AttributeError:
+                        srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum[observable].value)
+                        brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum[observable].value)
+                        print('Warning: ME jetpt distribution does not have 1/pT factor')
+                else:
+                    srTH1 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum[observable].value)
+                    brTH1 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum[observable].value)
+
+                gjCorr.setMixedEvent(srTH1, brTH1, nMixSR, nMixBR, mesrscale, mebrscale)
 
                 # rebin
                 gjCorr.useNbins(observableInfo[observable]['nbins'])
 
-                # subtract BR in each of SE and ME
-                gjCorr.subtractBkgRegion()
-
-                # subtract mixed-event in each of SR and BR, because sometimes we also want to look at this
-                gjCorr.subtractMixedEvent()
-
-                # second subtraction
+                # subtract backgrounds, which includes both subtracting BR in each of SE and ME
+                # and also subtracting ME in each of SR and BR
                 gjCorr.getSignalCorrelation()
 
                 # set response matrix if it exists
