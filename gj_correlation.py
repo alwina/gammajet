@@ -84,22 +84,19 @@ class GammaJetCorrelation:
         if not np.allclose(widths, self.widths):
             print('Warning: TH1 widths {0} do not match calculated widths {1}'.format(widths, self.widths))
 
-        # jet pT is 1/pT dN/dpT
-        if self.observable == 'jetpt':
-            denominator = np.multiply(centers, widths)
-        # all others are just dN/dObservable
-        else:
-            denominator = widths
-        return np.divide(hist, denominator), np.divide(err, denominator)
+        return np.divide(hist, widths), np.divide(err, widths)
 
     def useNbins(self, nBins):
         # calculate the mean of the distribution before rebinning
-        signalth1 = self.sesrth1.Clone()
-        signalth1.Add(self.sebrth1, -1.0)
-        signalth1.Add(self.mesrth1, -1.0)
-        signalth1.Add(self.mebrth1, 1.0)
-        self.mean = signalth1.GetMean()
-        self.meanerr = signalth1.GetMeanError()
+        # and also just keep around the TH1 with all the bins
+        self.signalth1 = self.sesrth1.Clone()
+        self.signalth1.Add(self.sebrth1, -1.0)
+        self.signalth1.Add(self.mesrth1, -1.0)
+        self.signalth1.Add(self.mebrth1, 1.0)
+        self.mean = self.signalth1.GetMean()
+        self.meanerr = self.signalth1.GetMeanError()
+        self.rms = self.signalth1.GetRMS()
+        self.rmserr = self.signalth1.GetRMSError()
 
         rebinFactor = self.nBins / nBins
         self.sesrth1.Rebin(rebinFactor)

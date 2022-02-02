@@ -264,7 +264,7 @@ def tBranchToArray(branch, branchType, arrayShape):
     Also useful for anything python doesn't automatically handle, like unsigned integers
 
     branch: TBranch, usually retrieved via getattr(tree, 'branchName')
-    branchType: the ROOT corresponding to this TBranch
+    branchType: the ROOT type corresponding to this TBranch
     arrayShape: tuple with the dimensions of the output; for a 1D array, it's just the length
 
     For TBranch type codes: https://root.cern.ch/doc/master/classTBranch.html#ac0412c423e6c8388b42247e0410cf822
