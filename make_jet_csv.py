@@ -53,6 +53,7 @@ def main(config):
             # loop through events
             for ievent in range(nevents):
                 tree.GetEntry(ievent)
+                auxtree.GetEntry(ievent)
 
                 ncluster = getattr(tree, 'ncluster')
                 cluster_pt = getattr(tree, 'cluster_pt')
@@ -154,6 +155,7 @@ def main(config):
 
                     clustercount = clustercount + 1
 
+            auxfile.Close()
             rootfile.Close()
 
     end = time.time()
@@ -162,13 +164,20 @@ def main(config):
     csvsize = float(os.path.getsize(csvfilename))
     sizetext = getSizeText(csvsize)
 
-    print('Took {0} to produce {1} ({2}, {3:.0f} jets, {4:.0f} clusters, {5:.0f} events)'.format(timetext, os.path.basename(csvfilename), sizetext, clustercount, totalevents))
+    print('Took {0} to produce {1} ({2}, {3:.0f} jets, {4:.0f} clusters, {5:.0f} events)'.format(timetext, os.path.basename(csvfilename), sizetext, jetcount, clustercount, totalevents))
 
 
 if __name__ == '__main__':
     configfilename = sys.argv[1]
 
-    with open(configfilename) as configfile:
-        config = yaml.safe_load(configfile)
+    with open(configfilename) as runconfigfile:
+        runconfig = yaml.safe_load(runconfigfile)
+        
+    with open(runconfig['systemconfig']) as sysconfigfile:
+        sysconfig = yaml.safe_load(sysconfigfile)
+        
+    fullconfig = {}
+    fullconfig.update(sysconfig)
+    fullconfig.update(runconfig)
 
-    main(config)
+    main(fullconfig)

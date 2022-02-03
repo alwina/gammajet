@@ -99,6 +99,8 @@ UInt_t njet;
 Float_t jet_pt_raw[NTRACK_MAX];
 Float_t jet_eta[NTRACK_MAX];
 Float_t jet_phi[NTRACK_MAX];
+Float_t jet_area[NTRACK_MAX];
+UShort_t jet_multiplicity_raw[NTRACK_MAX];
 
 // MC
 unsigned int nmc_truth;

@@ -157,8 +157,10 @@ int main(int argc, char *argv[])
 
 	hTrigSR->Write();
 	hCorrSR->Write();
+	hCorr1ptSR->Write();
 	hTrigBR->Write();
 	hCorrBR->Write();
+	hCorr1ptBR->Write();
 
 	fout->Close();
 	std::cout << "Ending" << std::endl;
@@ -416,16 +418,22 @@ void setBranchAddresses()
 		_tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_pt_raw);
 		_tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_eta);
 		_tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_phi);
+		_tree_event->SetBranchAddress("jet_ak04tpc_area", jet_area);
+		_tree_event->SetBranchAddress("jet_ak04tpc_multiplicity_raw", jet_multiplicity_raw);
 	} else if (jettype == "ak02tpc") {
 		auxtree->SetBranchAddress("njet_ak02tpc", &njet);
 		auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", jet_pt_raw);
 		auxtree->SetBranchAddress("jet_ak02tpc_eta", jet_eta);
 		auxtree->SetBranchAddress("jet_ak02tpc_phi", jet_phi);
+		auxtree->SetBranchAddress("jet_ak02tpc_area", jet_area);
+		auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", jet_multiplicity_raw);
 	} else if (jettype == "ak04its") {
 		_tree_event->SetBranchAddress("njet_ak04its", &njet);
 		_tree_event->SetBranchAddress("jet_ak04its_pt_raw", jet_pt_raw);
 		_tree_event->SetBranchAddress("jet_ak04its_eta", jet_eta);
 		_tree_event->SetBranchAddress("jet_ak04its_phi", jet_phi);
+		_tree_event->SetBranchAddress("jet_ak04its_area", jet_area);
+		_tree_event->SetBranchAddress("jet_ak04its_multiplicity_raw", jet_multiplicity_raw);
 	} else {
 		std::cout << "ERROR: Jet type " << jettype << " not recognized. Aborting" << std::endl;
 		exit(EXIT_FAILURE);

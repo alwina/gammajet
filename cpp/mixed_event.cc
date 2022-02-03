@@ -486,11 +486,17 @@ int main(int argc, char *argv[])
 
 	hTrigSR->Write();
 	hCorrSR->Write();
+	hCorr1ptSR->Write();
+	hCorrSR_jetmultcorrected->Write();
+	hCorr1ptSR_jetmultcorrected->Write();
 	hnMixSR->Write();
 	SR_mixed_event_counter->Write();
 
 	hTrigBR->Write();
 	hCorrBR->Write();
+	hCorr1ptBR->Write();
+	hCorrBR_jetmultcorrected->Write();
+	hCorr1ptBR_jetmultcorrected->Write();
 	hnMixBR->Write();
 	BR_mixed_event_counter->Write();
 
