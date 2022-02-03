@@ -168,8 +168,7 @@ class AxisNum(Enum):
     deltaphi = 2
     jetpt = 3
     ptratio = 4
-    jetarea = 5
-    jetmultiplicity = 6
+    jetkt = 5
 
 
 def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileME, rootfileRM='', **kwargs):

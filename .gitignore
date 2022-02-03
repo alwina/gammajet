@@ -7,6 +7,7 @@ cpp/build/
 pre-2022/
 iterations/
 tf-iterations/
+misc-notebooks/
 abcd-plots/
 
 *.pyc

@@ -124,6 +124,7 @@ int main(int argc, char *argv[])
 					corr[2] = deltaphi;
 					corr[3] = jetpt;
 					corr[4] = ptratio;
+					corr[5] = cluster_pt[icluster] * sin(deltaphi);
 
 					// fill correlation THnSparse
 					if (isSignal) {
@@ -197,8 +198,8 @@ void initializeTHnSparses()
 	hTrigSR = new THnSparseF("hTrigSR", "Number of clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 	hTrigBR = new THnSparseF("hTrigBR", "Number of clusters (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
-	// dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio
-	ndimCorr = 5;
+	// dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio, jet kT
+	ndimCorr = 6;
 	Int_t nbinsCorr[ndimCorr];
 	Double_t minbinsCorr[ndimCorr];
 	Double_t maxbinsCorr[ndimCorr];
@@ -227,6 +228,11 @@ void initializeTHnSparses()
 	nbinsCorr[4] = 120;
 	minbinsCorr[4] = ptratio_min;
 	maxbinsCorr[4] = ptratio_max;
+
+	// jetkt
+	nbinsCorr[5] = 120;
+	minbinsCorr[5] = 0;
+	maxbinsCorr[5] = 60;
 
 	hCorrSR = new THnSparseF("hCorrSR", "Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrBR = new THnSparseF("hCorrBR", "Correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);

@@ -450,6 +450,7 @@ int main(int argc, char *argv[])
 					corr[2] = deltaphi;
 					corr[3] = jetpt;
 					corr[4] = ptratio;
+					corr[5] = cluster_pt * sin(deltaphi);
 
 					if (isSignal) {
 						hCorrSR->Fill(corr, purity_weight);
@@ -646,6 +647,11 @@ void initializeTHnSparses()
 	nbinsCorr[4] = 120;
 	minbinsCorr[4] = ptratio_min;
 	maxbinsCorr[4] = ptratio_max;
+
+	// jetkt
+	nbinsCorr[5] = 120;
+	minbinsCorr[5] = 0;
+	maxbinsCorr[5] = 60;
 
 	hCorrSR = new THnSparseF("hCorrSR", "ME Correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrBR = new THnSparseF("hCorrBR", "ME Correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
