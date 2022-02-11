@@ -11,20 +11,20 @@ mpl.rc('xtick', labelsize=16, top=True, direction='in')
 mpl.rc('ytick', labelsize=16, right=True, direction='in')
 
 
-def upperRightText(text, fontsize=16):
-    plt.annotate(text, xy=(0.98, 0.98), xycoords='axes fraction', ha='right', va='top', fontsize=fontsize)
+def upperRightText(text, xy=(0.98, 0.98), fontsize=16, **kwargs):
+    plt.annotate(text, xy=xy, xycoords='axes fraction', ha='right', va='top', fontsize=fontsize, **kwargs)
 
 
-def upperLeftText(text, fontsize=16):
-    plt.annotate(text, xy=(0.02, 0.98), xycoords='axes fraction', ha='left', va='top', fontsize=fontsize)
+def upperLeftText(text, xy=(0.02, 0.98), fontsize=16, **kwargs):
+    plt.annotate(text, xy=xy, xycoords='axes fraction', ha='left', va='top', fontsize=fontsize, **kwargs)
 
 
-def lowerRightText(text, fontsize=16):
-    plt.annotate(text, xy=(0.98, 0.02), xycoords='axes fraction', ha='right', va='bottom', fontsize=fontsize)
+def lowerRightText(text, xy=(0.98, 0.02), fontsize=16, **kwargs):
+    plt.annotate(text, xy=xy, xycoords='axes fraction', ha='right', va='bottom', fontsize=fontsize, **kwargs)
 
 
-def lowerLeftText(text, fontsize=16):
-    plt.annotate(text, xy=(0.02, 0.02), xycoords='axes fraction', ha='left', va='bottom', fontsize=fontsize)
+def lowerLeftText(text, xy=(0.02, 0.02), fontsize=16, **kwargs):
+    plt.annotate(text, xy=xy, xycoords='axes fraction', ha='left', va='bottom', fontsize=fontsize, **kwargs)
 
 
 def setTicks(ax):
