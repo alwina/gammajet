@@ -242,17 +242,17 @@ class DataframeCollection:
             antiisojjmcdf = antiisojjmcdf.query(centralitycuttext(centrange))
 
         if 'data' in additionalCuts:
-            for cut in additionalCuts:
+            for cut in additionalCuts['data']:
                 isodatadf = isodatadf.query(cut)
                 antiisodatadf = antiisodatadf.query(cut)
 
         if 'gjmc' in additionalCuts:
-            for cut in additionalCuts:
+            for cut in additionalCuts['gjmc']:
                 isogjmcdf = isogjmcdf.query(cut)
                 antiisogjmcdf = antiisogjmcdf.query(cut)
 
         if 'jjmc' in additionalCuts:
-            for cut in additionalCuts:
+            for cut in additionalCuts['jjmc']:
                 isojjmcdf = isojjmcdf.query(cut)
                 antiisojjmcdf = antiisojjmcdf.query(cut)
 

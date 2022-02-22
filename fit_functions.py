@@ -69,7 +69,7 @@ class FitFunction:
         self.fitParams = {}
         self.fitErrors = {}
         for param in params:
-            if np.isnan(mt.params[param]):
+            if np.isnan(mt.values[param]):
                 print('Warning: fit did not converge')
             self.fitParams[param] = mt.values[param]
             self.fitErrors[param] = mt.errors[param]

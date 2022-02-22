@@ -38,7 +38,10 @@ class ShowerShapeParams:
         self.ssvar = config['ssvar']
         self.binEdges = config['tfbins']
         self.purityRange = (config['srmin'], config['srmax'])
-        self.bkgFitRange = (config['brmin'], config['brmax'])
+        if 'bkgonlyfitrange' in config:
+            self.bkgFitRange = config['bkgonlyfitrange']
+        else:
+            self.bkgFitRange = (config['brmin'], config['brmax'])
         self.tfFitRange = config.get('tffitrange', None)
         self.axisLabel = config.get('axislabel', self.ssvar)
         self.legendLabel = config.get('legendlabel', self.ssvar)

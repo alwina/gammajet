@@ -64,7 +64,10 @@ class TemplateFit:
         def Chi2(f):
             model = self.N * (f * self.signal + (1 - f) * self.bkg)
             totalerr = quadSumPairwise(self.dataerr, self.N * (1 - f) * self.bkgerr)
-            residuals = np.divide(model - self.data, totalerr, where=(totalerr != 0))
+            residuals = np.zeros_like(totalerr)
+            np.divide(model - self.data, totalerr, where=(totalerr != 0), out=residuals)
+            if self.verbosity == 1:
+                print(np.sum(np.square(residuals[self.fitRange])), f)
             return np.sum(np.square(residuals[self.fitRange]))
 
         for initf in [0.1, 0.2, 0.4, 0.8, 0.05, 0.02, 0.01, 0.005]:
@@ -78,11 +81,12 @@ class TemplateFit:
         # check for convergence and print lots of info if it failed
         if np.isnan(mt.values['f']) or not mt.migrad_ok():
             print('Warning: template fit did not converge')
-            print('Data:', self.data)
-            print('Signal:', self.signal)
-            print('Bkg:', self.bkg)
-            print('Data err:', self.dataerr)
-            print('Bkg err:', self.bkgerr)
+            if self.verbosity == 1:
+                print('Data:', self.data)
+                print('Signal:', self.signal)
+                print('Bkg:', self.bkg)
+                print('Data err:', self.dataerr)
+                print('Bkg err:', self.bkgerr)
 
         self.fitf = mt.values['f']
         self.fitferr = mt.errors['f']
@@ -94,7 +98,8 @@ class TemplateFit:
 
         fitTotal = self.fitSignal + self.fitBkg
         totalerr = quadSumPairwise(self.dataerr, self.fitBkgerr)
-        self.residuals = np.divide(fitTotal - self.data, totalerr, where=(totalerr != 0))
+        self.residuals = np.zeros_like(totalerr)
+        np.divide(fitTotal - self.data, totalerr, where=(totalerr != 0), out=self.residuals)
         self.chi2 = Chi2(self.fitf)
         self.dof = len(self.data[self.fitRange]) - 1  # number of fit parameters
 
@@ -131,7 +136,7 @@ class TemplateFit:
         bkgplot = plt.bar(self.binCenters, self.fitBkg / norm, width=self.binWidths, align='center', label=bkgLabel, color=self.bkgColor, ec=self.bkgColor)
         signalplot = plt.bar(self.binCenters, self.fitSignal / norm, yerr=totalerr / norm, bottom=self.fitBkg / norm, width=self.binWidths, align='center', label='{0} + {1}'.format(signalLabel, bkgLabel), capsize=3, color=self.signalColor, ec=self.signalColor, ecolor='gray')
 
-        chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:2.2f}/{1:2.0f}'.format(self.chi2, self.dof))
+        chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:.2f}/{1:.0f}'.format(self.chi2, self.dof))
         puritytext, = plt.plot([], [], ' ', label='Purity = ${0:2.1f} \pm {1:2.1f}$%'.format(100 * self.purity, 100 * self.purityerr))
 
         ax = plt.gca()
@@ -159,11 +164,9 @@ class TemplateFit:
         plt.ylabel('Entries')
         plt.legend(loc='best')
 
-    def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
-        fig = plt.figure()
-
+    def plotFitAndResidualsInExistingFigure(self, fig, tfaxes, residualaxes, ptrange, centrange=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
         # plot template fit
-        fig.add_axes((0.1, 0.3, 0.88, 0.6))
+        fig.add_axes(tfaxes)
         ax = plt.gca()
         setTicks(ax)
 
@@ -183,17 +186,20 @@ class TemplateFit:
         plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
 
         # plot residuals
-        fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
+        fig.add_axes(residualaxes, sharex=ax)
         ax = plt.gca()
         setTicks(ax)
 
         self.plotResiduals(ylim=ylim)
-        average = np.average(self.residuals)
+        average = np.average(self.residuals[self.fitRange])
         plt.axhline(y=average, color='r', label='Average')
         plt.legend(loc=1, frameon=False, fontsize=22)
 
         plt.xlabel(self.xlabel, fontsize=30, x=1.0, ha='right')
 
+    def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', signalLabel='Signal', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
+        fig = plt.figure()
+        self.plotFitAndResidualsInExistingFigure(fig, (0.1, 0.3, 0.88, 0.6), (0.1, 0.1, 0.88, 0.2), ptrange, centrange, dataLabel, signalLabel, bkgLabel, system, ylim)
         if figfilename:
             fig.savefig(figfilename)
 
@@ -224,18 +230,23 @@ class BackgroundFit:
         def Chi2(N):
             model = N * self.bkg
             totalerr = quadSumPairwise(self.dataerr, N * self.bkgerr)
-            residuals = np.divide(model - self.data, totalerr, where=(totalerr != 0))
+            residuals = np.zeros_like(totalerr)
+            np.divide(model - self.data, totalerr, where=(totalerr != 0), out=residuals)
+            if self.verbosity == 1:
+                print(np.sum(np.square(residuals[self.fitRange])), N)
             return np.sum(np.square(residuals[self.fitRange]))
 
-        mt = iminuit.Minuit(Chi2, N=np.sum(self.data) / np.sum(self.bkg), error_N=1, errordef=1, print_level=self.verbosity)
+        initN = np.sum(self.data) / np.sum(self.bkg)
+        mt = iminuit.Minuit(Chi2, N=initN, error_N=initN / 10.0, errordef=1, print_level=self.verbosity)
         mt.migrad()
 
         if np.isnan(mt.values['N']) or not mt.migrad_ok():
             print('Warning: background fit did not converge')
-            print('Data:', self.data)
-            print('Bkg:', self.bkg)
-            print('Data err:', self.dataerr)
-            print('Bkg err:', self.bkgerr)
+            if self.verbosity == 1:
+                print('Data:', self.data[self.fitRange])
+                print('Bkg:', self.bkg[self.fitRange])
+                print('Data err:', self.dataerr[self.fitRange])
+                print('Bkg err:', self.bkgerr[self.fitRange])
 
         self.fitN = mt.values['N']
         self.fitNerr = mt.errors['N']
@@ -245,13 +256,14 @@ class BackgroundFit:
 
         totalerr = quadSumPairwise(self.dataerr, self.fitBkgerr)
 
-        self.residuals = np.divide(self.fitBkg - self.data, totalerr, where=(totalerr != 0))
+        self.residuals = np.zeros_like(totalerr)
+        np.divide(self.fitBkg - self.data, totalerr, where=(totalerr != 0), out=self.residuals)
         self.chi2 = Chi2(self.fitN)
         self.dof = len(self.data[self.fitRange]) - 1  # number of fit parameters
 
         # sanity check here on chi2 function and residuals
         # expect to never ever hit this, but definitely want to know if it happens
-        if not np.allclose(self.chi2 != np.sum(np.square(self.residuals[self.fitRange]))):
+        if not np.allclose(self.chi2, np.sum(np.square(self.residuals[self.fitRange]))):
             print('Warning: chi2 from residuals ({0}) and chi2 from fit function ({1}) are not equal'.format(np.sum(np.square(self.residuals[self.fitRange])), self.chi2))
 
     def getChi2DofInRange(self, rangeMin, rangeMax):
@@ -281,7 +293,7 @@ class BackgroundFit:
     def plotFit(self, dataLabel='Data, iso', bkgLabel='Bkg (data, anti-iso)'):
         dataplot = plt.errorbar(self.binCenters, self.data, yerr=self.dataerr, label=dataLabel, fmt='ko')
         bkgplot = plt.bar(self.binCenters, self.fitBkg, yerr=self.fitBkgerr, width=self.binWidths, align='center', label=bkgLabel, capsize=0, color=self.bkgColor, ec=self.bkgColor, ecolor=self.bkgColor)
-        chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:2.2f}'.format(self.chi2 / self.dof))
+        chi2text, = plt.plot([], [], ' ', label='Chi2/dof = {0:.2f}/{1:.0f}'.format(self.chi2, self.dof))
         puritytext, = plt.plot([], [], ' ', label='Purity = ${0:2.1f} \pm {1:2.1f}$%'.format(100 * self.purity, 100 * self.purityerr))
 
         ax = plt.gca()
@@ -296,11 +308,9 @@ class BackgroundFit:
         plt.ylabel('(Fit - Data)/Dataerr')
         plt.ylim(ylim)
 
-    def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
-        fig = plt.figure()
-
+    def plotFitAndResidualsInExistingFigure(self, fig, tfaxes, residualaxes, ptrange, centrange=None, dataLabel='Data, iso', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
         # plot background fit
-        fig.add_axes((0.1, 0.3, 0.88, 0.6))
+        fig.add_axes(tfaxes)
         ax = plt.gca()
         setTicks(ax)
 
@@ -319,17 +329,20 @@ class BackgroundFit:
         plt.ylabel('Arbitrary units', fontsize=26, y=1.0, ha='right')
 
         # plot residuals
-        fig.add_axes((0.1, 0.1, 0.88, 0.2), sharex=ax)
+        fig.add_axes(residualaxes, sharex=ax)
         ax = plt.gca()
         setTicks(ax)
 
         self.plotResiduals(ylim=ylim)
-        average = np.average(self.residuals)
+        average = np.average(self.residuals[self.fitRange])
         plt.axhline(y=average, color='r', label='Average')
         plt.legend(loc=1, frameon=False, fontsize=22)
 
         plt.xlabel(self.xlabel, fontsize=30, x=1.0, ha='right')
 
+    def plotFitAndResiduals(self, ptrange, centrange=None, figfilename=None, dataLabel='Data, iso', bkgLabel='Bkg', system='Pb-Pb', ylim=[-8.9, 8.9]):
+        fig = plt.figure()
+        self.plotFitAndResidualsInExistingFigure(fig, (0.1, 0.3, 0.88, 0.6), (0.1, 0.1, 0.88, 0.2), ptrange, centrange, dataLabel, bkgLabel, system, ylim)
         if figfilename:
             fig.savefig(figfilename)
 

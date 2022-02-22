@@ -149,7 +149,7 @@ class GammaJetCorrelation:
         rnp.array2hist(self.corrhist, self.corrth1, self.correrr)
         self.unfolder.setMeasuredTH1(self.corrth1)
 
-    def plotCorr(self, corrprefix, **kwargs):
+    def plotCorr(self, corrprefix, plotXerr=False, **kwargs):
         # retrieve the indicated histogram and error
         hist = getattr(self, '{0}hist'.format(corrprefix))
         err = getattr(self, '{0}err'.format(corrprefix))
@@ -157,8 +157,13 @@ class GammaJetCorrelation:
         # set zero values to nan for plotting
         hist[hist == 0] = np.nan
 
+        if plotXerr:
+            xerr = self.xerr
+        else:
+            xerr = None
+
         # plot
-        plt.errorbar(self.centers, hist, yerr=err, xerr=self.xerr, **kwargs)
+        plt.errorbar(self.centers, hist, yerr=err, xerr=xerr, **kwargs)
 
 
 class AxisNum(Enum):
