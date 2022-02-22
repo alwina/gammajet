@@ -21,10 +21,13 @@ double jet_eta_max = 10;
 
 double deltaphi_min = 0;
 double deltaphi_max = M_PI;
-double jetpt_min = 5;
-double jetpt_max = 50;
+int deltaphi_nbins = 6;
+double jetpt_min = 0;
+double jetpt_max = 60;
+int jetpt_nbins = 12;
 double ptratio_min = 0;
 double ptratio_max = 2;
+int ptratio_nbins = 8;
 
 bool do_pile = false;
 
@@ -38,6 +41,7 @@ YAML::Node isoconfig;
 YAML::Node centralityranges;
 
 int ncentralityranges;
+int nphotonptranges;
 bool keepFakes;
 bool keepMisses;
 
@@ -117,13 +121,18 @@ void parseConfig()
 		}
 
 		if (config["responsematrix"]) {
-		  keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
-		  keepFakes = config["responsematrix"]["keepfakes"].as<bool>();
+			keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
+			keepFakes = config["responsematrix"]["keepfakes"].as<bool>();
 		}
 
 		if (config["centralityranges"]) {
-		  centralityranges = config["centralityranges"];
-		  ncentralityranges = centralityranges.size();
+			centralityranges = config["centralityranges"];
+			ncentralityranges = centralityranges.size();
+		}
+
+		if (config["clusterptranges"]) {
+			photonptranges = config["clusterptranges"];
+			nphotonptranges = config["clusterptranges"].size();
 		}
 
 		if (config["observables"]) {
@@ -133,14 +142,17 @@ void parseConfig()
 				if (observableInfo["name"].as<std::string>() == "deltaphi") {
 					deltaphi_min = observableInfo["min"].as<double>();
 					deltaphi_max = observableInfo["max"].as<double>();
+					deltaphi_nbins = observableInfo["nbins"].as<int>();
 				}
 				if (observableInfo["name"].as<std::string>() == "jetpt") {
 					jetpt_min = observableInfo["min"].as<double>();
 					jetpt_max = observableInfo["max"].as<double>();
+					jetpt_nbins = observableInfo["nbins"].as<int>();
 				}
 				if (observableInfo["name"].as<std::string>() == "ptratio") {
 					ptratio_min = observableInfo["min"].as<double>();
 					ptratio_max = observableInfo["max"].as<double>();
+					ptratio_nbins = observableInfo["nbins"].as<int>();
 				}
 			}
 		}

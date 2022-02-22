@@ -18,10 +18,29 @@ TTree *auxtree;
 Long64_t nevents_max;
 long nevents;
 
-// RooUnfoldResponse vectors
-std::vector<RooUnfoldResponse> deltaphiResponses;
-std::vector<RooUnfoldResponse> jetptResponses;
-std::vector<RooUnfoldResponse> ptratioResponses;
+// RooUnfoldResponse vectors, indexed by centrality range and pt range
+// 2D response matrices
+std::vector<std::vector<RooUnfoldResponse>> deltaphijetptResponses;
+std::vector<std::vector<RooUnfoldResponse>> ptratiojetptResponses;
+
+// 1D response matrices
+std::vector<std::vector<RooUnfoldResponse>> deltaphiResponses;
+std::vector<std::vector<RooUnfoldResponse>> ptratioResponses;
+std::vector<std::vector<RooUnfoldResponse>> jetptResponses;
+std::vector<std::vector<RooUnfoldResponse>> jetetaResponses;
+std::vector<std::vector<RooUnfoldResponse>> jetphiResponses;
+std::vector<std::vector<RooUnfoldResponse>> jetareaResponses;
+std::vector<std::vector<RooUnfoldResponse>> jetmultResponses; // reco is effective multiplicity
+std::vector<std::vector<RooUnfoldResponse>> photonptResponses;
+std::vector<std::vector<RooUnfoldResponse>> photonetaResponses;
+std::vector<std::vector<RooUnfoldResponse>> photonphiResponses;
+
+// THnSparses
+THnSparseF* hTrigSR;
+THnSparseF* hCorrSRTruth;
+THnSparseF* hCorrSRAll;
+THnSparseF* hCorr1ptSRTruth;
+THnSparseF* hCorr1ptSRAll;
 
 // correlation variables
 bool isSignal;
@@ -40,6 +59,7 @@ Helper functions
 --------------------------------------------------------------*/
 void printCutSummary();
 void initializeRooUnfoldResponses();
+void initializeTHnSparses();
 void openFilesAndGetTTrees(std::string root_filename);
 void setBranchAddresses();
 void matchJetsInEvent();
@@ -47,6 +67,7 @@ bool rejectCluster(int icluster);
 float getIsolation(int icluster);
 float getShower(int icluster);
 int getCentBinNumber(float centrality);
+int getPtBinNumber(float pt);
 
 /*--------------------------------------------------------------
 Variables from TTrees
