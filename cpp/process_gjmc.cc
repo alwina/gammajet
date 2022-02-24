@@ -1,11 +1,12 @@
 #include <TLorentzVector.h>
+#include <TH2.h>
 #include <iostream>
 #include <fstream>
 #include <math.h>
 
 #include "yaml-cpp/yaml.h"
 
-#include "response_matrix.h"
+#include "process_gjmc.h"
 #include "config_parser.h"
 #include "shared_defs.h"
 
@@ -36,6 +37,8 @@ int main(int argc, char *argv[])
 
 	initializeRooUnfoldResponses();
 	initializeTHnSparses();
+	Double_t trig[ndimTrig];
+	Double_t corr[ndimCorr];
 
 	/*--------------------------------------------------------------
 	Loop through files
@@ -64,7 +67,6 @@ int main(int argc, char *argv[])
 			if (do_pile && is_pileup_from_spd_5_08) continue;
 
 			matchJetsInEvent();
-
 			/*--------------------------------------------------------------
 			Loop through clusters
 			--------------------------------------------------------------*/
@@ -76,22 +78,26 @@ int main(int argc, char *argv[])
 				float photon_truth_eta;
 				float photon_truth_phi;
 				int npromptphotons = 0;
+                int promptpdgsum = 0;
 
 				// look for the prompt photon contained in this cluster
-				for (UInt_t itruth = 0; itruth < cluster_nmc_truth[icluster]; itruth++) {
+				for (UInt_t itruth = 0; itruth < 32; itruth++) {
 					unsigned short mcindex = cluster_mc_truth_index[icluster][itruth];
 					if (mcindex == 65535) continue;
-					if (!(abs(mc_truth_pdg_code[itruth]) == 11 || mc_truth_pdg_code[itruth] == 22)) continue;
-					if (mc_truth_is_prompt_photon[itruth]) {
-						photon_truth_pt = mc_truth_pt[mcindex];
-						photon_truth_eta = mc_truth_eta[mcindex];
-						photon_truth_phi = mc_truth_phi[mcindex];
-						npromptphotons ++;
+                    // std::cout << std::endl << "PDG: " << mc_truth_pdg_code[mcindex] << ", is prompt photon: " << mc_truth_is_prompt_photon[mcindex];
+					if (abs(mc_truth_pdg_code[mcindex]) == 11 || mc_truth_pdg_code[mcindex] == 22) {
+                        if (mc_truth_is_prompt_photon[mcindex]) {
+                            photon_truth_pt = mc_truth_pt[mcindex];
+                            photon_truth_eta = mc_truth_eta[mcindex];
+                            photon_truth_phi = mc_truth_phi[mcindex];
+                            npromptphotons++;
+                            promptpdgsum += mc_truth_pdg_code[mcindex];
+                        }
 					}
 				}
-
+                
 				if (npromptphotons > 1) {
-					std::cout << "Event " << ievent << " cluster " << icluster << " has " << npromptphotons << " prompt photons" << std::endl;
+					std::cout << std::endl << "Event " << ievent << " cluster " << icluster << " has " << npromptphotons << " prompt photons (PDG sum " << promptpdgsum << ")" << std::endl;
 				}
 
 				// determine whether the cluster is isolated
@@ -112,7 +118,56 @@ int main(int argc, char *argv[])
 				photonptResponses[centbin][ptbin].Fill(cluster_pt[icluster], photon_truth_pt);
 				photonetaResponses[centbin][ptbin].Fill(cluster_eta[icluster], photon_truth_eta);
 				photonphiResponses[centbin][ptbin].Fill(cluster_phi[icluster], photon_truth_phi);
+                
+                trig[0] = centrality_v0m;
+                trig[1] = cluster_pt[icluster];
+                hTrigSR->Fill(trig);
 
+				/*--------------------------------------------------------------
+				Loop through all reco jets to fill THnSparses
+				--------------------------------------------------------------*/
+                for (ULong64_t ijet = 0; ijet < njet; ijet++) {
+                  if (jet_pt_raw[ijet] < jet_pt_min) continue;
+                  if (jet_pt_raw[ijet] > jet_pt_max) continue;
+                  if (abs(jet_eta[ijet]) > jet_eta_max) continue;
+
+                  // Observables: delta phi, jet pT, pT ratio
+                  Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ijet]));
+                  Float_t jetpt = jet_pt_raw[ijet];
+                  Float_t ptratio = jetpt / cluster_pt[icluster];
+
+                  corr[0] = centrality_v0m;
+                  corr[1] = cluster_pt[icluster];
+                  corr[2] = deltaphi;
+                  corr[3] = jetpt;
+                  corr[4] = ptratio;
+                  hCorrSRAll->Fill(corr);
+                  hCorr1ptSRAll->Fill(corr, 1.0 / jetpt);
+                }
+                
+				/*--------------------------------------------------------------
+				Loop through all truth jets to fill THnSparses
+				--------------------------------------------------------------*/
+                for (ULong64_t ijet = 0; ijet < njet_charged_truth; ijet++) {
+                  if (jet_charged_truth_pt[ijet] < jet_pt_min) continue;
+                  if (jet_charged_truth_pt[ijet] > jet_pt_max) continue;
+                  if (abs(jet_charged_truth_eta[ijet]) > jet_eta_max) continue;
+
+                  // Observables: delta phi, jet pT, pT ratio
+                  Float_t deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_charged_truth_phi[ijet]));
+                  Float_t jetpt = jet_charged_truth_pt[ijet];
+                  Float_t ptratio = jetpt / cluster_pt[icluster];
+
+                  corr[0] = centrality_v0m;
+                  corr[1] = cluster_pt[icluster];
+                  corr[2] = isolation;
+                  corr[3] = deltaphi;
+                  corr[4] = jetpt;
+                  corr[5] = ptratio;
+                  hCorrSRTruth->Fill(corr);
+                  hCorr1ptSRTruth->Fill(corr, 1.0 / jetpt);
+                }
+                
 				/*--------------------------------------------------------------
 				Loop through matched jets to fill jet response matrices
 				--------------------------------------------------------------*/
@@ -148,7 +203,8 @@ int main(int argc, char *argv[])
 					jetetaResponses[centbin][ptbin].Fill(j_reco_eta, j_truth_eta);
 					jetphiResponses[centbin][ptbin].Fill(j_reco_phi, j_truth_phi);
 					jetareaResponses[centbin][ptbin].Fill(j_reco_area, j_truth_area);
-					jetmultResponses[centbin][ptbin].Fill(j_reco_eff_mult, j_truth_mult);
+					jetmultResponses[centbin][ptbin].Fill(j_reco_mult, j_truth_mult);
+                    jeteffmultResponses[centbin][ptbin].Fill(j_reco_eff_mult, j_truth_mult);
 				}
 
 				if (keepMisses) {
@@ -199,6 +255,7 @@ int main(int argc, char *argv[])
 			std::string jetphiname = "jetphiResponse" + std::to_string(i) + std::to_string(j);
 			std::string jetareaname = "jetareaResponse" + std::to_string(i) + std::to_string(j);
 			std::string jetmultname = "jetmultResponse" + std::to_string(i) + std::to_string(j);
+            std::string jeteffmultname = "jeteffmultResponse" + std::to_string(i) + std::to_string(j);
 			std::string photonptname = "photonptResponse" + std::to_string(i) + std::to_string(j);
 			std::string photonetaname = "photonetaResponse" + std::to_string(i) + std::to_string(j);
 			std::string photonphiname = "photonphiResponse" + std::to_string(i) + std::to_string(j);
@@ -212,6 +269,7 @@ int main(int argc, char *argv[])
 			jetphiResponses[i][j].Write(jetphiname.c_str());
 			jetareaResponses[i][j].Write(jetareaname.c_str());
 			jetmultResponses[i][j].Write(jetmultname.c_str());
+            jeteffmultResponses[i][j].Write(jeteffmultname.c_str());
 			photonptResponses[i][j].Write(photonptname.c_str());
 			photonetaResponses[i][j].Write(photonetaname.c_str());
 			photonphiResponses[i][j].Write(photonphiname.c_str());
@@ -229,6 +287,8 @@ int main(int argc, char *argv[])
 	hCorrSRAll->Write();
 	hCorr1ptSRTruth->Write();
 	hCorr1ptSRAll->Write();
+    
+    fouthists->Close();
 
 	std::cout << "Ending" << std::endl;
 	return EXIT_SUCCESS;
@@ -242,7 +302,6 @@ void printCutSummary()
 	std::cout << "Cluster Ecross/Emax min: " << cluster_ecross_emax_min << std::endl;
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
 	std::cout << "Cluster nlocal maxima max: " << cluster_nlm_max << std::endl;
-	std::cout << "Cluster TOF max: " << cluster_tof_max << std::endl;
 	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
 	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;
@@ -252,8 +311,8 @@ void printCutSummary()
 
 void initializeRooUnfoldResponses()
 {
-	TH2F* hDeltaphiJetpt = new TH2F*("", "", deltaphi_nbins, deltaphi_min, deltaphi_max, jetpt_nbins, jetpt_min, jetpt_max);
-	TH2F* hPtratioJetpt = new TH2F*("", "", ptratio_nbins, ptratio_min, ptratio_max, jetpt_nbins, jetpt_min, jetpt_max);
+	TH2F* hDeltaphiJetpt = new TH2F("", "", deltaphi_nbins, deltaphi_min, deltaphi_max, jetpt_nbins, jetpt_min, jetpt_max);
+	TH2F* hPtratioJetpt = new TH2F("", "", ptratio_nbins, ptratio_min, ptratio_max, jetpt_nbins, jetpt_min, jetpt_max);
 
 	for (int i = 0; i < ncentralityranges; i++) {
 		deltaphijetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
@@ -265,6 +324,7 @@ void initializeRooUnfoldResponses()
 		jetphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		jetareaResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		jetmultResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
+        jeteffmultResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		photonptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		photonetaResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		photonphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
@@ -276,13 +336,13 @@ void initializeRooUnfoldResponses()
 			RooUnfoldResponse ptratiojetptResponse(hPtratioJetpt, hPtratioJetpt);
 			ptratiojetptResponses[i][j] = ptratiojetptResponse;
 
-			RooUnfoldResponse deltaphiResponse(deltaphi_nbins, deltaphi_min, deltaphi_max);
+			RooUnfoldResponse deltaphiResponse(120, deltaphi_min, deltaphi_max);
 			deltaphiResponses[i][j] = deltaphiResponse;
 
-			RooUnfoldResponse ptratioResponse(ptratio_nbins, ptratio_min, ptratio_max);
+			RooUnfoldResponse ptratioResponse(200, ptratio_min, ptratio_max);
 			ptratioResponses[i][j] = ptratioResponse;
 
-			RooUnfoldResponse jetptResponse(jetpt_nbins, jetpt_min, jetpt_max);
+			RooUnfoldResponse jetptResponse(120, jetpt_min, jetpt_max);
 			jetptResponses[i][j] = jetptResponse;
 
 			RooUnfoldResponse jetetaResponse(140, -0.7, 0.7);
@@ -297,7 +357,10 @@ void initializeRooUnfoldResponses()
 			RooUnfoldResponse jetmultResponse(200, 0.0, 100.0);
 			jetmultResponses[i][j] = jetmultResponse;
 
-			RooUnfoldResponse photonptResponse(10 * (cluster_pt_max - cluster_pt_min), cluster_pt_min, cluster_pt_max)
+			RooUnfoldResponse jeteffmultResponse(200, 0.0, 100.0);
+			jeteffmultResponses[i][j] = jeteffmultResponse;
+            
+			RooUnfoldResponse photonptResponse(10 * (cluster_pt_max - cluster_pt_min), cluster_pt_min, cluster_pt_max);
 			photonptResponses[i][j] = photonptResponse;
 
 			RooUnfoldResponse photonetaResponse(140, -0.7, 0.7);
@@ -381,8 +444,6 @@ void initializeTHnSparses()
 	hCorrSRAll->Sumw2();
 	hCorr1ptSRTruth->Sumw2();
 	hCorr1ptSRAll->Sumw2();
-
-	x
 }
 
 void openFilesAndGetTTrees(std::string root_filename)
@@ -428,16 +489,22 @@ void openFilesAndGetTTrees(std::string root_filename)
 
 void setBranchAddresses()
 {
-	_tree_event->SetBranchStatus("*mc*", 0);
-
-	// event Addresses
+	// event addresses
 	_tree_event->SetBranchAddress("primary_vertex", primary_vertex);
 	_tree_event->SetBranchAddress("is_pileup_from_spd_5_08", &is_pileup_from_spd_5_08);
 	_tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
 	_tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
 	_tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
 
-	//track Addresses
+    // MC addresses
+    _tree_event->SetBranchAddress("nmc_truth", &nmc_truth);
+    _tree_event->SetBranchAddress("mc_truth_pt", mc_truth_pt);
+    _tree_event->SetBranchAddress("mc_truth_eta", mc_truth_eta);
+    _tree_event->SetBranchAddress("mc_truth_phi", mc_truth_phi);
+    _tree_event->SetBranchAddress("mc_truth_pdg_code", mc_truth_pdg_code);
+    _tree_event->SetBranchAddress("mc_truth_is_prompt_photon", mc_truth_is_prompt_photon);
+    
+	// track addresses
 	_tree_event->SetBranchAddress("primary_vertex", primary_vertex);
 	_tree_event->SetBranchAddress("ntrack", &ntrack);
 	_tree_event->SetBranchAddress("track_e", track_e);
@@ -452,7 +519,7 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("track_dca_xy", &track_dca_xy);
 	_tree_event->SetBranchAddress("track_dca_z", &track_dca_z);
 
-	//Cluster Addresses
+	// cluster addresses
 	_tree_event->SetBranchAddress("ncluster", &ncluster);
 	_tree_event->SetBranchAddress("cluster_e", cluster_e);
 	_tree_event->SetBranchAddress("cluster_e_max", cluster_e_max);
@@ -483,40 +550,53 @@ void setBranchAddresses()
 
 	if (auxfile != NULL) {
 		auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
+        auxtree->SetBranchAddress("cluster_is_prompt", cluster_is_prompt);
 	}
 
-	// Jet addresses
+	// jet addresses
 	// switch based on jet type
 	if (jettype == "ak04tpc") {
 		_tree_event->SetBranchAddress("njet_ak04tpc", &njet);
 		_tree_event->SetBranchAddress("jet_ak04tpc_pt_raw", jet_pt_raw);
 		_tree_event->SetBranchAddress("jet_ak04tpc_eta", jet_eta);
 		_tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_phi);
+        _tree_event->SetBranchAddress("jet_ak04tpc_area", jet_area);
+        _tree_event->SetBranchAddress("jet_ak04tpc_multiplicity_raw", jet_multiplicity_raw);
 
 		_tree_event->SetBranchAddress("njet_charged_truth_ak04", &njet_charged_truth);
 		_tree_event->SetBranchAddress("jet_charged_truth_ak04_pt", jet_charged_truth_pt);
 		_tree_event->SetBranchAddress("jet_charged_truth_ak04_eta", jet_charged_truth_eta);
 		_tree_event->SetBranchAddress("jet_charged_truth_ak04_phi", jet_charged_truth_phi);
+        _tree_event->SetBranchAddress("jet_charged_truth_ak04_area", jet_charged_truth_area);
+        _tree_event->SetBranchAddress("jet_charged_truth_ak04_multiplicity", jet_charged_truth_multiplicity);
 	} else if (jettype == "ak02tpc") {
 		auxtree->SetBranchAddress("njet_ak02tpc", &njet);
 		auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", jet_pt_raw);
 		auxtree->SetBranchAddress("jet_ak02tpc_eta", jet_eta);
 		auxtree->SetBranchAddress("jet_ak02tpc_phi", jet_phi);
+        auxtree->SetBranchAddress("jet_ak02tpc_area", jet_area);
+        auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", jet_multiplicity_raw);
 
 		auxtree->SetBranchAddress("njet_charged_truth_ak02", &njet_charged_truth);
 		auxtree->SetBranchAddress("jet_charged_truth_ak02_pt", jet_charged_truth_pt);
 		auxtree->SetBranchAddress("jet_charged_truth_ak02_eta", jet_charged_truth_eta);
 		auxtree->SetBranchAddress("jet_charged_truth_ak02_phi", jet_charged_truth_phi);
+        auxtree->SetBranchAddress("jet_charged_truth_ak02_area", jet_charged_truth_area);
+        auxtree->SetBranchAddress("jet_charged_truth_ak02_multiplicity", jet_charged_truth_multiplicity);
 	} else if (jettype == "ak04its") {
 		_tree_event->SetBranchAddress("njet_ak04its", &njet);
 		_tree_event->SetBranchAddress("jet_ak04its_pt_raw", jet_pt_raw);
 		_tree_event->SetBranchAddress("jet_ak04its_eta", jet_eta);
 		_tree_event->SetBranchAddress("jet_ak04its_phi", jet_phi);
+        _tree_event->SetBranchAddress("jet_ak04its_area", jet_area);
+        _tree_event->SetBranchAddress("jet_ak04its_multiplicity_raw", jet_multiplicity_raw);
 
 		_tree_event->SetBranchAddress("njet_charged_truth_ak04", &njet_charged_truth);
 		_tree_event->SetBranchAddress("jet_charged_truth_ak04_pt", jet_charged_truth_pt);
 		_tree_event->SetBranchAddress("jet_charged_truth_ak04_eta", jet_charged_truth_eta);
 		_tree_event->SetBranchAddress("jet_charged_truth_ak04_phi", jet_charged_truth_phi);
+        _tree_event->SetBranchAddress("jet_charged_truth_ak04_area", jet_charged_truth_area);
+        _tree_event->SetBranchAddress("jet_charged_truth_ak04_multiplicity", jet_charged_truth_multiplicity);
 	} else {
 		std::cout << "ERROR: Jet type " << jettype << " not recognized. Aborting" << std::endl;
 		exit(EXIT_FAILURE);
@@ -585,22 +665,7 @@ bool rejectCluster(int icluster)
 	if (not(cluster_e_cross[icluster] / cluster_e_max[icluster] > cluster_ecross_emax_min)) return true;
 	if (not(cluster_distance_to_bad_channel[icluster] >= cluster_dbc_min)) return true;
 	if (not(cluster_nlocal_maxima[icluster] < cluster_nlm_max)) return true;
-
-	// skip TOF cut because this is MC, not data
-	// for the gamma-jet MC, we want to select prompt clusters only
-
-	bool isPrompt = false;
-	for (UInt_t itruth = 0; itruth < cluster_nmc_truth[icluster]; itruth++) {
-		unsigned short mcindex = cluster_mc_truth_index[icluster][itruth];
-		if (mcindex == 65535) continue;
-		if (!(abs(mc_truth_pdg_code[itruth]) == 11 || mc_truth_pdg_code[itruth] == 22)) continue;
-		if (mc_truth_is_prompt_photon[itruth]) {
-			isPrompt = true;
-			break;
-		}
-	}
-
-	if (not(isPrompt)) return true;
+    if (not(cluster_is_prompt[icluster])) return true;
 
 	return false;
 }

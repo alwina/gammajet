@@ -324,9 +324,9 @@ int main(int argc, char *argv[])
 			delta_centrality->Fill(abs(centrality_v0m - mb_centrality_v0m));
 
 			// event pairing cuts - move this earlier so we can skip the cluster loop
-			if (abs(centrality_v0m - mb_centrality_v0m) > 10.) continue;
-			if (abs(primary_vertex - mb_primary_vertex) > 2.) continue;
-			if (abs(v2 - mb_v2) > 0.5) continue;
+			if (abs(centrality_v0m - mb_centrality_v0m) > dcentrality_max) continue;
+			if (abs(primary_vertex - mb_primary_vertex) > dzvertex_max) continue;
+			if (abs(v2 - mb_v2) > dv2_max) continue;
 			
 			// get the jet multiplicity correction
 			// which is the average number of jets in a triggered event within this triggered event's 1% centrality range
@@ -580,6 +580,9 @@ void printCutSummary()
 	std::cout << "Jet type: " << jettype << std::endl;
 	std::cout << "Jet pT range: " << jet_pt_min << "-" << jet_pt_max << std::endl;
 	std::cout << "Jet eta max: " << jet_eta_max << std::endl;
+    std::cout << "Delta centrality max: " << dcentrality_max << std::endl;
+    std::cout << "Delta z-vertex max: " << dzvertex_max << std::endl;
+    std::cout << "Delta v2 max: " << dv2_max << std::endl;
 }
 
 void initializeTHnSparses()

@@ -36,9 +36,14 @@ std::string isovar = "cluster_iso_tpc_02_sub";
 std::string shower_shape = "DNN";
 std::string purity_deviation = "None";
 
+double dcentrality_max = 10;
+double dzvertex_max = 2;
+double dv2_max = 0.5;
+
 YAML::Node purityconfig;
 YAML::Node isoconfig;
 YAML::Node centralityranges;
+YAML::Node photonptranges;
 
 int ncentralityranges;
 int nphotonptranges;
@@ -124,6 +129,12 @@ void parseConfig()
 			keepMisses = config["responsematrix"]["keepmisses"].as<bool>();
 			keepFakes = config["responsematrix"]["keepfakes"].as<bool>();
 		}
+
+        if (config["mixedeventmatching"]) {
+            dcentrality_max = config["mixedeventmatching"]["centrality"].as<double>();
+            dzvertex_max = config["mixedeventmatching"]["zvertex"].as<double>();
+            dv2_max = config["mixedeventmatching"]["v2"].as<double>();
+        }
 
 		if (config["centralityranges"]) {
 			centralityranges = config["centralityranges"];

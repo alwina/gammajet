@@ -1,6 +1,8 @@
 #include <TROOT.h>
 #include <TFile.h>
 #include <TTree.h>
+#include <THStack.h>
+#include <THnSparse.h>
 
 #include <vector>
 
@@ -30,7 +32,8 @@ std::vector<std::vector<RooUnfoldResponse>> jetptResponses;
 std::vector<std::vector<RooUnfoldResponse>> jetetaResponses;
 std::vector<std::vector<RooUnfoldResponse>> jetphiResponses;
 std::vector<std::vector<RooUnfoldResponse>> jetareaResponses;
-std::vector<std::vector<RooUnfoldResponse>> jetmultResponses; // reco is effective multiplicity
+std::vector<std::vector<RooUnfoldResponse>> jetmultResponses;
+std::vector<std::vector<RooUnfoldResponse>> jeteffmultResponses; // reco is effective multiplicity
 std::vector<std::vector<RooUnfoldResponse>> photonptResponses;
 std::vector<std::vector<RooUnfoldResponse>> photonetaResponses;
 std::vector<std::vector<RooUnfoldResponse>> photonphiResponses;
@@ -41,6 +44,8 @@ THnSparseF* hCorrSRTruth;
 THnSparseF* hCorrSRAll;
 THnSparseF* hCorr1ptSRTruth;
 THnSparseF* hCorr1ptSRAll;
+int ndimTrig;
+int ndimCorr;
 
 // correlation variables
 bool isSignal;
@@ -116,6 +121,7 @@ Float_t cell_e[17664];
 Float_t cluster_distance_to_bad_channel[NTRACK_MAX];
 UChar_t cluster_nlocal_maxima[NTRACK_MAX];
 Float_t cluster_5x5all[NTRACK_MAX];
+bool cluster_is_prompt[NTRACK_MAX];
 
 Float_t cluster_tof[NTRACK_MAX];
 Float_t cluster_iso_its_04_ue[NTRACK_MAX];
@@ -127,12 +133,16 @@ UInt_t njet;
 Float_t jet_pt_raw[NTRACK_MAX];
 Float_t jet_eta[NTRACK_MAX];
 Float_t jet_phi[NTRACK_MAX];
+Float_t jet_area[NTRACK_MAX];
+UShort_t jet_multiplicity_raw[NTRACK_MAX];
 
 // Truth jets
 UInt_t njet_charged_truth;
 Float_t jet_charged_truth_pt[NTRACK_MAX];
 Float_t jet_charged_truth_eta[NTRACK_MAX];
 Float_t jet_charged_truth_phi[NTRACK_MAX];
+Float_t jet_charged_truth_area[NTRACK_MAX];
+UShort_t jet_charged_truth_multiplicity[NTRACK_MAX];
 
 // MC
 unsigned int nmc_truth;
@@ -140,12 +150,12 @@ Float_t mc_truth_pt[NTRACK_MAX];
 Float_t mc_truth_eta[NTRACK_MAX];
 Float_t mc_truth_phi[NTRACK_MAX];
 short mc_truth_pdg_code[NTRACK_MAX];
-short mc_truth_first_parent_pdg_code[NTRACK_MAX];
-char mc_truth_charge[NTRACK_MAX];
+// short mc_truth_first_parent_pdg_code[NTRACK_MAX];
+// char mc_truth_charge[NTRACK_MAX];
 Bool_t mc_truth_is_prompt_photon[NTRACK_MAX];
 
-Float_t mc_truth_first_parent_e[NTRACK_MAX];
-Float_t mc_truth_first_parent_pt[NTRACK_MAX];
-Float_t mc_truth_first_parent_eta[NTRACK_MAX];
-Float_t mc_truth_first_parent_phi[NTRACK_MAX];
-UChar_t mc_truth_status[NTRACK_MAX];
+// Float_t mc_truth_first_parent_e[NTRACK_MAX];
+// Float_t mc_truth_first_parent_pt[NTRACK_MAX];
+// Float_t mc_truth_first_parent_eta[NTRACK_MAX];
+// Float_t mc_truth_first_parent_phi[NTRACK_MAX];
+// UChar_t mc_truth_status[NTRACK_MAX];
