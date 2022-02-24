@@ -47,6 +47,12 @@ THnSparseF* hCorr1ptSRAll;
 int ndimTrig;
 int ndimCorr;
 
+// TH1s
+THnSparseF* hPhotonPtResolution;
+THnSparseF* hJetPtResolution;
+THnSparseF* hPhotonPhiResolution;
+THnSparseF* hJetPhiResolution;
+
 // correlation variables
 bool isSignal;
 bool isBackground;
