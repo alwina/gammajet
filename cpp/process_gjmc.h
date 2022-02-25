@@ -25,6 +25,10 @@ long nevents;
 std::vector<std::vector<RooUnfoldResponse>> deltaphijetptResponses;
 std::vector<std::vector<RooUnfoldResponse>> ptratiojetptResponses;
 
+// THnSparses because RooUnfold has terrible documentation and it's impossible to tell how to get a THn from a multi-dimensional RooUnfoldResponse object
+std::vector<std::vector<THnSparseF*>> deltaphijetptHists;
+std::vector<std::vector<THnSparseF*>> ptratiojetptHists;
+
 // 1D response matrices
 std::vector<std::vector<RooUnfoldResponse>> deltaphiResponses;
 std::vector<std::vector<RooUnfoldResponse>> ptratioResponses;
@@ -89,6 +93,7 @@ Double_t primary_vertex[3];
 Float_t ue_estimate_its_const;
 Float_t ue_estimate_tpc_const;
 Float_t centrality_v0m;
+Bool_t isINT7;
 
 // Tracks
 UInt_t ntrack;

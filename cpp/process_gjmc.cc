@@ -40,6 +40,7 @@ int main(int argc, char *argv[])
 	Double_t trig[ndimTrig];
 	Double_t corr[ndimCorr];
 	Double_t resolution[3];
+    Double_t h4[4];
 
 	/*--------------------------------------------------------------
 	Loop through files
@@ -66,6 +67,7 @@ int main(int argc, char *argv[])
 			if (abs(primary_vertex[2]) > 10) continue;
 			if (primary_vertex[2] == 0.00) continue;
 			if (do_pile && is_pileup_from_spd_5_08) continue;
+            if (!isINT7) continue;
 
 			matchJetsInEvent();
 			/*--------------------------------------------------------------
@@ -152,6 +154,7 @@ int main(int argc, char *argv[])
 					corr[2] = deltaphi;
 					corr[3] = jetpt;
 					corr[4] = ptratio;
+                    corr[5] = cluster_pt[icluster] * sin(deltaphi);
 					hCorrSRAll->Fill(corr);
 					hCorr1ptSRAll->Fill(corr, 1.0 / jetpt);
 				}
@@ -171,10 +174,10 @@ int main(int argc, char *argv[])
 
 					corr[0] = centrality_v0m;
 					corr[1] = cluster_pt[icluster];
-					corr[2] = isolation;
-					corr[3] = deltaphi;
-					corr[4] = jetpt;
-					corr[5] = ptratio;
+					corr[2] = deltaphi;
+					corr[3] = jetpt;
+					corr[4] = ptratio;
+                    corr[5] = cluster_pt[icluster] * sin(deltaphi);
 					hCorrSRTruth->Fill(corr);
 					hCorr1ptSRTruth->Fill(corr, 1.0 / jetpt);
 				}
@@ -217,6 +220,19 @@ int main(int argc, char *argv[])
 					jetmultResponses[centbin][ptbin].Fill(j_reco_mult, j_truth_mult);
 					jeteffmultResponses[centbin][ptbin].Fill(j_reco_eff_mult, j_truth_mult);
 
+                    // fill ThnSparses corresponding to 2D response matrices
+                    h4[0] = deltaphi_reco;
+                    h4[1] = deltaphi_truth;
+                    h4[2] = j_reco_pt;
+                    h4[3] = j_truth_pt;
+                    deltaphijetptHists[centbin][ptbin]->Fill(h4);
+                    
+                    h4[0] = j_reco_pt / cluster_pt[icluster];
+                    h4[1] = j_truth_pt / photon_truth_pt;
+                    h4[2] = j_reco_pt;
+                    h4[3] = j_truth_pt;
+                    ptratiojetptHists[centbin][ptbin]->Fill(h4);
+                    
 					// fill jet pt and phi resolution
 					resolution[2] = (j_reco_pt - j_truth_pt) / j_truth_pt;
 					hJetPtResolution->Fill(resolution);
@@ -266,6 +282,8 @@ int main(int argc, char *argv[])
 		for (int j = 0; j < nphotonptranges; j++) {
 			std::string deltaphijetptname = "deltaphijetptResponse" + std::to_string(i) + std::to_string(j);
 			std::string ptratiojetptname = "ptratiojetptResponse" + std::to_string(i) + std::to_string(j);
+            std::string deltaphijetpthistname = "deltaphijetptHist" + std::to_string(i) + std::to_string(j);
+            std::string ptratiojetpthistname = "ptratiojetptHist" + std::to_string(i) + std::to_string(j);
 			std::string deltaphiname = "deltaphiResponse" + std::to_string(i) + std::to_string(j);
 			std::string ptrationame = "ptratioResponse" + std::to_string(i) + std::to_string(j);
 			std::string jetptname = "jetptResponse" + std::to_string(i) + std::to_string(j);
@@ -280,6 +298,8 @@ int main(int argc, char *argv[])
 
 			deltaphijetptResponses[i][j].Write(deltaphijetptname.c_str());
 			ptratiojetptResponses[i][j].Write(ptratiojetptname.c_str());
+            deltaphijetptHists[i][j]->Write(deltaphijetpthistname.c_str());
+            ptratiojetptHists[i][j]->Write(ptratiojetpthistname.c_str());
 			deltaphiResponses[i][j].Write(deltaphiname.c_str());
 			ptratioResponses[i][j].Write(ptrationame.c_str());
 			jetptResponses[i][j].Write(jetptname.c_str());
@@ -305,6 +325,10 @@ int main(int argc, char *argv[])
 	hCorrSRAll->Write();
 	hCorr1ptSRTruth->Write();
 	hCorr1ptSRAll->Write();
+    hPhotonPtResolution->Write();
+    hPhotonPhiResolution->Write();
+    hJetPtResolution->Write();
+    hJetPhiResolution->Write();
 
 	fouthists->Close();
 
@@ -329,12 +353,22 @@ void printCutSummary()
 
 void initializeRooUnfoldResponses()
 {
-	TH2F* hDeltaphiJetpt = new TH2F("", "", deltaphi_nbins, deltaphi_min, deltaphi_max, jetpt_nbins, jetpt_min, jetpt_max);
-	TH2F* hPtratioJetpt = new TH2F("", "", ptratio_nbins, ptratio_min, ptratio_max, jetpt_nbins, jetpt_min, jetpt_max);
+	TH2F* h2DeltaphiJetpt = new TH2F("", "", deltaphi_nbins, deltaphi_min, deltaphi_max, jetpt_nbins, jetpt_min, jetpt_max);
+	TH2F* h2PtratioJetpt = new TH2F("", "", ptratio_nbins, ptratio_min, ptratio_max, jetpt_nbins, jetpt_min, jetpt_max);
+    
+    Int_t nbinsh4dpjp[4] = {120, 120, 120, 120};
+    Double_t minbinsh4dpjp[4] = {deltaphi_min, deltaphi_min, jetpt_min, jetpt_min};
+    Double_t maxbinsh4dpjp[4] = {deltaphi_max, deltaphi_max, jetpt_max, jetpt_max};
 
-	for (int i = 0; i < ncentralityranges; i++) {
+    Int_t nbinsh4prjp[4] = {120, 120, 120, 120};
+    Double_t minbinsh4prjp[4] = {ptratio_min, ptratio_min, jetpt_min, jetpt_min};
+    Double_t maxbinsh4prjp[4] = {ptratio_max, ptratio_max, jetpt_max, jetpt_max};
+    
+    for (int i = 0; i < ncentralityranges; i++) {
 		deltaphijetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		ptratiojetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
+        deltaphijetptHists.push_back(std::vector<THnSparseF*> (nphotonptranges));
+        ptratiojetptHists.push_back(std::vector<THnSparseF*> (nphotonptranges));
 		deltaphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		ptratioResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		jetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
@@ -348,10 +382,18 @@ void initializeRooUnfoldResponses()
 		photonphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 
 		for (int j = 0; j < nphotonptranges; j++) {
-			RooUnfoldResponse deltaphijetptResponse(hDeltaphiJetpt, hDeltaphiJetpt);
+            THnSparseF* h4DeltaphiJetpt = new THnSparseF("", "", 4, nbinsh4dpjp, minbinsh4dpjp, maxbinsh4dpjp);
+            h4DeltaphiJetpt->Sumw2();
+            deltaphijetptHists[i][j] = h4DeltaphiJetpt;
+            
+            THnSparseF* h4PtratioJetpt = new THnSparseF("", "", 4, nbinsh4prjp, minbinsh4prjp, maxbinsh4prjp);
+            h4PtratioJetpt->Sumw2();
+            ptratiojetptHists[i][j] = h4PtratioJetpt;
+            
+			RooUnfoldResponse deltaphijetptResponse(h2DeltaphiJetpt, h2DeltaphiJetpt);
 			deltaphijetptResponses[i][j] = deltaphijetptResponse;
 
-			RooUnfoldResponse ptratiojetptResponse(hPtratioJetpt, hPtratioJetpt);
+			RooUnfoldResponse ptratiojetptResponse(h2PtratioJetpt, h2PtratioJetpt);
 			ptratiojetptResponses[i][j] = ptratiojetptResponse;
 
 			RooUnfoldResponse deltaphiResponse(120, deltaphi_min, deltaphi_max);
@@ -589,6 +631,7 @@ void setBranchAddresses()
 	if (auxfile != NULL) {
 		auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
 		auxtree->SetBranchAddress("cluster_is_prompt", cluster_is_prompt);
+        auxtree->SetBranchAddress("isINT7", &isINT7);
 	}
 
 	// jet addresses
