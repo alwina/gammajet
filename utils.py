@@ -210,6 +210,7 @@ def plotTH2(th2, **kwargs):
     maxX = th2.GetXaxis().GetXmax()
     minY = th2.GetYaxis().GetXmin()
     maxY = th2.GetYaxis().GetXmax()
+    # aspect='auto' to have non-square pixels
     plt.imshow(hist2d, origin='lower', extent=(minX, maxX, minY, maxY), **kwargs)
 
 

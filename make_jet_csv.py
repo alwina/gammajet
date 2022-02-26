@@ -172,10 +172,10 @@ if __name__ == '__main__':
 
     with open(configfilename) as runconfigfile:
         runconfig = yaml.safe_load(runconfigfile)
-        
+
     with open(runconfig['systemconfig']) as sysconfigfile:
         sysconfig = yaml.safe_load(sysconfigfile)
-        
+
     fullconfig = {}
     fullconfig.update(sysconfig)
     fullconfig.update(runconfig)
