@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
 	initializeTHnSparses();
 	Double_t trig[ndimTrig];
 	Double_t corr[ndimCorr];
-	Double_t photonresolution[3];
-	Double_t jetresolution[3];
+	Double_t photonresolution[ndimPhotonRes];
+	Double_t jetresolution[ndimJetRes];
 	Double_t h4[4];
 
 	/*--------------------------------------------------------------
@@ -213,8 +213,8 @@ int main(int argc, char *argv[])
 					// effective multiplicity: jet multiplicity scaled by pt kept / pt before UE subtraction
 					float j_reco_eff_mult = j_reco_mult * (j_reco_pt) / (j_reco_pt + j_reco_area * ue_estimate_tpc_const);
 
-					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth, j_reco_pt, j_truth_pt);
-					ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt, j_reco_pt, j_truth_pt);
+					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt);
+					ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_reco_pt, j_truth_pt / photon_truth_pt, j_truth_pt);
 					deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth);
 					ptratioResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt);
 					jetptResponses[centbin][ptbin].Fill(j_reco_pt, j_truth_pt);
@@ -510,25 +510,33 @@ void initializeTHnSparses()
 	hCorrSRAll->Sumw2();
 	hCorr1ptSRTruth->Sumw2();
 	hCorr1ptSRAll->Sumw2();
+    
+    // resolutions
+    ndimPhotonRes = 3;
+    ndimJetRes = 4;
 
-	Int_t nbinsPhotonPtResolution[3] = {10, nbinsClusterPt, 100};
-	Double_t minbinsPhotonPtResolution[3] = {0, cluster_pt_min, -0.5};
-	Double_t maxbinsPhotonPtResolution[3] = {100, cluster_pt_max, 0.5};
-	hPhotonPtResolution = new THnSparseF("hPhotonPtResolution", "(reco - truth) / truth", 3, nbinsPhotonPtResolution, minbinsPhotonPtResolution, maxbinsPhotonPtResolution);
+	Int_t nbinsPhotonPtResolution[ndimPhotonRes] = {10, nbinsClusterPt, 100};
+	Double_t minbinsPhotonPtResolution[ndimPhotonRes] = {0, cluster_pt_min, -0.5};
+	Double_t maxbinsPhotonPtResolution[ndimPhotonRes] = {100, cluster_pt_max, 0.5};
+	hPhotonPtResolution = new THnSparseF("hPhotonPtResolution", "(reco - truth) / truth", ndimPhotonRes, nbinsPhotonPtResolution, minbinsPhotonPtResolution, maxbinsPhotonPtResolution);
 	hPhotonPtResolution->Sumw2();
 
-	Int_t nbinsJetPtResolution[4] = {10, nbinsClusterPt, 120, 400};
-	Double_t minbinsJetPtResolution[4] = {0, cluster_pt_min, 0, -2.0};
-	Double_t maxbinsJetPtResolution[4] = {100, cluster_pt_max, 60, 2.0};
-	hJetPtResolution = new THnSparseF("hJetPtResolution", "(reco - truth) / truth", 3, nbinsPhotonPtResolution, minbinsPhotonPtResolution, maxbinsPhotonPtResolution);
+	Int_t nbinsJetPtResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 400};
+	Double_t minbinsJetPtResolution[ndimJetRes] = {0, cluster_pt_min, 0, -2.0};
+	Double_t maxbinsJetPtResolution[ndimJetRes] = {100, cluster_pt_max, 60, 2.0};
+	hJetPtResolution = new THnSparseF("hJetPtResolution", "(reco - truth) / truth", ndimJetRes, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
 	hJetPtResolution->Sumw2();
 
-	Int_t nbinsPhiResolution[4] = {10, nbinsClusterPt, 120, 120};
-	Double_t minbinsPhiResolution[4] = {0, cluster_pt_min, 0, -M_PI};
-	Double_t maxbinsPhiResolution[4] = {100, cluster_pt_max, 60 M_PI};
-	hPhotonPhiResolution = new THnSparseF("hPhotonPhiResolution", "reco - truth", 3, nbinsPhiResolution, minbinsPhiResolution, maxbinsPhiResolution);
-	hJetPhiResolution = new THnSparseF("hJetPhiResolution", "reco - truth", 3, nbinsPhiResolution, minbinsPhiResolution, maxbinsPhiResolution);
+	Int_t nbinsPhotonPhiResolution[ndimPhotonRes] = {10, nbinsClusterPt, 120};
+	Double_t minbinsPhotonPhiResolution[ndimPhotonRes] = {0, cluster_pt_min, -M_PI};
+	Double_t maxbinsPhotonPhiResolution[ndimPhotonRes] = {100, cluster_pt_max, M_PI};
+	hPhotonPhiResolution = new THnSparseF("hPhotonPhiResolution", "reco - truth", ndimPhotonRes, nbinsPhotonPhiResolution, minbinsPhotonPhiResolution, maxbinsPhotonPhiResolution);
 	hPhotonPhiResolution->Sumw2();
+
+	Int_t nbinsJetPhiResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 120};
+	Double_t minbinsJetPhiResolution[ndimJetRes] = {0, cluster_pt_min, 0, -M_PI};
+	Double_t maxbinsJetPhiResolution[ndimJetRes] = {100, cluster_pt_max, 60, M_PI};
+    hJetPhiResolution = new THnSparseF("hJetPhiResolution", "reco - truth", ndimJetRes, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
 	hJetPhiResolution->Sumw2();
 }
 

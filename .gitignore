@@ -13,6 +13,7 @@ abcd-plots/
 *.pyc
 *.pkl
 *.hdf5
+*.log
 
 .ipynb_checkpoints
 nocelltrack-config-pbpb18.yaml

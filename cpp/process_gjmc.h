@@ -50,6 +50,8 @@ THnSparseF* hCorr1ptSRTruth;
 THnSparseF* hCorr1ptSRAll;
 int ndimTrig;
 int ndimCorr;
+int ndimPhotonRes;
+int ndimJetRes;
 
 // TH1s
 THnSparseF* hPhotonPtResolution;
