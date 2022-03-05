@@ -183,12 +183,35 @@ def th1ToArrays(th1):
     return np.array(hist), np.array(err), np.array(binCenters), np.array(binWidths)
 
 
-def plotTH1(th1, **kwargs):
+def plotTH1(th1, plotXerr=False, **kwargs):
     """
     Plots a ROOT TH1 with pyplot
     """
     hist, err, binCenters, binWidths = th1ToArrays(th1)
-    plt.errorbar(binCenters, hist, yerr=err, xerr=np.divide(binWidths, 2.0), **kwargs)
+
+    if plotXerr:
+        xerr = np.divide(binWidths, 2.0)
+    else:
+        xerr = None
+
+    plt.errorbar(binCenters, hist, yerr=err, xerr=xerr, **kwargs)
+
+
+def plotTH1Norm(th1, plotXerr=False, **kwargs):
+    """
+    Plots a ROOT TH1 with pyplot after normalizing to 1 (i.e. divide by the sum of the entries)
+    """
+    hist, err, binCenters, binWidths = th1ToArrays(th1)
+    norm = sum(hist)
+    hist = hist / norm
+    err = err / norm
+
+    if plotXerr:
+        xerr = np.divide(binWidths, 2.0)
+    else:
+        xerr = None
+
+    plt.errorbar(binCenters, hist, yerr=err, xerr=xerr, **kwargs)
 
 
 def plotTH2(th2, **kwargs):

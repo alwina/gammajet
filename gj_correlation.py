@@ -4,7 +4,7 @@ import numpy as np
 import ROOT
 import root_numpy as rnp
 
-from unfolder import Unfolder
+from unfolder import Unfolder, Unfolder2D
 from utils import getCenters, getWidths, getXerrForPlot, quadSumPairwise, th1ToArrays, sliceAndProjectTHnSparse
 
 # instructions for use
@@ -164,6 +164,71 @@ class GammaJetCorrelation:
 
         # plot
         plt.errorbar(self.centers, hist, yerr=err, xerr=xerr, **kwargs)
+
+
+class GammaJetCorrelation2D:
+    """Manipulate ROOT objects for same- and mixed-event correlations to get
+    2D histogram that can be unfolded
+
+    2D response matrix axes: observable reco, observable truth, jetpt reco, jetpt truth
+    """
+    def __init__(self, observableX, observableY, observableInfo, unfoldVerbosity=1):
+        self.observableX = observableX
+        self.observableY = observableY
+        self.observableInfo = observableInfo
+        self.unfolder = Unfolder2D(unfoldVerbosity)
+
+        self.nBinsX = observableInfo[observableX]['nbins']
+        self.minBinX = observableInfo[observableX]['min']
+        self.maxBinX = observableInfo[observableX]['max']
+
+        self.nBinsY = observableInfo[observableY]['nbins']
+        self.minBinY = observableInfo[observableY]['min']
+        self.maxBinY = observableInfo[observableY]['max']
+
+    def setSameEvent(self, srth2, brth2, ntrigsr, ntrigbr):
+        self.sesrth2 = srth2
+        self.sebrth2 = brth2
+
+        # scale by number of triggers
+        if ntrigsr != 0:
+            self.sesrth2.Scale(1.0 / ntrigsr)
+        if ntrigbr != 0:
+            self.sebrth2.Scale(1.0 / ntrigbr)
+        self.sesrntrig = ntrigsr
+        self.sebrntrig = ntrigbr
+
+        # rebin
+        rebinFactorX = 120 / self.nBinsX
+        rebinFactorY = 120 / self.nBinsY
+        self.sesrth2.Rebin2D(rebinFactorX, rebinFactorY)
+        self.sebrth2.Rebin2D(rebinFactorX, rebinFactorY)
+
+    def setMixedEvent(self, srth2, brth2, srnmix, brnmix, mesrscale=1.0, mebrscale=1.0):
+        self.mesrth2 = srth2
+        self.mebrth2 = brth2
+
+        # scale by number of trigger-event pairs and any other scaling
+        if srnmix != 0:
+            self.mesrth2.Scale(mesrscale / srnmix)
+        if brnmix != 0:
+            self.mebrth2.Scale(mebrscale / brnmix)
+        self.srnmix = srnmix
+        self.brnmix = brnmix
+
+        # rebin
+        rebinFactorX = 120 / self.nBinsX
+        rebinFactorY = 120 / self.nBinsY
+        self.mesrth2.Rebin2D(rebinFactorX, rebinFactorY)
+        self.mebrth2.Rebin2D(rebinFactorX, rebinFactorY)
+
+    def getSignalCorrelation(self):
+        self.corrth2 = self.sesrth2.Clone()
+        self.corrth2.Add(self.sebrth2, -1.0)
+        self.corrth2.Add(self.mesrth2, -1.0)
+        self.corrth2.Add(self.mebrth2, 1.0)
+
+        self.unfolder.setMeasuredTH2(self.corrth2)
 
 
 class AxisNum(Enum):
