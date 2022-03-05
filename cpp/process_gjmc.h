@@ -55,9 +55,11 @@ int ndimJetRes;
 
 // TH1s
 THnSparseF* hPhotonPtResolution;
-THnSparseF* hJetPtResolution;
 THnSparseF* hPhotonPhiResolution;
+THnSparseF* hJetPtResolution;
 THnSparseF* hJetPhiResolution;
+THnSparseF* hJetB2bPtResolution;
+THnSparseF* hJetB2bPhiResolution;
 
 // correlation variables
 bool isSignal;
