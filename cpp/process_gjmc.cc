@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 					float j_reco_eff_mult = j_reco_mult * (j_reco_pt) / (j_reco_pt + j_reco_area * ue_estimate_tpc_const);
 
 					if (deltaphi_truth > 7 * M_PI / 8 && deltaphi_reco > 7 * M_PI / 8) {
-						ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt, j_reco_pt, j_truth_pt);
+						ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_reco_pt, j_truth_pt / photon_truth_pt, j_truth_pt);
 						ptratioResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt);
 						jetptResponses[centbin][ptbin].Fill(j_reco_pt, j_truth_pt);
 						jetetaResponses[centbin][ptbin].Fill(j_reco_eta, j_truth_eta);
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 						hJetB2bPhiResolution->Fill(jetresolution);
 					}
 
-					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth, j_reco_pt, j_truth_pt);
+					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt);
 					deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth);
 
 					// fill ThnSparses corresponding to 2D response matrices
