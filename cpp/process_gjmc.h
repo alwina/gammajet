@@ -81,6 +81,7 @@ void initializeRooUnfoldResponses();
 void initializeTHnSparses();
 void openFilesAndGetTTrees(std::string root_filename);
 void setBranchAddresses();
+float getAvgEgNtrial(std::string filename);
 void matchJetsInEvent();
 bool rejectCluster(int icluster);
 float getIsolation(int icluster);
@@ -97,6 +98,7 @@ Double_t primary_vertex[3];
 Float_t ue_estimate_its_const;
 Float_t ue_estimate_tpc_const;
 Float_t centrality_v0m;
+Float_t eg_cross_section;
 Bool_t isINT7;
 
 // Tracks

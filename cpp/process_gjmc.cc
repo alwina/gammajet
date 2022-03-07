@@ -42,6 +42,8 @@ int main(int argc, char *argv[])
 	Double_t photonresolution[ndimPhotonRes];
 	Double_t jetresolution[ndimJetRes];
 	Double_t h4[4];
+	float avg_eg_ntrial = 0;
+	float weight = 0;
 
 	/*--------------------------------------------------------------
 	Loop through files
@@ -51,6 +53,7 @@ int main(int argc, char *argv[])
 		std::string root_filename = fileit->as<std::string>();
 		openFilesAndGetTTrees(root_filename);
 		setBranchAddresses();
+		avg_eg_ntrial = getAvgEgNtrial(root_filename);
 
 		/*--------------------------------------------------------------
 		Loop through events
@@ -69,6 +72,8 @@ int main(int argc, char *argv[])
 			if (primary_vertex[2] == 0.00) continue;
 			if (do_pile && is_pileup_from_spd_5_08) continue;
 			if (!isINT7) continue;
+
+			weight = eg_cross_section / avg_eg_ntrial;
 
 			matchJetsInEvent();
 			/*--------------------------------------------------------------
@@ -119,13 +124,13 @@ int main(int argc, char *argv[])
 				int ptbin = getPtBinNumber(cluster_pt[icluster]);
 
 				// fill photon response matrices
-				photonptResponses[centbin][ptbin].Fill(cluster_pt[icluster], photon_truth_pt);
-				photonetaResponses[centbin][ptbin].Fill(cluster_eta[icluster], photon_truth_eta);
-				photonphiResponses[centbin][ptbin].Fill(cluster_phi[icluster], photon_truth_phi);
+				photonptResponses[centbin][ptbin].Fill(cluster_pt[icluster], photon_truth_pt, weight);
+				photonetaResponses[centbin][ptbin].Fill(cluster_eta[icluster], photon_truth_eta, weight);
+				photonphiResponses[centbin][ptbin].Fill(cluster_phi[icluster], photon_truth_phi, weight);
 
 				trig[0] = centrality_v0m;
 				trig[1] = cluster_pt[icluster];
-				hTrigSR->Fill(trig);
+				hTrigSR->Fill(trig, weight);
 
 				photonresolution[0] = centrality_v0m;
 				photonresolution[1] = cluster_pt[icluster];
@@ -135,10 +140,10 @@ int main(int argc, char *argv[])
 
 				// fill photon pt and phi resolution
 				photonresolution[2] = (cluster_pt[icluster] - photon_truth_pt) / photon_truth_pt;
-				hPhotonPtResolution->Fill(photonresolution);
+				hPhotonPtResolution->Fill(photonresolution, weight);
 
 				photonresolution[2] = cluster_phi[icluster] - photon_truth_phi;
-				hPhotonPhiResolution->Fill(photonresolution);
+				hPhotonPhiResolution->Fill(photonresolution, weight);
 
 				/*--------------------------------------------------------------
 				Loop through all reco jets to fill THnSparses
@@ -159,8 +164,8 @@ int main(int argc, char *argv[])
 					corr[3] = jetpt;
 					corr[4] = ptratio;
 					corr[5] = cluster_pt[icluster] * sin(deltaphi);
-					hCorrSRAll->Fill(corr);
-					hCorr1ptSRAll->Fill(corr, 1.0 / jetpt);
+					hCorrSRAll->Fill(corr, weight);
+					hCorr1ptSRAll->Fill(corr, weight / jetpt);
 				}
 
 				/*--------------------------------------------------------------
@@ -182,8 +187,8 @@ int main(int argc, char *argv[])
 					corr[3] = jetpt;
 					corr[4] = ptratio;
 					corr[5] = cluster_pt[icluster] * sin(deltaphi);
-					hCorrSRTruth->Fill(corr);
-					hCorr1ptSRTruth->Fill(corr, 1.0 / jetpt);
+					hCorrSRTruth->Fill(corr, weight);
+					hCorr1ptSRTruth->Fill(corr, weight / jetpt);
 				}
 
 				/*--------------------------------------------------------------
@@ -214,64 +219,64 @@ int main(int argc, char *argv[])
 					float j_reco_eff_mult = j_reco_mult * (j_reco_pt) / (j_reco_pt + j_reco_area * ue_estimate_tpc_const);
 
 					if (deltaphi_truth > 7 * M_PI / 8 && deltaphi_reco > 7 * M_PI / 8) {
-						ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_reco_pt, j_truth_pt / photon_truth_pt, j_truth_pt);
-						ptratioResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt);
-						jetptResponses[centbin][ptbin].Fill(j_reco_pt, j_truth_pt);
-						jetetaResponses[centbin][ptbin].Fill(j_reco_eta, j_truth_eta);
-						jetphiResponses[centbin][ptbin].Fill(j_reco_phi, j_truth_phi);
-						jetareaResponses[centbin][ptbin].Fill(j_reco_area, j_truth_area);
-						jetmultResponses[centbin][ptbin].Fill(j_reco_mult, j_truth_mult);
-						jeteffmultResponses[centbin][ptbin].Fill(j_reco_eff_mult, j_truth_mult);
+						ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_reco_pt, j_truth_pt / photon_truth_pt, j_truth_pt, weight);
+						ptratioResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt, weight);
+						jetptResponses[centbin][ptbin].Fill(j_reco_pt, j_truth_pt, weight);
+						jetetaResponses[centbin][ptbin].Fill(j_reco_eta, j_truth_eta, weight);
+						jetphiResponses[centbin][ptbin].Fill(j_reco_phi, j_truth_phi, weight);
+						jetareaResponses[centbin][ptbin].Fill(j_reco_area, j_truth_area, weight);
+						jetmultResponses[centbin][ptbin].Fill(j_reco_mult, j_truth_mult, weight);
+						jeteffmultResponses[centbin][ptbin].Fill(j_reco_eff_mult, j_truth_mult, weight);
 
 						h4[0] = j_reco_pt / cluster_pt[icluster];
 						h4[1] = j_truth_pt / photon_truth_pt;
 						h4[2] = j_reco_pt;
 						h4[3] = j_truth_pt;
-						ptratiojetptHists[centbin][ptbin]->Fill(h4);
+						ptratiojetptHists[centbin][ptbin]->Fill(h4, weight);
 
 						// fill jet pt and phi resolution
 						jetresolution[2] = j_reco_pt;
 						jetresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
-						hJetB2bPtResolution->Fill(jetresolution);
+						hJetB2bPtResolution->Fill(jetresolution, weight);
 
 						jetresolution[2] = j_reco_pt;
 						jetresolution[3] = j_reco_phi - j_truth_phi;
-						hJetB2bPhiResolution->Fill(jetresolution);
+						hJetB2bPhiResolution->Fill(jetresolution, weight);
 					}
 
-					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt);
-					deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth);
+					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt, weight);
+					deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth, weight);
 
 					// fill ThnSparses corresponding to 2D response matrices
 					h4[0] = deltaphi_reco;
 					h4[1] = deltaphi_truth;
 					h4[2] = j_reco_pt;
 					h4[3] = j_truth_pt;
-					deltaphijetptHists[centbin][ptbin]->Fill(h4);
+					deltaphijetptHists[centbin][ptbin]->Fill(h4, weight);
 
 					// fill jet pt and phi resolution
 					jetresolution[2] = j_reco_pt;
 					jetresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
-					hJetPtResolution->Fill(jetresolution);
+					hJetPtResolution->Fill(jetresolution, weight);
 
 					jetresolution[2] = j_reco_pt;
 					jetresolution[3] = j_reco_phi - j_truth_phi;
-					hJetPhiResolution->Fill(jetresolution);
+					hJetPhiResolution->Fill(jetresolution, weight);
 				}
 
 				if (keepMisses) {
 					for (int itruth : unmatchedTruth) {
-						deltaphiResponses[centbin][ptbin].Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_charged_truth_phi[itruth])));
-						jetptResponses[centbin][ptbin].Miss(jet_charged_truth_pt[itruth]);
-						ptratioResponses[centbin][ptbin].Miss(jet_charged_truth_pt[itruth] / cluster_pt[icluster]);
+						deltaphiResponses[centbin][ptbin].Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_charged_truth_phi[itruth]))), weight;
+						jetptResponses[centbin][ptbin].Miss(jet_charged_truth_pt[itruth], weight);
+						ptratioResponses[centbin][ptbin].Miss(jet_charged_truth_pt[itruth] / cluster_pt[icluster], weight);
 					}
 				}
 
 				if (keepFakes) {
 					for (int ireco : unmatchedReco) {
-						deltaphiResponses[centbin][ptbin].Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ireco])));
-						jetptResponses[centbin][ptbin].Fake(jet_pt_raw[ireco]);
-						ptratioResponses[centbin][ptbin].Fake(jet_pt_raw[ireco] / cluster_pt[icluster]);
+						deltaphiResponses[centbin][ptbin].Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ireco])), weight);
+						jetptResponses[centbin][ptbin].Fake(jet_pt_raw[ireco], weight);
+						ptratioResponses[centbin][ptbin].Fake(jet_pt_raw[ireco] / cluster_pt[icluster], weight);
 					}
 				}
 			} // end cluster loop
@@ -524,10 +529,10 @@ void initializeTHnSparses()
 	hCorrSRAll->Sumw2();
 	hCorr1ptSRTruth->Sumw2();
 	hCorr1ptSRAll->Sumw2();
-    
-    // resolutions
-    ndimPhotonRes = 3;
-    ndimJetRes = 4;
+
+	// resolutions
+	ndimPhotonRes = 3;
+	ndimJetRes = 4;
 
 	Int_t nbinsPhotonPtResolution[ndimPhotonRes] = {10, nbinsClusterPt, 100};
 	Double_t minbinsPhotonPtResolution[ndimPhotonRes] = {0, cluster_pt_min, -0.5};
@@ -540,11 +545,7 @@ void initializeTHnSparses()
 	Double_t maxbinsJetPtResolution[ndimJetRes] = {100, cluster_pt_max, 60, 2.0};
 	hJetPtResolution = new THnSparseF("hJetPtResolution", "(reco - truth) / truth", ndimJetRes, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
 	hJetPtResolution->Sumw2();
-
-	Int_t nbinsJetB2bPtResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 400};
-	Double_t minbinsJetB2bPtResolution[ndimJetRes] = {0, cluster_pt_min, 0, -2.0};
-	Double_t maxbinsJetB2bPtResolution[ndimJetRes] = {100, cluster_pt_max, 60, 2.0};
-	hJetB2bPtResolution = new THnSparseF("hJetB2bPtResolution", "(reco - truth) / truth", ndimJetRes, nbinsJetB2bPtResolution, minbinsJetB2bPtResolution, maxbinsJetB2bPtResolution);
+	hJetB2bPtResolution = new THnSparseF("hJetB2bPtResolution", "(reco - truth) / truth", ndimJetRes, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
 	hJetB2bPtResolution->Sumw2();
 
 	Int_t nbinsPhotonPhiResolution[ndimPhotonRes] = {10, nbinsClusterPt, 120};
@@ -556,13 +557,9 @@ void initializeTHnSparses()
 	Int_t nbinsJetPhiResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 120};
 	Double_t minbinsJetPhiResolution[ndimJetRes] = {0, cluster_pt_min, 0, -M_PI};
 	Double_t maxbinsJetPhiResolution[ndimJetRes] = {100, cluster_pt_max, 60, M_PI};
-  hJetPhiResolution = new THnSparseF("hJetPhiResolution", "reco - truth", ndimJetRes, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
+	hJetPhiResolution = new THnSparseF("hJetPhiResolution", "reco - truth", ndimJetRes, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
 	hJetPhiResolution->Sumw2();
-
-	Int_t nbinsJetB2bPhiResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 120};
-	Double_t minbinsJetB2bPhiResolution[ndimJetRes] = {0, cluster_pt_min, 0, -M_PI};
-	Double_t maxbinsJetB2bPhiResolution[ndimJetRes] = {100, cluster_pt_max, 60, M_PI};
-  hJetB2bPhiResolution = new THnSparseF("hJetB2bPhiResolution", "reco - truth", ndimJetRes, nbinsJetB2bPhiResolution, minbinsJetB2bPhiResolution, maxbinsJetB2bPhiResolution);
+	hJetB2bPhiResolution = new THnSparseF("hJetB2bPhiResolution", "reco - truth", ndimJetRes, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
 	hJetB2bPhiResolution->Sumw2();
 }
 
@@ -607,6 +604,25 @@ void openFilesAndGetTTrees(std::string root_filename)
 	}
 }
 
+float getAvgEgNtrial(std::string filename)
+{
+	// can't seem to figure out how to do this dynamically, so we'll just calculate it once and hard-code it here
+	// it's faster anyway
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat1_18q_295913_celltrack.root") return 609.83156;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat2_18q_296381_celltrack.root") return 39.231903;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat3_18q_296623_celltrack.root") return 17.179408;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat4_18q_296312_celltrack.root") return 14.102239;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat5_18q_296197_celltrack.root") return 11.905428;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat6_18q_296419_celltrack.root") return 9.4368309;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat1_18q_cent1030_int7.root") return 994.04927;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat2_18q_cent1030_int7.root") return 40.212364;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat3_18q_cent1030_int7.root") return 17.235968;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat4_18q_cent1030_int7.root") return 14.083421;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat5_18q_cent1030_int7.root") return 11.939820;
+	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat6_18q_cent1030_int7.root") return 9.4751475;
+	return 0;
+}
+
 void setBranchAddresses()
 {
 	// event addresses
@@ -615,6 +631,7 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
 	_tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
 	_tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
+	_tree_event->SetBranchAddress("eg_cross_section", &eg_cross_section);
 
 	// MC addresses
 	_tree_event->SetBranchAddress("nmc_truth", &nmc_truth);
