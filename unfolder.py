@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import ROOT
 
-from utils import plotTH1, plotTH2, th1ToArrays
+from utils import plotTH1, plotTH2, th1ToArrays, sliceAndProjectTHnSparse
 
 ROOT.gSystem.Load("/home/alwina/RooUnfold/libRooUnfold")
 
@@ -98,6 +99,122 @@ class Unfolder2D:
                 denkey = key
         else:
             print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
+
+    def shapeClosureTestMCDataRatio(self, bayesKeys, axis=1):
+        if axis not in (1, 2):
+            print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
+            return
+
+        recoth2 = sliceAndProjectTHnSparse(self.TH4, [], 2, 0)
+        truthth2 = sliceAndProjectTHnSparse(self.TH4, [], 3, 1)
+
+        recoth2.RebinX(int(120 / self.measuredTH2.GetNbinsX()))
+        recoth2.RebinY(int(120 / self.measuredTH2.GetNbinsY()))
+        truthth2.RebinX(int(120 / self.measuredTH2.GetNbinsX()))
+        truthth2.RebinY(int(120 / self.measuredTH2.GetNbinsY()))
+
+        # scale factor: MC reco / data
+        scaleth2 = recoth2.Clone()
+        # don't propagate the error from the measured in this case
+        measurednoerror = self.measuredTH2.Clone()
+        for binx in range(1, measurednoerror.GetNbinsX() + 1):
+            for biny in range(1, measurednoerror.GetNbinsY() + 1):
+                measurednoerror.SetBinError(binx, biny, 0)
+        scaleth2.Divide(measurednoerror)
+
+        # scale MC truth and reco
+        recoth2.Multiply(scaleth2)
+        truthth2.Multiply(scaleth2)
+
+        # make integral match measured
+        measuredintegral = abs(self.measuredTH2.Integral())
+        recointegral = recoth2.Integral()
+        truthintegral = truthth2.Integral()
+
+        recoth2.Scale(measuredintegral / recointegral)
+        truthth2.Scale(measuredintegral / truthintegral)
+
+        # smear by statistical errors on measured data
+        for binx in range(1, self.measuredTH2.GetNbinsX() + 1):
+            for biny in range(1, self.measuredTH2.GetNbinsY() + 1):
+                if self.measuredTH2.GetBinContent(binx, biny) != 0:
+                    relerr = self.measuredTH2.GetBinError(binx, biny) / self.measuredTH2.GetBinContent(binx, biny)
+                    smearedbin = recoth2.GetBinContent(binx, biny) * np.random.normal(1.0, abs(relerr))
+                    recoth2.SetBinContent(binx, biny, smearedbin)
+                    # make the relative error match the measured
+                    recoth2.SetBinError(binx, biny, smearedbin * relerr)
+
+        # unfold this new thing - this shouldn't be infinitely recursive, right???
+        unfolder = Unfolder2D(0)
+        unfolder.setMeasuredTH2(recoth2)
+        unfolder.setResponseMatrix(self.responseMatrix)
+        unfolder.unfoldBayes(*bayesKeys)
+
+        # compare to scaled truth
+        if axis == 1:
+            plotTH1(truthth2.ProjectionX(), fmt='ks', ms=8, label='Scaled MC truth')
+            for key in bayesKeys:
+                plotTH1(unfolder.unfoldedBayesTH2[key].ProjectionX(), fmt='o-', label='Unfolded {0}'.format(key))
+        else:
+            plotTH1(truthth2.ProjectionY(), fmt='ks', ms=8, label='Scaled MC truth')
+            for key in bayesKeys:
+                plotTH1(unfolder.unfoldedBayesTH2[key].ProjectionY(), fmt='o-', label='Unfolded {0}'.format(key))
+
+        return unfolder, truthth2
+
+    def statisticalClosureTest(self, bayesKeys, axis=1):
+        if axis not in (1, 2):
+            print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
+            return
+
+        recoth2 = sliceAndProjectTHnSparse(self.TH4, [], 2, 0)
+        truthth2 = sliceAndProjectTHnSparse(self.TH4, [], 3, 1)
+
+        recoth2.RebinX(int(120 / self.measuredTH2.GetNbinsX()))
+        recoth2.RebinY(int(120 / self.measuredTH2.GetNbinsY()))
+        truthth2.RebinX(int(120 / self.measuredTH2.GetNbinsX()))
+        truthth2.RebinY(int(120 / self.measuredTH2.GetNbinsY()))
+
+        # make integral match measured
+        measuredintegral = abs(self.measuredTH2.Integral())
+        recointegral = recoth2.Integral()
+        truthintegral = truthth2.Integral()
+
+        recoth2.Scale(measuredintegral / recointegral)
+        truthth2.Scale(measuredintegral / truthintegral)
+        unsmearedrecoth2 = recoth2.Clone()
+
+        # smear by statistical errors on measured data
+        for binx in range(1, self.measuredTH2.GetNbinsX() + 1):
+            for biny in range(1, self.measuredTH2.GetNbinsY() + 1):
+                if self.measuredTH2.GetBinContent(binx, biny) != 0:
+                    relerr = self.measuredTH2.GetBinError(binx, biny) / self.measuredTH2.GetBinContent(binx, biny)
+                    smearedbin = recoth2.GetBinContent(binx, biny) * np.random.normal(1.0, abs(relerr))
+                    recoth2.SetBinContent(binx, biny, smearedbin)
+                    # make the relative error match the measured
+                    recoth2.SetBinError(binx, biny, smearedbin * relerr)
+
+        # unfold this new thing - this shouldn't be infinitely recursive, right???
+        unfolder = Unfolder2D(0)
+        unfolder.setMeasuredTH2(recoth2)
+        unfolder.setResponseMatrix(self.responseMatrix)
+        unfolder.unfoldBayes(*bayesKeys)
+
+        # compare to truth
+        if axis == 1:
+            plotTH1(truthth2.ProjectionX(), fmt='ko-', linewidth=2, ms=10, label='MC truth')
+            plotTH1(self.measuredTH2.ProjectionX(), fmt='s', mfc='None', mew=2, label='Measured')
+            plotTH1(unsmearedrecoth2.ProjectionX(), fmt='d-', label='Unsmeared MC reco')
+            plotTH1(recoth2.ProjectionX(), fmt='d-', label='Smeared MC reco')
+            for key in bayesKeys:
+                plotTH1(unfolder.unfoldedBayesTH2[key].ProjectionX(), fmt='o-', ms=10, mfc='None', label='Unfolded {0}'.format(key))
+        else:
+            plotTH1(truthth2.ProjectionY(), fmt='ko-', linewidth=2, ms=10, label='MC truth')
+            plotTH1(self.measuredTH2.ProjectionY(), fmt='s', mfc='None', mew=2, label='Measured')
+            plotTH1(unsmearedrecoth2.ProjectionY(), fmt='d-', label='Unsmeared MC reco')
+            plotTH1(recoth2.ProjectionY(), fmt='d-', label='Smeared MC reco')
+            for key in bayesKeys:
+                plotTH1(unfolder.unfoldedBayesTH2[key].ProjectionY(), fmt='o-', ms=10, mfc='None', label='Unfolded {0}'.format(key))
 
 
 class Unfolder:
