@@ -82,8 +82,9 @@ main() {
 	cp ${globalconfig} ${workingdir}/config/globalconfig.yaml
 
 	cp example-gj-correlations.ipynb ${workingdir}/gj-correlations-${itername}.ipynb
-	responsematrix=$(yaml $runconfig "['filelists']['correlations']['responsematrix']")
-	cp $responsematrix ${workingdir}/${responsematrix}
+	# responsematrix=$(yaml $runconfig "['filelists']['correlations']['responsematrix']")
+    responsematrix=${gjdir}/root/responseMatrixPbPb18.root
+	cp $responsematrix ${workingdir}/root/responseMatrixPbPb18.root
 
 	cd $workingdir
 
@@ -94,13 +95,8 @@ main() {
 	# define mixed event labels to run
 	mixlabels=()
 	mixlabels+=("18q_int7_1")
-	mixlabels+=("18q_int7_2")
 	mixlabels+=("18q_int7_3")
-
-	mixlabels_skimcent5090=()
-	mixlabels_skimcent5090+=("skimcent5090_18q_int7_1")
-	mixlabels_skimcent5090+=("skimcent5090_18q_int7_2")
-	mixlabels_skimcent5090+=("skimcent5090_18q_int7_3")
+    mixlabels+=("18q_int7_4")
 
 	# get the name of the mixed event correlation from the config
 	mixcorrelation=$(yaml $runconfig "['filelists']['correlations']['mixedevent']")
@@ -121,23 +117,6 @@ main() {
 	# merge all mixed event correlations
 	echo
 	hadd -f ${mixcorrelation} ${mixcorrbase}*.root
-
-	# do the same for the skimcent5090 mixed event correlations
-	# since they're small, we can just merge them all together
-	for mixlabel in "${mixlabels_skimcent5090[@]}"
-	do
-		echo
-		date
-		echo "Running mixed event: ${mixlabel}"
-		$gjdir/parallel_run_mix.sh 4 $runconfig $mixlabel $maxevents $gjdir
-	done
-	
-	echo
-	hadd -f ${mixcorrbase}_skimcent5090.root ${mixcorrbase}_skimcent5090*rootmix*
-	rm ${mixcorrbase}_skimcent5090*rootmix*
-
-	date
-	echo "Done"
 }
 
 main | tee "${workingdir}/output.log"

@@ -172,8 +172,10 @@ int main(int argc, char *argv[])
 				Loop through all truth jets to fill THnSparses
 				--------------------------------------------------------------*/
 				for (ULong64_t ijet = 0; ijet < njet_charged_truth; ijet++) {
-					if (jet_charged_truth_pt[ijet] < jet_pt_min) continue;
-					if (jet_charged_truth_pt[ijet] > jet_pt_max) continue;
+                    // keep jets regardless of pT in order to estimate the kinematic efficiency
+					// if (jet_charged_truth_pt[ijet] < jet_pt_min) continue;
+					// if (jet_charged_truth_pt[ijet] > jet_pt_max) continue;
+                    if (jet_charged_truth_pt[ijet] < 0) continue;
 					if (abs(jet_charged_truth_eta[ijet]) > jet_eta_max) continue;
 
 					// Observables: delta phi, jet pT, pT ratio

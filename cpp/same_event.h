@@ -76,6 +76,7 @@ Float_t cluster_eta[NTRACK_MAX];
 Float_t cluster_phi[NTRACK_MAX];
 Float_t cluster_iso_tpc_02[NTRACK_MAX];
 Float_t cluster_iso_tpc_04[NTRACK_MAX];
+Float_t cluster_iso_its_02[NTRACK_MAX];
 Float_t cluster_iso_its_04[NTRACK_MAX];
 Float_t cluster_frixione_tpc_04_02[NTRACK_MAX];
 Float_t cluster_frixione_its_04_02[NTRACK_MAX];
@@ -90,6 +91,7 @@ UChar_t cluster_nlocal_maxima[NTRACK_MAX];
 Float_t cluster_5x5all[NTRACK_MAX];
 
 Float_t cluster_tof[NTRACK_MAX];
+Float_t cluster_iso_its_02_ue[NTRACK_MAX];
 Float_t cluster_iso_its_04_ue[NTRACK_MAX];
 Float_t cluster_iso_tpc_02_ue[NTRACK_MAX];
 Float_t cluster_iso_tpc_04_ue[NTRACK_MAX];

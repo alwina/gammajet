@@ -36,6 +36,13 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
     jet_ak02tpc_phi = array('f', 10000 * [0])
     jet_ak02tpc_area = array('f', 10000 * [0])
     jet_ak02tpc_multiplicity_raw = array('H', 10000 * [0])
+    
+    njet_ak02its = array('I', [0])
+    jet_ak02its_pt_raw = array('f', 10000 * [0])
+    jet_ak02its_eta = array('f', 10000 * [0])
+    jet_ak02its_phi = array('f', 10000 * [0])
+    jet_ak02its_area = array('f', 10000 * [0])
+    jet_ak02its_multiplicity_raw = array('H', 10000 * [0])
 
     njet_charged_truth_ak02 = array('I', [0])
     jet_charged_truth_ak02_pt = array('f', 10000 * [0])
@@ -64,6 +71,13 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
     outtree.Branch('jet_ak02tpc_phi', jet_ak02tpc_phi, 'jet_ak02tpc_phi[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_area', jet_ak02tpc_area, 'jet_ak02tpc_area[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_multiplicity_raw', jet_ak02tpc_multiplicity_raw, 'jet_ak02tpc_multiplicity_raw[njet_ak02tpc]/s')
+    
+    outtree.Branch('njet_ak02its', njet_ak02its, 'njet_ak02its/i')
+    outtree.Branch('jet_ak02its_pt_raw', jet_ak02its_pt_raw, 'jet_ak02its_pt_raw[njet_ak02its]/F')
+    outtree.Branch('jet_ak02its_eta', jet_ak02its_eta, 'jet_ak02its_eta[njet_ak02its]/F')
+    outtree.Branch('jet_ak02its_phi', jet_ak02its_phi, 'jet_ak02its_phi[njet_ak02its]/F')
+    outtree.Branch('jet_ak02its_area', jet_ak02its_area, 'jet_ak02its_area[njet_ak02its]/F')
+    outtree.Branch('jet_ak02its_multiplicity_raw', jet_ak02its_multiplicity_raw, 'jet_ak02its_multiplicity_raw[njet_ak02its]/s')
 
     outtree.Branch('njet_charged_truth_ak02', njet_charged_truth_ak02, 'njet_charged_truth_ak02/i')
     outtree.Branch('jet_charged_truth_ak02_pt', jet_charged_truth_ak02_pt, 'jet_charged_truth_ak02_pt[njet_charged_truth_ak02]/F')
@@ -87,6 +101,7 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
         # retrieve event info
         run_number = getattr(tree, 'run_number')
         ue_estimate_tpc_const = getattr(tree, 'ue_estimate_tpc_const')
+        ue_estimate_its_const = getattr(tree, 'ue_estimate_its_const')
 
         # branch_trigger_mask needs to be parsed further,
         # but how it's handled depends on its size, which is variable
@@ -124,24 +139,28 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
         track_e = getattr(tree, 'track_e')
 
         # trigger info
-        if run_number != previous_run_number:
-            kINT7TriggerIds = getINT7TriggerIds(run_number)
-            kCentralTriggerIds = getCentralTriggerIds(run_number)
-            kSemiCentralTriggerIds = getSemiCentralTriggerIds(run_number)
-            kEMCEGATriggerIds = getEMCEGATriggerIds(run_number)
-            previous_run_number = run_number
+#         if run_number != previous_run_number:
+#             kINT7TriggerIds = getINT7TriggerIds(run_number)
+#             kCentralTriggerIds = getCentralTriggerIds(run_number)
+#             kSemiCentralTriggerIds = getSemiCentralTriggerIds(run_number)
+#             kEMCEGATriggerIds = getEMCEGATriggerIds(run_number)
+#             previous_run_number = run_number
 
-        # combine the trigger masks into one number
-        if len(branch_trigger_mask) > 1:
-            fullTriggerMask = tBranchToArray(branch_trigger_mask, 'l', 2)
-            triggerMask = fullTriggerMask[0] + (fullTriggerMask[1] << 50)
-        else:
-            triggerMask = tBranchToArray(branch_trigger_mask, 'l', 1)
+#         # combine the trigger masks into one number
+#         if len(branch_trigger_mask) > 1:
+#             fullTriggerMask = tBranchToArray(branch_trigger_mask, 'l', 2)
+#             triggerMask = fullTriggerMask[0] + (fullTriggerMask[1] << 50)
+#         else:
+#             triggerMask = tBranchToArray(branch_trigger_mask, 'l', 1)
 
-        isINT7[0] = isEventSelected(kINT7TriggerIds, triggerMask)
-        isCentral[0] = isEventSelected(kCentralTriggerIds, triggerMask)
-        isSemiCentral[0] = isEventSelected(kSemiCentralTriggerIds, triggerMask)
-        isEMCEGA[0] = isEventSelected(kEMCEGATriggerIds, triggerMask)
+#         isINT7[0] = isEventSelected(kINT7TriggerIds, triggerMask)
+#         isCentral[0] = isEventSelected(kCentralTriggerIds, triggerMask)
+#         isSemiCentral[0] = isEventSelected(kSemiCentralTriggerIds, triggerMask)
+#         isEMCEGA[0] = isEventSelected(kEMCEGATriggerIds, triggerMask)
+        isINT7[0] = False
+        isCentral[0] = False
+        isSemiCentral[0] = False
+        isEMCEGA[0] = False
 
         # cluster info
         for icluster in range(ncluster):
@@ -182,13 +201,24 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
         # need to keep this (csa) in scope in order for other stuff to work
         csa = fastjet.ClusterSequenceArea(pjs, jetdef, areadef)
         jets = csa.inclusive_jets()
-        njet_ak02tpc[0] = len(jets)
-        for ijet, jet in enumerate(jets):
-            jet_ak02tpc_pt_raw[ijet] = jet.perp() - (ue_estimate_tpc_const * jet.area())
-            jet_ak02tpc_eta[ijet] = jet.eta()
-            jet_ak02tpc_phi[ijet] = jet.phi_std()
-            jet_ak02tpc_area[ijet] = jet.area()
-            jet_ak02tpc_multiplicity_raw[ijet] = len(jet.constituents())
+        
+        # for pp (17q, 18b10[ab], 18l2[ab]) and eventually also for p-Pb, these are ITS-only track jets. for everything else, they are TPC jets.
+        if '17q' in ntuplefilename or '18b10' in ntuplefilename or '18l2' in ntuplefilename:
+            njet_ak02its[0] = len(jets)
+            for ijet, jet in enumerate(jets):
+                jet_ak02its_pt_raw[ijet] = jet.perp() - (ue_estimate_its_const * jet.area())
+                jet_ak02its_eta[ijet] = jet.eta()
+                jet_ak02its_phi[ijet] = jet.phi_std()
+                jet_ak02its_area[ijet] = jet.area()
+                jet_ak02its_multiplicity_raw[ijet] = len(jet.constituents())
+        else:
+            njet_ak02tpc[0] = len(jets)
+            for ijet, jet in enumerate(jets):
+                jet_ak02tpc_pt_raw[ijet] = jet.perp() - (ue_estimate_tpc_const * jet.area())
+                jet_ak02tpc_eta[ijet] = jet.eta()
+                jet_ak02tpc_phi[ijet] = jet.phi_std()
+                jet_ak02tpc_area[ijet] = jet.area()
+                jet_ak02tpc_multiplicity_raw[ijet] = len(jet.constituents())
 
         # truth charged jet R=0.2 info
         pjs = []

@@ -267,6 +267,8 @@ float getIsolation(int icluster)
 		isolation = cluster_iso_its_04[icluster];
 	} else if (isovar == "cluster_iso_its_04_sub") {
 		isolation = cluster_iso_its_04[icluster] + cluster_iso_its_04_ue[icluster] - ue_estimate_its_const * M_PI * 0.4 * 0.4;
+	} else if (isovar == "cluster_iso_its_02_sub") {
+		isolation = cluster_iso_its_02[icluster] + cluster_iso_its_02_ue[icluster] - ue_estimate_its_const * M_PI * 0.2 * 0.2; 
 	} else if (isovar == "cluster_iso_tpc_02_sub") {
 		isolation = cluster_iso_tpc_02[icluster] + cluster_iso_tpc_02_ue[icluster] - ue_estimate_tpc_const * M_PI * 0.2 * 0.2;
 	} else if (isovar == "cluster_iso_tpc_04_sub") {
@@ -398,6 +400,7 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("cluster_lambda_square", cluster_lambda_square);
 	_tree_event->SetBranchAddress("cluster_iso_tpc_02", cluster_iso_tpc_02);
 	_tree_event->SetBranchAddress("cluster_iso_tpc_04", cluster_iso_tpc_04);
+	_tree_event->SetBranchAddress("cluster_iso_its_02", cluster_iso_its_02);
 	_tree_event->SetBranchAddress("cluster_iso_its_04", cluster_iso_its_04);
 	_tree_event->SetBranchAddress("cluster_frixione_tpc_04_02", cluster_frixione_tpc_04_02);
 	_tree_event->SetBranchAddress("cluster_frixione_its_04_02", cluster_frixione_its_04_02);
@@ -409,6 +412,7 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("cell_e", cell_e);
 
 	_tree_event->SetBranchAddress("cluster_tof", cluster_tof);
+	_tree_event->SetBranchAddress("cluster_iso_its_02_ue", cluster_iso_its_02_ue);
 	_tree_event->SetBranchAddress("cluster_iso_its_04_ue", cluster_iso_its_04_ue);
 	_tree_event->SetBranchAddress("cluster_iso_tpc_02_ue", cluster_iso_tpc_02_ue);
 	_tree_event->SetBranchAddress("cluster_iso_tpc_04_ue", cluster_iso_tpc_04_ue);
@@ -440,6 +444,13 @@ void setBranchAddresses()
 		_tree_event->SetBranchAddress("jet_ak04its_phi", jet_phi);
 		_tree_event->SetBranchAddress("jet_ak04its_area", jet_area);
 		_tree_event->SetBranchAddress("jet_ak04its_multiplicity_raw", jet_multiplicity_raw);
+	} else if (jettype == "ak02its") {
+		auxtree->SetBranchAddress("njet_ak02its", &njet);
+		auxtree->SetBranchAddress("jet_ak02its_pt_raw", jet_pt_raw);
+		auxtree->SetBranchAddress("jet_ak02its_eta", jet_eta);
+		auxtree->SetBranchAddress("jet_ak02its_phi", jet_phi);
+		auxtree->SetBranchAddress("jet_ak02its_area", jet_area);
+		auxtree->SetBranchAddress("jet_ak02its_multiplicity_raw", jet_multiplicity_raw);
 	} else {
 		std::cout << "ERROR: Jet type " << jettype << " not recognized. Aborting" << std::endl;
 		exit(EXIT_FAILURE);
