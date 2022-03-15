@@ -6,6 +6,7 @@ root/
 cpp/build/
 pre-2022/
 iterations/
+iterations-2d/
 tf-iterations/
 misc-notebooks/
 abcd-plots/

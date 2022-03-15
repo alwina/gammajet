@@ -141,8 +141,7 @@ int main(int argc, char *argv[])
 				// fill photon pt and phi resolution
 				photonresolution[2] = (cluster_pt[icluster] - photon_truth_pt) / photon_truth_pt;
 				hPhotonPtResolution->Fill(photonresolution, weight);
-
-				photonresolution[2] = cluster_phi[icluster] - photon_truth_phi;
+				photonresolution[2] = TVector2::Phi_mpi_pi(cluster_phi[icluster] - photon_truth_phi);
 				hPhotonPhiResolution->Fill(photonresolution, weight);
 
 				/*--------------------------------------------------------------
@@ -242,7 +241,7 @@ int main(int argc, char *argv[])
 						hJetB2bPtResolution->Fill(jetresolution, weight);
 
 						jetresolution[2] = j_reco_pt;
-						jetresolution[3] = j_reco_phi - j_truth_phi;
+						jetresolution[3] = TVector2::Phi_mpi_pi(j_reco_phi - j_truth_phi);
 						hJetB2bPhiResolution->Fill(jetresolution, weight);
 					}
 
@@ -763,7 +762,7 @@ void matchJetsInEvent()
 			float eta_reco = jet_eta[ireco];
 			float phi_reco = jet_phi[ireco];
 
-			float distance2 = ((eta_truth - eta_reco) * (eta_truth - eta_reco)) + ((phi_truth - phi_reco) * (phi_truth - phi_reco));
+			float distance2 = ((eta_truth - eta_reco) * (eta_truth - eta_reco)) + (TVector2::Phi_mpi_pi(phi_truth - phi_reco) * TVector2::Phi_mpi_pi(phi_truth - phi_reco));
 
 			// distance threshold is 0.6 * R
 			if (distance2 < (0.6 * 0.2) * (0.6 * 0.2)) {
