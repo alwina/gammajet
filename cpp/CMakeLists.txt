@@ -38,12 +38,14 @@ link_directories($ENV{YAMLCPP}/build)
 
 # add executables
 add_executable(same_event same_event.cc)
+add_executable(same_event_mc same_event_mc.cc)
 add_executable(centrality_checks centrality_checks.cc)
 add_executable(mixed_event mixed_event.cc)
 add_executable(process_gjmc process_gjmc.cc)
 
 # link libraries
 target_link_libraries(same_event ${ROOT_LIBRARIES} yaml-cpp)
+target_link_libraries(same_event_mc ${ROOT_LIBRARIES} yaml-cpp)
 target_link_libraries(centrality_checks ${ROOT_LIBRARIES} yaml-cpp)
 target_link_libraries(mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp OpenMP::OpenMP_CXX)
 target_link_libraries(process_gjmc RooUnfold ${ROOT_LIBRARIES} yaml-cpp)
