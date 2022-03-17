@@ -186,6 +186,9 @@ class GammaJetCorrelation2D:
         self.minBinY = observableInfo[observableY]['min']
         self.maxBinY = observableInfo[observableY]['max']
 
+        self.rebinFactorX = 120 / self.nBinsX
+        self.rebinFactorY = 120 / self.nBinsY
+
     def setSameEvent(self, srth2, brth2, ntrigsr, ntrigbr):
         self.sesrth2 = srth2
         self.sebrth2 = brth2
@@ -199,28 +202,38 @@ class GammaJetCorrelation2D:
         self.sebrntrig = ntrigbr
 
         # rebin
-        rebinFactorX = 120 / self.nBinsX
-        rebinFactorY = 120 / self.nBinsY
-        self.sesrth2.Rebin2D(rebinFactorX, rebinFactorY)
-        self.sebrth2.Rebin2D(rebinFactorX, rebinFactorY)
+        self.sesrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.sebrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
 
-    def setMixedEvent(self, srth2, brth2, srnmix, brnmix, mesrscale=1.0, mebrscale=1.0):
-        self.mesrth2 = srth2
-        self.mebrth2 = brth2
+        # subtract
+        self.seth2 = self.sesrth2.Clone()
+        self.seth2.Add(self.sebrth2, -1.0)
+
+    def setMixedEvent(self, srth2, brth2, srnmix, brnmix, mescale=1.0):
+        self.mesrth2 = srth2.Clone()
+        self.mebrth2 = brth2.Clone()
+        self.unscaledmesrth2 = srth2.Clone()
+        self.unscaledmebrth2 = brth2.Clone()
 
         # scale by number of trigger-event pairs and any other scaling
         if srnmix != 0:
-            self.mesrth2.Scale(mesrscale / srnmix)
+            self.mesrth2.Scale(mescale / srnmix)
+            self.unscaledmesrth2.Scale(1.0 / srnmix)
         if brnmix != 0:
-            self.mebrth2.Scale(mebrscale / brnmix)
+            self.mebrth2.Scale(mescale / brnmix)
+            self.unscaledmebrth2.Scale(1.0 / brnmix)
         self.srnmix = srnmix
         self.brnmix = brnmix
 
         # rebin
-        rebinFactorX = 120 / self.nBinsX
-        rebinFactorY = 120 / self.nBinsY
-        self.mesrth2.Rebin2D(rebinFactorX, rebinFactorY)
-        self.mebrth2.Rebin2D(rebinFactorX, rebinFactorY)
+        self.mesrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.mebrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.unscaledmesrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.unscaledmebrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+
+        # subtract
+        self.meth2 = self.mesrth2.Clone()
+        self.meth2.Add(self.mebrth2, -1.0)
 
     def getSignalCorrelation(self):
         self.corrth2 = self.sesrth2.Clone()
@@ -229,6 +242,67 @@ class GammaJetCorrelation2D:
         self.corrth2.Add(self.mebrth2, 1.0)
 
         self.unfolder.setMeasuredTH2(self.corrth2)
+
+
+class GJMCCorrelation2D:
+    def __init__(self, centrange, ptrange, observable, observableInfo, minjetrecopt=10, minjettruthpt=0):
+        self.centrange = centrange
+        self.ptrange = ptrange
+        self.observable = observable
+        self.observableInfo = observableInfo
+        self.minjetrecopt = minjetrecopt
+        self.minjettruthpt = minjettruthpt
+
+        self.nBinsX = observableInfo[observable]['nbins']
+        self.minBinX = observableInfo[observable]['min']
+        self.maxBinX = observableInfo[observable]['max']
+
+        self.nBinsY = observableInfo['jetpt']['nbins']
+        self.minBinY = observableInfo['jetpt']['min']
+        self.maxBinY = observableInfo['jetpt']['max']
+
+        self.rebinFactorX = 120 / self.nBinsX
+        self.rebinFactorY = 120 / self.nBinsY
+
+    def getCorrelations(self, hTrigSR, hCorrSRTruth, hCorrSRAll, th4):
+        # these jets are not required to be truth-reco matched
+        slices = []
+        slices.append((AxisNum.centrality.value, self.centrange[0], self.centrange[1]))
+        slices.append((AxisNum.clusterpt.value, self.ptrange[0], self.ptrange[1]))
+
+        self.nTrig = sliceAndProjectTHnSparse(hTrigSR, slices, 0).Integral()
+
+        for cutvar in self.observableInfo[self.observable]['cuts']:
+            # we handle this one separately
+            if cutvar == 'jetpt':
+                continue
+            cut = self.observableInfo[self.observable]['cuts'][cutvar]
+            slices.append((AxisNum[cutvar].value, cut['min'], cut['max']))
+
+        self.unmatchedrecoth2 = sliceAndProjectTHnSparse(hCorrSRAll, slices + [(AxisNum.jetpt.value, self.minjetrecopt, self.maxBinY)], AxisNum.jetpt.value, AxisNum[self.observable].value)
+        self.unmatchedtruthth2 = sliceAndProjectTHnSparse(hCorrSRTruth, slices + [(AxisNum.jetpt.value, self.minjettruthpt, self.maxBinY)], AxisNum.jetpt.value, AxisNum[self.observable].value)
+
+        # TH4 axes: reco obs, truth obs, reco jetpt, truth jetpt
+        # in principle, this is the same as the response matrix
+        # these are already split by centrality and pT
+        th4slices = []
+        th4slices.append((2, self.minjetrecopt, self.maxBinY))
+        th4slices.append((3, self.minjettruthpt, self.maxBinY))
+
+        self.th4 = th4
+        self.matchedrecoth2 = sliceAndProjectTHnSparse(th4, th4slices, 2, 0)
+        self.matchedtruthth2 = sliceAndProjectTHnSparse(th4, th4slices, 3, 1)
+
+        # scale by number of triggers and rebin
+        self.unmatchedrecoth2.Scale(1.0 / self.nTrig)
+        self.unmatchedtruthth2.Scale(1.0 / self.nTrig)
+        self.matchedrecoth2.Scale(1.0 / self.nTrig)
+        self.matchedtruthth2.Scale(1.0 / self.nTrig)
+
+        self.unmatchedrecoth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.unmatchedtruthth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.matchedrecoth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
+        self.matchedtruthth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
 
 
 class AxisNum(Enum):
@@ -369,4 +443,84 @@ def getAllCorr(centranges, photonptranges, observableInfo, rootfileSE, rootfileM
                 # add to dictionary
                 allCorr[centrange][photonptrange][observable] = gjCorr
 
+    return allCorr
+
+
+def getAll2DCorr(centranges, ptranges, observables, observableInfo, rootfileSE, rootfileME, rmfilename, scaledeltaphilow, scaledeltaphihigh, unfoldVerbosity=1, **kwargs):
+    # set up the dictionary for all correlation objects
+    allCorr = {}
+
+    # parsing ROOT files - extracting THnSparses
+    rootfile = ROOT.TFile.Open(rootfileSE)
+    sehTrigSR = rootfile.Get('hTrigSR')
+    sehTrigBR = rootfile.Get('hTrigBR')
+    sehCorrSR = rootfile.Get('hCorrSR')
+    sehCorrBR = rootfile.Get('hCorrBR')
+    rootfile.Close()
+
+    rootfile = ROOT.TFile.Open(rootfileME)
+    mehnMixSR = rootfile.Get('hnMixSR')
+    mehnMixBR = rootfile.Get('hnMixBR')
+    mehCorrSR = rootfile.Get('hCorrSR')
+    mehCorrBR = rootfile.Get('hCorrBR')
+    rootfile.Close()
+
+    rmfile = ROOT.TFile.Open(rmfilename)
+
+    for i, centrange in enumerate(centranges):
+        allCorr[centrange] = {}
+        for j, ptrange in enumerate(ptranges):
+            allCorr[centrange][ptrange] = {}
+
+            slices = []
+            slices.append((AxisNum.centrality.value, centrange[0], centrange[1]))
+            slices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
+
+            # get the number of triggers for each bin in the same-event
+            hTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, 0)
+            nTrigSESR = hTrigSESR.Integral()
+
+            hTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, 0)
+            nTrigSEBR = hTrigSEBR.Integral()
+
+            # get the number of trigger-MB event pairs for each bin in the mixed-event
+            hnMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, 0)
+            nMixSR = hnMixSR.Integral()
+
+            hnMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0)
+            nMixBR = hnMixBR.Integral()
+
+            # get the scaling for ME
+            deltaphislices = [(AxisNum[cutvar].value, cut['min'], cut['max']) for cutvar, cut in observableInfo['deltaphi']['cuts'].iteritems()]
+            deltaphislices.append((AxisNum.deltaphi.value, scaledeltaphilow, scaledeltaphihigh))
+            sesrintegral = sliceAndProjectTHnSparse(sehCorrSR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nTrigSESR
+            sebrintegral = sliceAndProjectTHnSparse(sehCorrBR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nTrigSEBR
+            mesrintegral = sliceAndProjectTHnSparse(mehCorrSR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nMixSR
+            mebrintegral = sliceAndProjectTHnSparse(mehCorrBR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nMixBR
+            mescale = (sesrintegral - sebrintegral) / (mesrintegral - mebrintegral)
+
+            for observable in observables:
+                gjCorr = GammaJetCorrelation2D(observable, 'jetpt', observableInfo, unfoldVerbosity)
+
+                additionalCuts = []
+                for cutvar in observableInfo[observable]['cuts']:
+                    cut = observableInfo[observable]['cuts'][cutvar]
+                    additionalCuts.append((AxisNum[cutvar].value, cut['min'], cut['max']))
+
+                srth2 = sliceAndProjectTHnSparse(sehCorrSR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
+                brth2 = sliceAndProjectTHnSparse(sehCorrBR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
+                gjCorr.setSameEvent(srth2, brth2, nTrigSESR, nTrigSEBR)
+
+                srth2 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
+                brth2 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
+                gjCorr.setMixedEvent(srth2, brth2, nMixSR, nMixBR, mescale)
+
+                gjCorr.unfolder.setResponseMatrix(rmfile.Get('{0}{1}Response{2}{3}'.format(observable, 'jetpt', i, j)))
+                gjCorr.unfolder.setTH4(rmfile.Get('{0}{1}Hist{2}{3}'.format(observable, 'jetpt', i, j)))
+
+                gjCorr.getSignalCorrelation()
+
+                allCorr[centrange][ptrange][observable] = gjCorr
+
+    rmfile.Close()
     return allCorr

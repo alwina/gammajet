@@ -39,66 +39,62 @@ class Unfolder2D:
             self.unfoldedSvdTH2[k] = unfold.Hreco()
 
     def plotAllUnfolded(self, bayesKeys=None, svdKeys=None, axis=1):
+        if axis not in (1, 2):
+            print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
+            return
+
         if axis == 1:
             plotTH1(self.measuredTH2.ProjectionX(), fmt='ko', label='Measured')
-
-            if bayesKeys is None:
-                bayesKeys = sorted(self.unfoldedBayesTH2.keys())
-            for key in bayesKeys:
-                plotTH1(self.unfoldedBayesTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key))
-
-            if svdKeys is None:
-                svdKeys = sorted(self.unfoldedSvdTH2.keys())
-            for key in svdKeys:
-                plotTH1(self.unfoldedSvdTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key))
-        elif axis == 2:
+        else:
             plotTH1(self.measuredTH2.ProjectionY(), fmt='ko', label='Measured')
 
-            if bayesKeys is None:
-                bayesKeys = sorted(self.unfoldedBayesTH2.keys())
-            for key in bayesKeys:
+        if bayesKeys is None:
+            bayesKeys = sorted(self.unfoldedBayesTH2.keys())
+        for key in bayesKeys:
+            if axis == 1:
+                plotTH1(self.unfoldedBayesTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key))
+            else:
                 plotTH1(self.unfoldedBayesTH2[key].ProjectionY(), fmt='o-', label='Bayesian {0}'.format(key))
 
-            if svdKeys is None:
-                svdKeys = sorted(self.unfoldedSvdTH2.keys())
-            for key in svdKeys:
+        if svdKeys is None:
+            svdKeys = sorted(self.unfoldedSvdTH2.keys())
+        for key in svdKeys:
+            if axis == 1:
+                plotTH1(self.unfoldedSvdTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key))
+            else:
                 plotTH1(self.unfoldedSvdTH2[key].ProjectionY(), fmt='o-', label='Bayesian {0}'.format(key))
-        else:
-            print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
 
     def plotBayesConvergence(self, bayesKeys=None, axis=1):
+        if axis not in (1, 2):
+            print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
+            return
+
         if bayesKeys is None:
             bayesKeys = self.unfoldedBayesTH2.keys()
 
         sortedkeys = sorted(bayesKeys)
         if axis == 1:
             denth1 = self.measuredTH2.ProjectionX()
-            denkey = 0
-            for key in sortedkeys:
-                numkey = key
-                numth1 = self.unfoldedBayesTH2[key].ProjectionX()
-                numth1.Divide(denth1)
-
-                hist, err, binCenters, binWidths = th1ToArrays(numth1)
-                plt.plot(binCenters, hist, 'o-', label='{0}/{1}'.format(numkey, denkey))
-
-                denth1 = self.unfoldedBayesTH2[key].ProjectionX()
-                denkey = key
-        elif axis == 2:
-            denth1 = self.measuredTH2.ProjectionY()
-            denkey = 0
-            for key in sortedkeys:
-                numkey = key
-                numth1 = self.unfoldedBayesTH2[key].ProjectionY()
-                numth1.Divide(denth1)
-
-                hist, err, binCenters, binWidths = th1ToArrays(numth1)
-                plt.plot(binCenters, hist, 'o-', label='{0}/{1}'.format(numkey, denkey))
-
-                denth1 = self.unfoldedBayesTH2[key].ProjectionY()
-                denkey = key
         else:
-            print('axis should be 1 (X) or 2 (Y), not {0}'.format(axis))
+            denth1 = self.measuredTH2.ProjectionY()
+        denkey = 0
+        for key in sortedkeys:
+            numkey = key
+            if axis == 1:
+                numth1 = self.unfoldedBayesTH2[key].ProjectionX()
+            else:
+                numth1 = self.unfoldedBayesTH2[key].ProjectionY()
+            numth1.Divide(denth1)
+
+            hist, err, binCenters, binWidths = th1ToArrays(numth1)
+            plt.plot(binCenters, hist, 'o-', label='{0}/{1}'.format(numkey, denkey))
+
+            if axis == 1:
+                denth1 = self.unfoldedBayesTH2[key].ProjectionX()
+            else:
+                denth1 = self.unfoldedBayesTH2[key].ProjectionY()
+
+            denkey = key
 
     def shapeClosureTestMCDataRatio(self, bayesKeys, axis=1):
         if axis not in (1, 2):
