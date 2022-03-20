@@ -190,8 +190,8 @@ class GammaJetCorrelation2D:
         self.rebinFactorY = 120 / self.nBinsY
 
     def setSameEvent(self, srth2, brth2, ntrigsr, ntrigbr):
-        self.sesrth2 = srth2
-        self.sebrth2 = brth2
+        self.sesrth2 = srth2.Clone()
+        self.sebrth2 = brth2.Clone()
 
         # scale by number of triggers
         if ntrigsr != 0:
