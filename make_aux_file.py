@@ -36,7 +36,7 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
     jet_ak02tpc_phi = array('f', 10000 * [0])
     jet_ak02tpc_area = array('f', 10000 * [0])
     jet_ak02tpc_multiplicity_raw = array('H', 10000 * [0])
-    
+
     njet_ak02its = array('I', [0])
     jet_ak02its_pt_raw = array('f', 10000 * [0])
     jet_ak02its_eta = array('f', 10000 * [0])
@@ -71,7 +71,7 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
     outtree.Branch('jet_ak02tpc_phi', jet_ak02tpc_phi, 'jet_ak02tpc_phi[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_area', jet_ak02tpc_area, 'jet_ak02tpc_area[njet_ak02tpc]/F')
     outtree.Branch('jet_ak02tpc_multiplicity_raw', jet_ak02tpc_multiplicity_raw, 'jet_ak02tpc_multiplicity_raw[njet_ak02tpc]/s')
-    
+
     outtree.Branch('njet_ak02its', njet_ak02its, 'njet_ak02its/i')
     outtree.Branch('jet_ak02its_pt_raw', jet_ak02its_pt_raw, 'jet_ak02its_pt_raw[njet_ak02its]/F')
     outtree.Branch('jet_ak02its_eta', jet_ak02its_eta, 'jet_ak02its_eta[njet_ak02its]/F')
@@ -164,7 +164,6 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
             isSemiCentral[0] = isEventSelected(kSemiCentralTriggerIds, triggerMask)
             isEMCEGA[0] = isEventSelected(kEMCEGATriggerIds, triggerMask)
 
-
         # cluster info
         for icluster in range(ncluster):
             e = cluster_e[icluster]
@@ -204,7 +203,7 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
         # need to keep this (csa) in scope in order for other stuff to work
         csa = fastjet.ClusterSequenceArea(pjs, jetdef, areadef)
         jets = csa.inclusive_jets()
-        
+
         # for pp (17q, 18b10[ab], 18l2[ab]) and eventually also for p-Pb, these are ITS-only track jets. for everything else, they are TPC jets.
         if '17q' in ntuplefilename or '18b10' in ntuplefilename or '18l2' in ntuplefilename:
             njet_ak02its[0] = len(jets)

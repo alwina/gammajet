@@ -29,14 +29,14 @@ int main(int argc, char *argv[])
 	Loop through files
 	--------------------------------------------------------------*/
 	YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
-    
-    // create output file - need to do it this way to not get the memory-resident TTree thing
-    openFilesAndGetTTrees(filenames[0].as<std::string>());
-    setBranchAddresses();
+
+	// create output file - need to do it this way to not get the memory-resident TTree thing
+	openFilesAndGetTTrees(filenames[0].as<std::string>());
+	setBranchAddresses();
 	TFile* fout = new TFile((TString) configrunperiod["filelists"]["skimmedntuples"]["data"].as<std::string>(), "RECREATE");
-    TTree* outtree = _tree_event->CloneTree(0);
-    setupNewBranches(outtree);
-    
+	TTree* outtree = _tree_event->CloneTree(0);
+	setupNewBranches(outtree);
+
 	for (YAML::const_iterator fileit = filenames.begin(); fileit != filenames.end(); fileit++) {
 		std::string root_filename = fileit->as<std::string>();
 		openFilesAndGetTTrees(root_filename);
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 		for (long ievent = 0; ievent < nevents; ievent++) {
 			// load this event
 			_tree_event->GetEntry(ievent);
-            auxtree->GetEntry(ievent);
+			auxtree->GetEntry(ievent);
 
 			fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
 
@@ -63,11 +63,11 @@ int main(int argc, char *argv[])
 				float maxClusterPtInEvent = -1;
 				for (long icluster = 0; icluster < ncluster; icluster++) {
 					maxClusterPtInEvent = std::max(maxClusterPtInEvent, cluster_pt[icluster]);
-	            }
+				}
 
-	            if (maxClusterPtInEvent < cluster_pt_min) continue;
+				if (maxClusterPtInEvent < cluster_pt_min) continue;
 
-	            outtree->Fill();
+				outtree->Fill();
 			}
 
 		} // end event loop
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 	Write outputs to file
 	--------------------------------------------------------------*/
 	outtree->AutoSave();
-    
+
 	fout->Close();
 	std::cout << "Ending" << std::endl;
 	return EXIT_SUCCESS;
@@ -122,18 +122,18 @@ void openFilesAndGetTTrees(std::string root_filename)
 	std::string aux_filename = root_filename.replace(root_filename.find(".root"), 5, "_AUX.root");
 	std::cout << "Opening " << aux_filename << std::endl;
 	auxfile = TFile::Open((TString) aux_filename);
-    auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
+	auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
 	// the aux file is only needed in certain situations, so check for those situations
 	// things should still work even without the aux file otherwise
 	if (auxfile == NULL) {
-        std::cout << "ERROR: no aux file. Exiting" << std::endl;
-        exit(EXIT_FAILURE);
+		std::cout << "ERROR: no aux file. Exiting" << std::endl;
+		exit(EXIT_FAILURE);
 	} else {
 		auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
-        if (auxtree == NULL) {
-            std::cout << "ERROR: no aux tree. Exiting" << std::endl;
-            exit(EXIT_FAILURE);
-        }
+		if (auxtree == NULL) {
+			std::cout << "ERROR: no aux tree. Exiting" << std::endl;
+			exit(EXIT_FAILURE);
+		}
 	}
 }
 
@@ -142,28 +142,28 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("ncluster", &ncluster);
 	_tree_event->SetBranchAddress("cluster_pt", cluster_pt);
 
-    auxtree->SetBranchAddress("cluster_5x5all", IN_cluster_5x5all);
+	auxtree->SetBranchAddress("cluster_5x5all", IN_cluster_5x5all);
 
-    auxtree->SetBranchAddress("njet_ak02tpc", &IN_njet_ak02tpc);
-    auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", IN_jet_ak02tpc_pt_raw);
-    auxtree->SetBranchAddress("jet_ak02tpc_eta", IN_jet_ak02tpc_eta);
-    auxtree->SetBranchAddress("jet_ak02tpc_phi", IN_jet_ak02tpc_phi);
-    auxtree->SetBranchAddress("jet_ak02tpc_area", IN_jet_ak02tpc_area);
-    auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", IN_jet_ak02tpc_multiplicity_raw);
+	auxtree->SetBranchAddress("njet_ak02tpc", &IN_njet_ak02tpc);
+	auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", IN_jet_ak02tpc_pt_raw);
+	auxtree->SetBranchAddress("jet_ak02tpc_eta", IN_jet_ak02tpc_eta);
+	auxtree->SetBranchAddress("jet_ak02tpc_phi", IN_jet_ak02tpc_phi);
+	auxtree->SetBranchAddress("jet_ak02tpc_area", IN_jet_ak02tpc_area);
+	auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", IN_jet_ak02tpc_multiplicity_raw);
 
-    auxtree->SetBranchAddress("njet_ak02its", &IN_njet_ak02its);
-    auxtree->SetBranchAddress("jet_ak02its_pt_raw", IN_jet_ak02its_pt_raw);
-    auxtree->SetBranchAddress("jet_ak02its_eta", IN_jet_ak02its_eta);
-    auxtree->SetBranchAddress("jet_ak02its_phi", IN_jet_ak02its_phi);
-    auxtree->SetBranchAddress("jet_ak02its_area", IN_jet_ak02its_area);
-    auxtree->SetBranchAddress("jet_ak02its_multiplicity_raw", IN_jet_ak02its_multiplicity_raw);
+	auxtree->SetBranchAddress("njet_ak02its", &IN_njet_ak02its);
+	auxtree->SetBranchAddress("jet_ak02its_pt_raw", IN_jet_ak02its_pt_raw);
+	auxtree->SetBranchAddress("jet_ak02its_eta", IN_jet_ak02its_eta);
+	auxtree->SetBranchAddress("jet_ak02its_phi", IN_jet_ak02its_phi);
+	auxtree->SetBranchAddress("jet_ak02its_area", IN_jet_ak02its_area);
+	auxtree->SetBranchAddress("jet_ak02its_multiplicity_raw", IN_jet_ak02its_multiplicity_raw);
 
-    auxtree->SetBranchAddress("njet_charged_truth_ak02", &IN_njet_charged_truth_ak02);
-    auxtree->SetBranchAddress("jet_charged_truth_ak02_pt", IN_jet_charged_truth_ak02_pt);
-    auxtree->SetBranchAddress("jet_charged_truth_ak02_eta", IN_jet_charged_truth_ak02_eta);
-    auxtree->SetBranchAddress("jet_charged_truth_ak02_phi", IN_jet_charged_truth_ak02_phi);
-    auxtree->SetBranchAddress("jet_charged_truth_ak02_area", IN_jet_charged_truth_ak02_area);
-    auxtree->SetBranchAddress("jet_charged_truth_ak02_multiplicity", IN_jet_charged_truth_ak02_multiplicity);
+	auxtree->SetBranchAddress("njet_charged_truth_ak02", &IN_njet_charged_truth_ak02);
+	auxtree->SetBranchAddress("jet_charged_truth_ak02_pt", IN_jet_charged_truth_ak02_pt);
+	auxtree->SetBranchAddress("jet_charged_truth_ak02_eta", IN_jet_charged_truth_ak02_eta);
+	auxtree->SetBranchAddress("jet_charged_truth_ak02_phi", IN_jet_charged_truth_ak02_phi);
+	auxtree->SetBranchAddress("jet_charged_truth_ak02_area", IN_jet_charged_truth_ak02_area);
+	auxtree->SetBranchAddress("jet_charged_truth_ak02_multiplicity", IN_jet_charged_truth_ak02_multiplicity);
 
 }
 
@@ -197,34 +197,34 @@ void setupNewBranches(TTree* outtree)
 void copyBranchValues()
 {
 	outncluster = ncluster;
-    for (int i = 0; i < ncluster; i++) {
-        cluster_5x5all[i] = IN_cluster_5x5all[i];
-    }
+	for (int i = 0; i < ncluster; i++) {
+		cluster_5x5all[i] = IN_cluster_5x5all[i];
+	}
 
 	njet_ak02tpc = IN_njet_ak02tpc;
-    for (int i = 0; i < njet_ak02tpc; i++) {        
-        jet_ak02tpc_pt_raw[i] = IN_jet_ak02tpc_pt_raw[i];
-        jet_ak02tpc_eta[i] = IN_jet_ak02tpc_eta[i];
-        jet_ak02tpc_phi[i] = IN_jet_ak02tpc_phi[i];
-        jet_ak02tpc_area[i] = IN_jet_ak02tpc_area[i];
-        jet_ak02tpc_multiplicity_raw[i] = IN_jet_ak02tpc_multiplicity_raw[i];
-    }
+	for (int i = 0; i < njet_ak02tpc; i++) {
+		jet_ak02tpc_pt_raw[i] = IN_jet_ak02tpc_pt_raw[i];
+		jet_ak02tpc_eta[i] = IN_jet_ak02tpc_eta[i];
+		jet_ak02tpc_phi[i] = IN_jet_ak02tpc_phi[i];
+		jet_ak02tpc_area[i] = IN_jet_ak02tpc_area[i];
+		jet_ak02tpc_multiplicity_raw[i] = IN_jet_ak02tpc_multiplicity_raw[i];
+	}
 
 	njet_ak02its = IN_njet_ak02its;
-    for (int i = 0; i < njet_ak02its; i++) {
-        jet_ak02its_pt_raw[i] = IN_jet_ak02its_pt_raw[i];
-        jet_ak02its_eta[i] = IN_jet_ak02its_eta[i];
-        jet_ak02its_phi[i] = IN_jet_ak02its_phi[i];
-        jet_ak02its_area[i] = IN_jet_ak02its_area[i];
-        jet_ak02its_multiplicity_raw[i] = IN_jet_ak02its_multiplicity_raw[i];
-    }
-    
+	for (int i = 0; i < njet_ak02its; i++) {
+		jet_ak02its_pt_raw[i] = IN_jet_ak02its_pt_raw[i];
+		jet_ak02its_eta[i] = IN_jet_ak02its_eta[i];
+		jet_ak02its_phi[i] = IN_jet_ak02its_phi[i];
+		jet_ak02its_area[i] = IN_jet_ak02its_area[i];
+		jet_ak02its_multiplicity_raw[i] = IN_jet_ak02its_multiplicity_raw[i];
+	}
+
 	njet_charged_truth_ak02 = IN_njet_charged_truth_ak02;
-    for (int i = 0; i < njet_charged_truth_ak02; i++) {
-        jet_charged_truth_ak02_pt[i] = IN_jet_charged_truth_ak02_pt[i];
-        jet_charged_truth_ak02_eta[i] = IN_jet_charged_truth_ak02_eta[i];
-        jet_charged_truth_ak02_phi[i] = IN_jet_charged_truth_ak02_phi[i];
-        jet_charged_truth_ak02_area[i] = IN_jet_charged_truth_ak02_area[i];
-        jet_charged_truth_ak02_multiplicity[i] = IN_jet_charged_truth_ak02_multiplicity[i];
-    }
+	for (int i = 0; i < njet_charged_truth_ak02; i++) {
+		jet_charged_truth_ak02_pt[i] = IN_jet_charged_truth_ak02_pt[i];
+		jet_charged_truth_ak02_eta[i] = IN_jet_charged_truth_ak02_eta[i];
+		jet_charged_truth_ak02_phi[i] = IN_jet_charged_truth_ak02_phi[i];
+		jet_charged_truth_ak02_area[i] = IN_jet_charged_truth_ak02_area[i];
+		jet_charged_truth_ak02_multiplicity[i] = IN_jet_charged_truth_ak02_multiplicity[i];
+	}
 }
