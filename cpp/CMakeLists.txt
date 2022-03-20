@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.10)
 project(gammajet)
 
 # specify the C++ standard
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # add ROOT
@@ -12,12 +12,6 @@ find_package(ROOT)
 
 # add OpenMP prallelization (MPI currently overkill, but may be necessary later)
 find_package(OpenMP)
-
-# finding the HDF5 package fails, so we do it manually instead
-# 'export $HDF5_DIR=/opt/cray/pe/hdf5-parallel/1.10.5.2/INTEL/19.0/'
-# find_package(HDF5)
-# find_package(HDF5 NAMES hdf5 COMPONENTS C ${SEARCH_TYPE})
-# set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${HDF5_INCLUDE_DIR}")
 
 # RooUnfold is a manual install, and $ROOUNFOLD_DIR is a variable that doesn't naturally exist,
 # so add to .bashrc or export it before compiling or whatever
@@ -42,6 +36,7 @@ add_executable(same_event_mc same_event_mc.cc)
 add_executable(centrality_checks centrality_checks.cc)
 add_executable(mixed_event mixed_event.cc)
 add_executable(process_gjmc process_gjmc.cc)
+add_executable(skim_pp skim_pp.cc)
 
 # link libraries
 target_link_libraries(same_event ${ROOT_LIBRARIES} yaml-cpp)
@@ -49,3 +44,4 @@ target_link_libraries(same_event_mc ${ROOT_LIBRARIES} yaml-cpp)
 target_link_libraries(centrality_checks ${ROOT_LIBRARIES} yaml-cpp)
 target_link_libraries(mixed_event ${ROOT_LIBRARIES} hdf5_cpp hdf5 yaml-cpp OpenMP::OpenMP_CXX)
 target_link_libraries(process_gjmc RooUnfold ${ROOT_LIBRARIES} yaml-cpp)
+target_link_libraries(skim_pp ${ROOT_LIBRARIES} yaml-cpp)

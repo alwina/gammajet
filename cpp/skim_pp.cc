@@ -25,25 +25,22 @@ int main(int argc, char *argv[])
 	parseConfig();
 	printCutSummary();
 
-	// only clone the tree the first time
-	bool firstfile = true;
-
 	/*--------------------------------------------------------------
 	Loop through files
 	--------------------------------------------------------------*/
 	YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
+    
+    // create output file - need to do it this way to not get the memory-resident TTree thing
+    openFilesAndGetTTrees(filenames[0].as<std::string>());
+    setBranchAddresses();
+	TFile* fout = new TFile((TString) configrunperiod["filelists"]["skimmedntuples"]["data"].as<std::string>(), "RECREATE");
+    TTree* outtree = _tree_event->CloneTree(0);
+    setupNewBranches(outtree);
+    
 	for (YAML::const_iterator fileit = filenames.begin(); fileit != filenames.end(); fileit++) {
 		std::string root_filename = fileit->as<std::string>();
 		openFilesAndGetTTrees(root_filename);
 		setBranchAddresses();
-
-		if (firstfile) {
-			// create a clone with no events
-			outtree = _tree_event->CloneTree(0);
-			setupNewBranches();
-		}
-
-		firstfile = false;
 
 		/*--------------------------------------------------------------
 		Loop through events
@@ -52,9 +49,8 @@ int main(int argc, char *argv[])
 		for (long ievent = 0; ievent < nevents; ievent++) {
 			// load this event
 			_tree_event->GetEntry(ievent);
-			if (auxfile != NULL) {
-				auxtree->GetEntry(ievent);
-			}
+            auxtree->GetEntry(ievent);
+
 			fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
 
 			copyBranchValues();
@@ -87,11 +83,7 @@ int main(int argc, char *argv[])
 	/*--------------------------------------------------------------
 	Write outputs to file
 	--------------------------------------------------------------*/
-	// Write to fout
-	TFile* fout;
-	fout = new TFile((TString) configrunperiod["filelists"]["skimmedntuples"]["data"].as<std::string>(), "RECREATE");
-
-	outtree->Write();
+	outtree->AutoSave();
     
 	fout->Close();
 	std::cout << "Ending" << std::endl;
@@ -130,19 +122,18 @@ void openFilesAndGetTTrees(std::string root_filename)
 	std::string aux_filename = root_filename.replace(root_filename.find(".root"), 5, "_AUX.root");
 	std::cout << "Opening " << aux_filename << std::endl;
 	auxfile = TFile::Open((TString) aux_filename);
+    auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
 	// the aux file is only needed in certain situations, so check for those situations
 	// things should still work even without the aux file otherwise
 	if (auxfile == NULL) {
-		if (jettype == "ak02tpc") {
-			std::cout << "ERROR: No aux file; cannot get jet type " << jettype << std::endl;
-			exit(EXIT_FAILURE);
-		}
-		if (shower_shape == "cluster_5x5all") {
-			std::cout << "ERROR: No aux file; cannot get shower shape " << shower_shape << std::endl;
-			exit(EXIT_FAILURE);
-		}
+        std::cout << "ERROR: no aux file. Exiting" << std::endl;
+        exit(EXIT_FAILURE);
 	} else {
 		auxtree = dynamic_cast<TTree*>(auxfile->Get("ntupleaux"));
+        if (auxtree == NULL) {
+            std::cout << "ERROR: no aux tree. Exiting" << std::endl;
+            exit(EXIT_FAILURE);
+        }
 	}
 }
 
@@ -151,33 +142,32 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("ncluster", &ncluster);
 	_tree_event->SetBranchAddress("cluster_pt", cluster_pt);
 
-	if (auxfile != NULL) {
-		auxtree->SetBranchAddress("cluster_5x5all", IN_cluster_5x5all);
+    auxtree->SetBranchAddress("cluster_5x5all", IN_cluster_5x5all);
 
-		auxtree->SetBranchAddress("njet_ak02tpc", &IN_njet_ak02tpc);
-		auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", IN_jet_ak02tpc_pt_raw);
-		auxtree->SetBranchAddress("jet_ak02tpc_eta", IN_jet_ak02tpc_eta);
-		auxtree->SetBranchAddress("jet_ak02tpc_phi", IN_jet_ak02tpc_phi);
-		auxtree->SetBranchAddress("jet_ak02tpc_area", IN_jet_ak02tpc_area);
-		auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", IN_jet_ak02tpc_multiplicity_raw);
+    auxtree->SetBranchAddress("njet_ak02tpc", &IN_njet_ak02tpc);
+    auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", IN_jet_ak02tpc_pt_raw);
+    auxtree->SetBranchAddress("jet_ak02tpc_eta", IN_jet_ak02tpc_eta);
+    auxtree->SetBranchAddress("jet_ak02tpc_phi", IN_jet_ak02tpc_phi);
+    auxtree->SetBranchAddress("jet_ak02tpc_area", IN_jet_ak02tpc_area);
+    auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", IN_jet_ak02tpc_multiplicity_raw);
 
-		auxtree->SetBranchAddress("njet_ak02its", &IN_njet_ak02its);
-		auxtree->SetBranchAddress("jet_ak02its_pt_raw", IN_jet_ak02its_pt_raw);
-		auxtree->SetBranchAddress("jet_ak02its_eta", IN_jet_ak02its_eta);
-		auxtree->SetBranchAddress("jet_ak02its_phi", IN_jet_ak02its_phi);
-		auxtree->SetBranchAddress("jet_ak02its_area", IN_jet_ak02its_area);
-		auxtree->SetBranchAddress("jet_ak02its_multiplicity_raw", IN_jet_ak02its_multiplicity_raw);
+    auxtree->SetBranchAddress("njet_ak02its", &IN_njet_ak02its);
+    auxtree->SetBranchAddress("jet_ak02its_pt_raw", IN_jet_ak02its_pt_raw);
+    auxtree->SetBranchAddress("jet_ak02its_eta", IN_jet_ak02its_eta);
+    auxtree->SetBranchAddress("jet_ak02its_phi", IN_jet_ak02its_phi);
+    auxtree->SetBranchAddress("jet_ak02its_area", IN_jet_ak02its_area);
+    auxtree->SetBranchAddress("jet_ak02its_multiplicity_raw", IN_jet_ak02its_multiplicity_raw);
 
-		auxtree->SetBranchAddress("njet_charged_truth_ak02", &IN_njet_charged_truth_ak02);
-		auxtree->SetBranchAddress("jet_charged_truth_ak02_pt_raw", IN_jet_charged_truth_ak02_pt_raw);
-		auxtree->SetBranchAddress("jet_charged_truth_ak02_eta", IN_jet_charged_truth_ak02_eta);
-		auxtree->SetBranchAddress("jet_charged_truth_ak02_phi", IN_jet_charged_truth_ak02_phi);
-		auxtree->SetBranchAddress("jet_charged_truth_ak02_area", IN_jet_charged_truth_ak02_area);
-		auxtree->SetBranchAddress("jet_charged_truth_ak02_multiplicity_raw", IN_jet_charged_truth_ak02_multiplicity_raw);
-	}
+    auxtree->SetBranchAddress("njet_charged_truth_ak02", &IN_njet_charged_truth_ak02);
+    auxtree->SetBranchAddress("jet_charged_truth_ak02_pt", IN_jet_charged_truth_ak02_pt);
+    auxtree->SetBranchAddress("jet_charged_truth_ak02_eta", IN_jet_charged_truth_ak02_eta);
+    auxtree->SetBranchAddress("jet_charged_truth_ak02_phi", IN_jet_charged_truth_ak02_phi);
+    auxtree->SetBranchAddress("jet_charged_truth_ak02_area", IN_jet_charged_truth_ak02_area);
+    auxtree->SetBranchAddress("jet_charged_truth_ak02_multiplicity", IN_jet_charged_truth_ak02_multiplicity);
+
 }
 
-void setupNewBranches()
+void setupNewBranches(TTree* outtree)
 {
 	outtree->Branch("ncluster", &outncluster, "ncluster/i");
 	outtree->Branch("cluster_5x5all", cluster_5x5all, "cluster5x5all[ncluster]/F");
@@ -207,26 +197,34 @@ void setupNewBranches()
 void copyBranchValues()
 {
 	outncluster = ncluster;
-	cluster_5x5all = IN_cluster_5x5_all;
+    for (int i = 0; i < ncluster; i++) {
+        cluster_5x5all[i] = IN_cluster_5x5all[i];
+    }
 
 	njet_ak02tpc = IN_njet_ak02tpc;
-	jet_ak02tpc_pt_raw = IN_jet_ak02tpc_pt_raw;
-	jet_ak02tpc_eta = IN_jet_ak02tpc_eta;
-	jet_ak02tpc_phi = IN_jet_ak02tpc_phi;
-	jet_ak02tpc_area = IN_jet_ak02tpc_area;
-	jet_ak02tpc_multiplicity_raw = IN_jet_ak02tpc_multiplicity_raw;
+    for (int i = 0; i < njet_ak02tpc; i++) {        
+        jet_ak02tpc_pt_raw[i] = IN_jet_ak02tpc_pt_raw[i];
+        jet_ak02tpc_eta[i] = IN_jet_ak02tpc_eta[i];
+        jet_ak02tpc_phi[i] = IN_jet_ak02tpc_phi[i];
+        jet_ak02tpc_area[i] = IN_jet_ak02tpc_area[i];
+        jet_ak02tpc_multiplicity_raw[i] = IN_jet_ak02tpc_multiplicity_raw[i];
+    }
 
 	njet_ak02its = IN_njet_ak02its;
-	jet_ak02its_pt_raw = IN_jet_ak02its_pt_raw;
-	jet_ak02its_eta = IN_jet_ak02its_eta;
-	jet_ak02its_phi = IN_jet_ak02its_phi;
-	jet_ak02its_area = IN_jet_ak02its_area;
-	jet_ak02its_multiplicity_raw = IN_jet_ak02its_multiplicity_raw;
-
+    for (int i = 0; i < njet_ak02its; i++) {
+        jet_ak02its_pt_raw[i] = IN_jet_ak02its_pt_raw[i];
+        jet_ak02its_eta[i] = IN_jet_ak02its_eta[i];
+        jet_ak02its_phi[i] = IN_jet_ak02its_phi[i];
+        jet_ak02its_area[i] = IN_jet_ak02its_area[i];
+        jet_ak02its_multiplicity_raw[i] = IN_jet_ak02its_multiplicity_raw[i];
+    }
+    
 	njet_charged_truth_ak02 = IN_njet_charged_truth_ak02;
-	jet_charged_truth_ak02_pt_raw = IN_jet_charged_truth_ak02_pt_raw;
-	jet_charged_truth_ak02_eta = IN_jet_charged_truth_ak02_eta;
-	jet_charged_truth_ak02_phi = IN_jet_charged_truth_ak02_phi;
-	jet_charged_truth_ak02_area = IN_jet_charged_truth_ak02_area;
-	jet_charged_truth_ak02_multiplicity_raw = IN_jet_charged_truth_ak02_multiplicity_raw;
+    for (int i = 0; i < njet_charged_truth_ak02; i++) {
+        jet_charged_truth_ak02_pt[i] = IN_jet_charged_truth_ak02_pt[i];
+        jet_charged_truth_ak02_eta[i] = IN_jet_charged_truth_ak02_eta[i];
+        jet_charged_truth_ak02_phi[i] = IN_jet_charged_truth_ak02_phi[i];
+        jet_charged_truth_ak02_area[i] = IN_jet_charged_truth_ak02_area[i];
+        jet_charged_truth_ak02_multiplicity[i] = IN_jet_charged_truth_ak02_multiplicity[i];
+    }
 }
