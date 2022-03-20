@@ -44,6 +44,7 @@ int main(int argc, char *argv[])
 	Double_t h4[4];
 	float avg_eg_ntrial = 0;
 	float weight = 0;
+    int nVeryHighPtJets = 0;
 
 	/*--------------------------------------------------------------
 	Loop through files
@@ -76,6 +77,16 @@ int main(int argc, char *argv[])
 			weight = eg_cross_section / avg_eg_ntrial;
 
 			matchJetsInEvent();
+            // if there are any reco jets matched with multiple truth jets, throw this away
+            std::set<int> setMatchedReco(matchedReco.begin(), matchedReco.end());
+            if (setMatchedReco.size() != matchedReco.size()) {
+                // clear the vectors first
+                matchedJetIndices.clear();
+                unmatchedTruth.clear();
+                unmatchedReco.clear();
+                matchedReco.clear();
+                continue;
+            }
 			/*--------------------------------------------------------------
 			Loop through clusters
 			--------------------------------------------------------------*/
@@ -218,6 +229,24 @@ int main(int argc, char *argv[])
 					float deltaphi_reco = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - j_reco_phi));
 					// effective multiplicity: jet multiplicity scaled by pt kept / pt before UE subtraction
 					float j_reco_eff_mult = j_reco_mult * (j_reco_pt) / (j_reco_pt + j_reco_area * ue_estimate_tpc_const);
+                    
+					corr[0] = centrality_v0m;
+					corr[1] = cluster_pt[icluster];
+					corr[2] = deltaphi_truth;
+					corr[3] = j_truth_pt;
+					corr[4] = j_truth_pt / photon_truth_pt;
+					corr[5] = cluster_pt[icluster] * sin(deltaphi_truth);
+					hCorrSRMatchedTruth->Fill(corr, weight);
+					hCorr1ptSRMatchedTruth->Fill(corr, weight / j_truth_pt);
+
+					corr[0] = centrality_v0m;
+					corr[1] = cluster_pt[icluster];
+					corr[2] = deltaphi_reco;
+					corr[3] = j_reco_pt;
+					corr[4] = j_reco_pt / cluster_pt[icluster];
+					corr[5] = cluster_pt[icluster] * sin(deltaphi_reco);
+					hCorrSRMatchedReco->Fill(corr, weight);
+					hCorr1ptSRMatchedReco->Fill(corr, weight / j_reco_pt);
 
 					if (deltaphi_truth > 7 * M_PI / 8 && deltaphi_reco > 7 * M_PI / 8) {
 						ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_reco_pt, j_truth_pt / photon_truth_pt, j_truth_pt, weight);
@@ -244,17 +273,25 @@ int main(int argc, char *argv[])
 						jetresolution[3] = TVector2::Phi_mpi_pi(j_reco_phi - j_truth_phi);
 						hJetB2bPhiResolution->Fill(jetresolution, weight);
 					}
+                    
+                    // deltaphi requires ptratio < 1.2, which we do at the reco level
+                    // it shouldn't really matter because there are very few jets that get cut, but just in case
+                    // unclear whether this should also happen at the truth level though
+                    if (j_reco_pt / cluster_pt[icluster] < 1.2) {
+                        deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt, weight);
+                        deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth, weight);
 
-					deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt, weight);
-					deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth, weight);
+                        h4[0] = deltaphi_reco;
+                        h4[1] = deltaphi_truth;
+                        h4[2] = j_reco_pt;
+                        h4[3] = j_truth_pt;
+                        deltaphijetptHists[centbin][ptbin]->Fill(h4, weight);
 
-					// fill ThnSparses corresponding to 2D response matrices
-					h4[0] = deltaphi_reco;
-					h4[1] = deltaphi_truth;
-					h4[2] = j_reco_pt;
-					h4[3] = j_truth_pt;
-					deltaphijetptHists[centbin][ptbin]->Fill(h4, weight);
-
+                        if (j_truth_pt / photon_truth_pt > 1.2) {
+                            nVeryHighPtJets++;
+                        }
+                    }
+                    
 					// fill jet pt and phi resolution
 					jetresolution[2] = j_reco_pt;
 					jetresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
@@ -285,6 +322,7 @@ int main(int argc, char *argv[])
 			matchedJetIndices.clear();
 			unmatchedTruth.clear();
 			unmatchedReco.clear();
+            matchedReco.clear();
 		} // end event loop
 
 		// close files
@@ -300,6 +338,7 @@ int main(int argc, char *argv[])
 	--------------------------------------------------------------*/
 	TFile* foutrm;
 	foutrm = new TFile((TString) configrunperiod["filelists"]["correlations"]["responsematrix"].as<std::string>(), "RECREATE");
+    std::cout << "Found " << nVeryHighPtJets << " truth jets with pT > 1.2 * photon pT" << std::endl;
 	std::cout << "Writing response matrices to file" << std::endl;
 
 	for (int i = 0; i < ncentralityranges; i++) {
@@ -347,9 +386,13 @@ int main(int argc, char *argv[])
 	hTrigSR->Write();
 	hCorrSRTruth->Write();
 	hCorrSRAll->Write();
+    hCorrSRMatchedTruth->Write();
+    hCorrSRMatchedReco->Write();
 	hCorr1ptSRTruth->Write();
 	hCorr1ptSRAll->Write();
-	hPhotonPtResolution->Write();
+    hCorr1ptSRMatchedTruth->Write();
+    hCorr1ptSRMatchedReco->Write();
+    hPhotonPtResolution->Write();
 	hPhotonPhiResolution->Write();
 	hJetPtResolution->Write();
 	hJetPhiResolution->Write();
@@ -524,8 +567,12 @@ void initializeTHnSparses()
 
 	hCorrSRTruth = new THnSparseF("hCorrSRTruth", "Correlations (Truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrSRAll = new THnSparseF("hCorrSRAll", "Correlations (All jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+    hCorrSRMatchedTruth = new THnSparseF("hCorrSRMatchedTruth", "Correlations (Matched truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+    hCorrSRMatchedReco = new THnSparseF("hCorrSRMatchedReco", "Correlations (Matched reco jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorr1ptSRTruth = new THnSparseF("hCorr1ptSRTruth", "Correlations with 1/jetpt weight (Truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorr1ptSRAll = new THnSparseF("hCorr1ptSRAll", "Correlations with 1/jetpt weight (All jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+    hCorr1ptSRMatchedTruth = new THnSparseF("hCorr1ptSRMatchedTruth", "Correlations with 1/jetpt weight (Matched truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+    hCorr1ptSRMatchedReco = new THnSparseF("hCorr1ptSRMatchedReco", "Correlations with 1/jetpt weight (Matched reco jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrSRTruth->Sumw2();
 	hCorrSRAll->Sumw2();
 	hCorr1ptSRTruth->Sumw2();
@@ -744,7 +791,7 @@ void setBranchAddresses()
 
 void matchJetsInEvent()
 {
-	// first, make all reco jets unmatched
+    // start with all reco jets unmatched
 	for (int ireco = 0; ireco < njet; ireco++) {
 		unmatchedReco.insert(ireco);
 	}
@@ -788,6 +835,7 @@ void matchJetsInEvent()
 				matchedJetIndices.push_back(matchedIndex);
 				// remove the reco jet from the set of unmatched reco jets
 				unmatchedReco.erase(matchedRecoIndex);
+                matchedReco.push_back(matchedRecoIndex);
 			}
 		} else {
 			unmatchedTruth.insert(itruth);

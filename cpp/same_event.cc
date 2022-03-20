@@ -105,6 +105,9 @@ int main(int argc, char *argv[])
 					purity_weight = 1.0 / purity - 1;
 					hTrigBR->Fill(trig);
 				}
+                
+                bool foundJet = false;
+                bool foundB2bJet = false;
 
 				/*--------------------------------------------------------------
 				Loop through jets
@@ -136,8 +139,31 @@ int main(int argc, char *argv[])
 						hCorrBR->Fill(corr, purity_weight);
 						hCorr1ptBR->Fill(corr, purity_weight / jetpt);
 					}
+                    
+                    if (jetpt > 10) foundJet = true;
+                    if (jetpt > 10 && deltaphi > 7 * M_PI / 8) foundB2bJet=true;
 				} // end jet loop
-			} // end cluster loop
+                
+                if (foundJet) {
+                    if (isSignal) {
+                        hTrigSRJet->Fill(trig);
+                    }
+                    
+                    if (isBackground) {
+                        hTrigBRJet->Fill(trig);
+                    }
+                }
+                
+                if (foundB2bJet) {
+                    if (isSignal) {
+                        hTrigSRJetB2b->Fill(trig);
+                    }
+                    
+                    if (isBackground) {
+                        hTrigBRJetB2b->Fill(trig);
+                    }
+                }
+            } // end cluster loop
 		} // end event loop
 
 		// close files
@@ -154,6 +180,7 @@ int main(int argc, char *argv[])
 	// Write to fout
 	TFile* fout;
 	fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["sameevent"].as<std::string>(), "RECREATE");
+    std::cout << "Total SR triggers: " << hTrigSR->GetEntries() << ", SR triggers with jet: " << hTrigSRJet->GetEntries() << ", SR triggers with b2b jet: " << hTrigSRJetB2b->GetEntries() << std::endl;
 	std::cout << "Writing to file" << std::endl;
 
 	hTrigSR->Write();
@@ -163,6 +190,11 @@ int main(int argc, char *argv[])
 	hCorrBR->Write();
 	hCorr1ptBR->Write();
 
+    hTrigSRJet->Write();
+    hTrigBRJet->Write();
+    hTrigSRJetB2b->Write();
+    hTrigBRJetB2b->Write();
+    
 	fout->Close();
 	std::cout << "Ending" << std::endl;
 	return EXIT_SUCCESS;
@@ -197,6 +229,10 @@ void initializeTHnSparses()
 
 	hTrigSR = new THnSparseF("hTrigSR", "Number of clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 	hTrigBR = new THnSparseF("hTrigBR", "Number of clusters (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+	hTrigSRJet = new THnSparseF("hTrigSRJet", "Number of clusters with jet (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+	hTrigBRJet = new THnSparseF("hTrigBRJet", "Number of clusters with jet (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+	hTrigSRJetB2b = new THnSparseF("hTrigSRJetB2b", "Number of clusters with b2b jet (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+	hTrigBRJetB2b = new THnSparseF("hTrigBRJetB2b", "Number of clusters with b2b jet (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
 	// dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio, jet kT
 	ndimCorr = 6;

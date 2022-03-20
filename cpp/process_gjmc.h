@@ -46,8 +46,12 @@ std::vector<std::vector<RooUnfoldResponse>> photonphiResponses;
 THnSparseF* hTrigSR;
 THnSparseF* hCorrSRTruth;
 THnSparseF* hCorrSRAll;
+THnSparseF* hCorrSRMatchedTruth;
+THnSparseF* hCorrSRMatchedReco;
 THnSparseF* hCorr1ptSRTruth;
 THnSparseF* hCorr1ptSRAll;
+THnSparseF* hCorr1ptSRMatchedTruth;
+THnSparseF* hCorr1ptSRMatchedReco;
 int ndimTrig;
 int ndimCorr;
 int ndimPhotonRes;
@@ -71,6 +75,7 @@ float purity_weight;
 std::vector<std::pair<int, int>> matchedJetIndices;
 std::set<int> unmatchedTruth;
 std::set<int> unmatchedReco;
+std::vector<int> matchedReco;
 std::pair<int, int> matchedIndex;
 
 /*--------------------------------------------------------------

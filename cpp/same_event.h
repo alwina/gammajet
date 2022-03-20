@@ -18,6 +18,10 @@ long nevents;
 // THnSparses
 THnSparseF* hTrigSR;
 THnSparseF* hTrigBR;
+THnSparseF* hTrigSRJet;
+THnSparseF* hTrigBRJet;
+THnSparseF* hTrigSRJetB2b;
+THnSparseF* hTrigBRJetB2b;
 THnSparseF* hCorrSR;
 THnSparseF* hCorrBR;
 THnSparseF* hCorr1ptSR;

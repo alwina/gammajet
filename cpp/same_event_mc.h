@@ -38,6 +38,7 @@ void printCutSummary();
 void initializeTHnSparses();
 void openFilesAndGetTTrees(std::string root_filename);
 void setBranchAddresses();
+float getAvgEgNtrial(std::string root_filename);
 bool rejectCluster(int icluster);
 float getIsolation(int icluster);
 float getShower(int icluster);

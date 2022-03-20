@@ -2,7 +2,7 @@
 #include <iostream>
 #include <math.h>
 
-#include "same_event.h"
+#include "same_event_mc.h"
 #include "config_parser.h"
 #include "shared_defs.h"
 
@@ -41,9 +41,10 @@ int main(int argc, char *argv[])
 	/*--------------------------------------------------------------
 	Loop through files
 	--------------------------------------------------------------*/
-	YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
-	for (YAML::const_iterator fileit = filenames.begin(); fileit != filenames.end(); fileit++) {
-		std::string root_filename = fileit->as<std::string>();
+    std::vector<std::string> filenames = configrunperiod["filelists"]["ntuples"]["gjmc"].as<std::vector<std::string>>();
+    std::vector<std::string> jjmcfilenames = configrunperiod["filelists"]["ntuples"]["jjmc"].as<std::vector<std::string>>();
+    filenames.insert(filenames.end(), jjmcfilenames.begin(), jjmcfilenames.end());
+	for (auto & root_filename : filenames) {
 		openFilesAndGetTTrees(root_filename);
 		setBranchAddresses();
 		avg_eg_ntrial = getAvgEgNtrial(root_filename);
@@ -159,7 +160,7 @@ int main(int argc, char *argv[])
 	--------------------------------------------------------------*/
 	// Write to fout
 	TFile* fout;
-	fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["sameevent"].as<std::string>(), "RECREATE");
+	fout = new TFile("root/sameEvent20g3.root", "RECREATE");
 	std::cout << "Writing to file" << std::endl;
 
 	hTrigSR->Write();
@@ -370,18 +371,43 @@ float getAvgEgNtrial(std::string filename)
 {
 	// can't seem to figure out how to do this dynamically, so we'll just calculate it once and hard-code it here
 	// it's faster anyway
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat1_18q_295913_celltrack.root") return 609.83156;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat2_18q_296381_celltrack.root") return 39.231903;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat3_18q_296623_celltrack.root") return 17.179408;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat4_18q_296312_celltrack.root") return 14.102239;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat5_18q_296197_celltrack.root") return 11.905428;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat6_18q_296419_celltrack.root") return 9.4368309;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat1_18q_cent1030_int7.root") return 994.04927;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat2_18q_cent1030_int7.root") return 40.212364;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat3_18q_cent1030_int7.root") return 17.235968;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat4_18q_cent1030_int7.root") return 14.083421;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat5_18q_cent1030_int7.root") return 11.939820;
-	if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat6_18q_cent1030_int7.root") return 9.4751475;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat1_18q_295913_celltrack.root") return 609.831558824;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat2_18q_296381_celltrack.root") return 39.2319029752;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat3_18q_296623_celltrack.root") return 17.1794083568;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat4_18q_296312_celltrack.root") return 14.1022386412;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat5_18q_296197_celltrack.root") return 11.9054275273;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat6_18q_296419_celltrack.root") return 9.4368308794;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat1_18q_cent1030_int7.root") return 994.049271389;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat2_18q_cent1030_int7.root") return 40.2123641696;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat3_18q_cent1030_int7.root") return 17.2359678303;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat4_18q_cent1030_int7.root") return 14.0834208953;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat5_18q_cent1030_int7.root") return 11.9398200279;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3a_pthat6_18q_cent1030_int7.root") return 9.47514747474;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat1_18q_295586_celltrack.root") return 1060733.62722;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat2_18q_296509_celltrack.root") return 80066.0888592;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat3_18q_296280_celltrack.root") return 14245.3726383;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat4_18q_296065_celltrack.root") return 2724.94568333;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat5_18q_296415_celltrack.root") return 694.716856253;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat6_18q_296135_celltrack.root") return 221.5977468;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat7_18q_296511_celltrack.root") return 78.8354605923;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat8_18q_295819_celltrack.root") return 23.6664469397;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat1_18r_297193_celltrack.root") return 446021.122817;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat2_18r_297590_celltrack.root") return 83209.2395006;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat3_18r_297415_celltrack.root") return 12543.0506085;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat4_18r_297588_celltrack.root") return 2669.61427539;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat5_18r_297441_celltrack.root") return 700.724918225;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat6_18r_297218_celltrack.root") return 221.092738388;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat7_18r_297317_celltrack.root") return 78.9736794019;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat8_18r_297541_celltrack.root") return 23.8052742002;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat1_18q_cent1030_int7.root") return 1068767.82634;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat2_18q_cent1030_int7.root") return 113655.662778;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat3_18q_cent1030_int7.root") return 15863.7317306;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat4_18q_cent1030_int7.root") return 3180.62166183;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat5_18q_cent1030_int7.root") return 762.109017096;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat6_18q_cent1030_int7.root") return 235.597678758;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat7_18q_cent1030_int7.root") return 82.3022021864;
+    if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat8_18q_cent1030_int7.root") return 24.400433146;
+
 	return 0;
 }
 

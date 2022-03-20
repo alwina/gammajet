@@ -621,7 +621,7 @@ void initializeTHnSparses()
 	hnMixBR = new THnSparseF("hnMixBR", "Number of cluster-ME pairs (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
 	// dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio
-	ndimCorr = 5;
+	ndimCorr = 6;
 	Int_t nbinsCorr[ndimCorr];
 	Double_t minbinsCorr[ndimCorr];
 	Double_t maxbinsCorr[ndimCorr];

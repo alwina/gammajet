@@ -139,28 +139,31 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
         track_e = getattr(tree, 'track_e')
 
         # trigger info
-#         if run_number != previous_run_number:
-#             kINT7TriggerIds = getINT7TriggerIds(run_number)
-#             kCentralTriggerIds = getCentralTriggerIds(run_number)
-#             kSemiCentralTriggerIds = getSemiCentralTriggerIds(run_number)
-#             kEMCEGATriggerIds = getEMCEGATriggerIds(run_number)
-#             previous_run_number = run_number
+        if '17q' in ntuplefilename or '18b10' in ntuplefilename or '18l2' in ntuplefilename:
+            isINT7[0] = False
+            isCentral[0] = False
+            isSemiCentral[0] = False
+            isEMCEGA[0] = False
+        else:
+            if run_number != previous_run_number:
+                kINT7TriggerIds = getINT7TriggerIds(run_number)
+                kCentralTriggerIds = getCentralTriggerIds(run_number)
+                kSemiCentralTriggerIds = getSemiCentralTriggerIds(run_number)
+                kEMCEGATriggerIds = getEMCEGATriggerIds(run_number)
+                previous_run_number = run_number
 
-#         # combine the trigger masks into one number
-#         if len(branch_trigger_mask) > 1:
-#             fullTriggerMask = tBranchToArray(branch_trigger_mask, 'l', 2)
-#             triggerMask = fullTriggerMask[0] + (fullTriggerMask[1] << 50)
-#         else:
-#             triggerMask = tBranchToArray(branch_trigger_mask, 'l', 1)
+            # combine the trigger masks into one number
+            if len(branch_trigger_mask) > 1:
+                fullTriggerMask = tBranchToArray(branch_trigger_mask, 'l', 2)
+                triggerMask = fullTriggerMask[0] + (fullTriggerMask[1] << 50)
+            else:
+                triggerMask = tBranchToArray(branch_trigger_mask, 'l', 1)
 
-#         isINT7[0] = isEventSelected(kINT7TriggerIds, triggerMask)
-#         isCentral[0] = isEventSelected(kCentralTriggerIds, triggerMask)
-#         isSemiCentral[0] = isEventSelected(kSemiCentralTriggerIds, triggerMask)
-#         isEMCEGA[0] = isEventSelected(kEMCEGATriggerIds, triggerMask)
-        isINT7[0] = False
-        isCentral[0] = False
-        isSemiCentral[0] = False
-        isEMCEGA[0] = False
+            isINT7[0] = isEventSelected(kINT7TriggerIds, triggerMask)
+            isCentral[0] = isEventSelected(kCentralTriggerIds, triggerMask)
+            isSemiCentral[0] = isEventSelected(kSemiCentralTriggerIds, triggerMask)
+            isEMCEGA[0] = isEventSelected(kEMCEGATriggerIds, triggerMask)
+
 
         # cluster info
         for icluster in range(ncluster):
@@ -224,6 +227,8 @@ def createAuxFile(ntuplefilename, maxnevents=-1):
         pjs = []
         for imc in range(nmc_truth):
             # see note in alice_mc.py for why we use the pdg_code and not mc_truth_charge
+            if imc < 0:
+                continue
             pdg_code = mc_truth_pdg_code[imc]
             charge = pdgCodeToCharge[pdg_code]
             if charge == 0:

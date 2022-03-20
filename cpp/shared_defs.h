@@ -120,6 +120,9 @@ float getPurity(float pt, float centrality, YAML::Node purityConfig)
 			return GetPurityErf(pt, erfparams);
 		}
 	}
+    else {
+        return 0;
+    }
 }
 
 // calculate 5x5all shower shape
