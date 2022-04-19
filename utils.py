@@ -170,7 +170,7 @@ def getUniformUncertainty(dist):
 
 # skip the underflow and overflow bins for now -- we can change our minds later
 # these assume equally-spaced bins
-def th1ToArrays(th1):
+def th1ToArrays(th1, divideBinWidths=False):
     """
     Converts a ROOT TH1 to numpy arrays (hist, err, binCenters, binWidths)
     """
@@ -180,6 +180,11 @@ def th1ToArrays(th1):
         err.append(th1.GetBinError(binX))
         binCenters.append(th1.GetBinCenter(binX))
         binWidths.append(th1.GetBinWidth(binX))
+
+    if divideBinWidths:
+        hist = np.divide(hist, binWidths)
+        err = np.divide(err, binWidths)
+
     return np.array(hist), np.array(err), np.array(binCenters), np.array(binWidths)
 
 
@@ -187,7 +192,7 @@ def plotTH1(th1, plotXerr=False, plotYerr=True, divideBinWidths=False, skipZeros
     """
     Plots a ROOT TH1 with pyplot
     """
-    hist, err, binCenters, binWidths = th1ToArrays(th1)
+    hist, err, binCenters, binWidths = th1ToArrays(th1, divideBinWidths)
 
     if plotXerr:
         xerr = np.divide(binWidths, 2.0)
@@ -198,9 +203,6 @@ def plotTH1(th1, plotXerr=False, plotYerr=True, divideBinWidths=False, skipZeros
         yerr = err
     else:
         yerr = None
-
-    if divideBinWidths:
-        hist = np.divide(hist, binWidths)
 
     if skipZeros:
         hist[hist == 0] = np.nan

@@ -11,19 +11,19 @@ mpl.rc('xtick', labelsize=16, top=True, direction='in')
 mpl.rc('ytick', labelsize=16, right=True, direction='in')
 
 
-def upperRightText(text, xy=(0.98, 0.98), fontsize=16, **kwargs):
+def upperRightText(text, xy=(0.96, 0.96), fontsize=24, **kwargs):
     plt.annotate(text, xy=xy, xycoords='axes fraction', ha='right', va='top', fontsize=fontsize, **kwargs)
 
 
-def upperLeftText(text, xy=(0.02, 0.98), fontsize=16, **kwargs):
+def upperLeftText(text, xy=(0.04, 0.96), fontsize=24, **kwargs):
     plt.annotate(text, xy=xy, xycoords='axes fraction', ha='left', va='top', fontsize=fontsize, **kwargs)
 
 
-def lowerRightText(text, xy=(0.98, 0.02), fontsize=16, **kwargs):
+def lowerRightText(text, xy=(0.96, 0.04), fontsize=24, **kwargs):
     plt.annotate(text, xy=xy, xycoords='axes fraction', ha='right', va='bottom', fontsize=fontsize, **kwargs)
 
 
-def lowerLeftText(text, xy=(0.02, 0.02), fontsize=16, **kwargs):
+def lowerLeftText(text, xy=(0.04, 0.04), fontsize=24, **kwargs):
     plt.annotate(text, xy=xy, xycoords='axes fraction', ha='left', va='bottom', fontsize=fontsize, **kwargs)
 
 
