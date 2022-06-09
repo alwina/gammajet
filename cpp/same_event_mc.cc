@@ -54,17 +54,6 @@ int main(int argc, char *argv[])
 		--------------------------------------------------------------*/
 		nevents = std::min(_tree_event->GetEntries(), nevents_max);
 		for (long ievent = 0; ievent < nevents; ievent++) {
-			// for some reason, loading these 2 events from this ntuple causes a segfault
-			if (root_filename == "/global/project/projectdirs/alice/NTuples/PbPb/15o_pass2_cluster15.root") {
-				if (ievent == 7894 || ievent == 7895) {
-					std::cout << std::endl << "skipping event " << ievent;
-					if (ievent == 7895) {
-						std::cout << std::endl;
-					}
-					continue;
-				}
-			}
-
 			// load this event
 			_tree_event->GetEntry(ievent);
 			if (auxfile != NULL) {
@@ -76,9 +65,21 @@ int main(int argc, char *argv[])
 			if (abs(primary_vertex[2]) > 10) continue;
 			if (primary_vertex[2] == 0.00) continue;
 			if (do_pile && is_pileup_from_spd_5_08) continue;
-			if (!isINT7) continue;
+			// if (!isINT7) continue;
 
 			weight = eg_cross_section / avg_eg_ntrial;
+            
+			matchJetsInEvent();
+            // if there are any reco jets matched with multiple truth jets, throw this away
+            std::set<int> setMatchedReco(matchedReco.begin(), matchedReco.end());
+            if (setMatchedReco.size() != matchedReco.size()) {
+                // clear the vectors first
+                matchedJetIndices.clear();
+                unmatchedTruth.clear();
+                unmatchedReco.clear();
+                matchedReco.clear();
+                continue;
+            }
 
 			/*--------------------------------------------------------------
 			Loop through clusters
@@ -97,6 +98,9 @@ int main(int argc, char *argv[])
 				isSignal = (shower > srmin) and (shower < srmax);
 				isBackground = (shower > brmin) and (shower < brmax);
 				if (not(isSignal or isBackground)) continue;
+                
+                // determine if this is a non-decay photon
+                bool isNonDecay = getIsClusterNonDecay(icluster);
 
 				float purity = getPurity(cluster_pt[icluster], centrality_v0m, purityconfig);
 
@@ -106,11 +110,23 @@ int main(int argc, char *argv[])
 				if (isSignal) {
 					purity_weight = 1.0 / purity;
 					hTrigSR->Fill(trig, weight);
+                    
+                    if (cluster_is_prompt[icluster]) {
+                        hTrigSRPromptTruth->Fill(trig, weight);
+                    }
+                    
+                    if (isNonDecay) {
+                        hTrigSRNonDecay->Fill(trig, weight);
+                    }
 				}
 
 				if (isBackground) {
 					purity_weight = 1.0 / purity - 1;
 					hTrigBR->Fill(trig, weight);
+
+                    if (isNonDecay) {
+                        hTrigBRNonDecay->Fill(trig, weight);
+                    }
 				}
 
 				/*--------------------------------------------------------------
@@ -144,7 +160,48 @@ int main(int argc, char *argv[])
 						hCorr1ptBR->Fill(corr, weight * purity_weight / jetpt);
 					}
 				} // end jet loop
+                
+				/*--------------------------------------------------------------
+				Loop through matched jets, but only if it's a non-decay photon
+				--------------------------------------------------------------*/
+                if (not(isNonDecay)) continue;
+                
+				for (auto matchedIndex : matchedJetIndices) {
+					int ireco = matchedIndex.second;
+                    
+					float j_reco_pt = jet_pt_raw[ireco];
+					float j_reco_eta = jet_eta[ireco];
+					float j_reco_phi = jet_phi[ireco];
+
+					// apply jet cuts on the reco jets
+					if (not(j_reco_pt > jet_pt_min and j_reco_pt < jet_pt_max)) continue;
+					if (not(abs(j_reco_eta) < jet_eta_max)) continue;
+
+					float deltaphi_reco = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - j_reco_phi));
+                    
+					corr[0] = centrality_v0m;
+					corr[1] = cluster_pt[icluster];
+					corr[2] = deltaphi_reco;
+					corr[3] = j_reco_pt;
+					corr[4] = j_reco_pt / cluster_pt[icluster];
+					corr[5] = cluster_pt[icluster] * sin(deltaphi_reco);
+                    
+					if (isSignal) {
+						hCorrSRNonDecayMatchedJet->Fill(corr, weight * purity_weight);
+						hCorr1ptSRNonDecayMatchedJet->Fill(corr, weight * purity_weight / j_reco_pt);
+					}
+
+					if (isBackground) {
+						hCorrBRNonDecayMatchedJet->Fill(corr, weight * purity_weight);
+						hCorr1ptBRNonDecayMatchedJet->Fill(corr, weight * purity_weight / j_reco_pt);
+					}
+                } // end matched jet loop
 			} // end cluster loop
+            
+			matchedJetIndices.clear();
+			unmatchedTruth.clear();
+			unmatchedReco.clear();
+            matchedReco.clear();
 		} // end event loop
 
 		// close files
@@ -160,15 +217,22 @@ int main(int argc, char *argv[])
 	--------------------------------------------------------------*/
 	// Write to fout
 	TFile* fout;
-	fout = new TFile("root/sameEvent20g3.root", "RECREATE");
+	fout = new TFile("root/sameEvent20g3_bettertruth.root", "RECREATE");
 	std::cout << "Writing to file" << std::endl;
 
+    hTrigSRPromptTruth->Write();
 	hTrigSR->Write();
 	hCorrSR->Write();
 	hCorr1ptSR->Write();
 	hTrigBR->Write();
 	hCorrBR->Write();
 	hCorr1ptBR->Write();
+	hTrigSRNonDecay->Write();
+	hCorrSRNonDecayMatchedJet->Write();
+	hCorr1ptSRNonDecayMatchedJet->Write();
+	hTrigBRNonDecay->Write();
+	hCorrBRNonDecayMatchedJet->Write();
+	hCorr1ptBRNonDecayMatchedJet->Write();
 
 	fout->Close();
 	std::cout << "Ending" << std::endl;
@@ -202,8 +266,11 @@ void initializeTHnSparses()
 	minbinsTrig[1] = cluster_pt_min;
 	maxbinsTrig[1] = cluster_pt_max;
 
+	hTrigSRPromptTruth = new THnSparseF("hTrigSRPromptTruth", "Number of true prompt clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 	hTrigSR = new THnSparseF("hTrigSR", "Number of clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 	hTrigBR = new THnSparseF("hTrigBR", "Number of clusters (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+	hTrigSRNonDecay = new THnSparseF("hTrigSRNonDecay", "Number of true non-decay clusters (SR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+	hTrigBRNonDecay = new THnSparseF("hTrigBRNonDecay", "Number of true non-decay clusters (BR)", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
 	// dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio, jet kT
 	ndimCorr = 6;
@@ -249,6 +316,16 @@ void initializeTHnSparses()
 	hCorrBR->Sumw2();
 	hCorr1ptSR->Sumw2();
 	hCorr1ptBR->Sumw2();
+
+	hCorrSRNonDecayMatchedJet = new THnSparseF("hCorrSRNonDecayMatchedJet", "Truth-like correlations (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrBRNonDecayMatchedJet = new THnSparseF("hCorrBRNonDecayMatchedJet", "Truth-like correlations (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptSRNonDecayMatchedJet = new THnSparseF("hCorr1ptSRNonDecayMatchedJet", "Truth-like correlations with 1/jetpt weight (SR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorr1ptBRNonDecayMatchedJet = new THnSparseF("hCorr1ptBRNonDecayMatchedJet", "Truth-like correlations with 1/jetpt weight (BR)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrSRNonDecayMatchedJet->Sumw2();
+	hCorrBRNonDecayMatchedJet->Sumw2();
+	hCorr1ptSRNonDecayMatchedJet->Sumw2();
+	hCorr1ptBRNonDecayMatchedJet->Sumw2();
+
 }
 
 // Apply cluster cuts
@@ -261,6 +338,92 @@ bool rejectCluster(int icluster)
 	if (not(cluster_distance_to_bad_channel[icluster] >= cluster_dbc_min)) return true;
 	if (not(cluster_nlocal_maxima[icluster] < cluster_nlm_max)) return true;
 	return false;
+}
+
+// figure out if a cluster has a non-decay photon
+bool getIsClusterNonDecay(int icluster)
+{
+    if (cluster_is_prompt[icluster]) return true;
+    
+    bool foundNonDecayPhoton = false;
+    for (UInt_t itruth = 0; itruth < 32; itruth++) {
+        unsigned short mcindex = cluster_mc_truth_index[icluster][itruth];
+        if (mcindex == 65535 || mcindex == 0) continue;
+        std::cout << mcindex << ": " << mc_truth_pdg_code[mcindex] << std::endl;
+        if (not(mc_truth_pdg_code[mcindex] == 22)) continue;
+        int parent_pdg_code = mc_truth_first_parent_pdg_code[mcindex];
+        std::cout << std::endl << "Found photon with parent " << parent_pdg_code << std::endl;
+        switch (abs(parent_pdg_code) % 100000) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+            case 21:
+            case 22:
+                foundNonDecayPhoton = true;
+                break;
+            default:
+                return false;
+        }
+    }
+    
+    return foundNonDecayPhoton;
+}
+
+// Match truth and reco jets
+void matchJetsInEvent()
+{
+    // start with all reco jets unmatched
+	for (int ireco = 0; ireco < njet; ireco++) {
+		unmatchedReco.insert(ireco);
+	}
+
+	// look at each truth jet
+	for (int itruth = 0; itruth < njet_charged_truth; itruth++) {
+		int matchedRecoIndex = -1;
+		bool skipTruthJet = false;
+
+		float eta_truth = jet_charged_truth_eta[itruth];
+		float phi_truth = jet_charged_truth_phi[itruth];
+
+		// look at each reco jet and find the one with the smallest distance to this truth jet
+		for (int ireco = 0; ireco < njet; ireco++) {
+			float eta_reco = jet_eta[ireco];
+			float phi_reco = jet_phi[ireco];
+
+			float distance2 = ((eta_truth - eta_reco) * (eta_truth - eta_reco)) + (TVector2::Phi_mpi_pi(phi_truth - phi_reco) * TVector2::Phi_mpi_pi(phi_truth - phi_reco));
+
+			// distance threshold is 0.6 * R
+			if (distance2 < (0.6 * 0.2) * (0.6 * 0.2)) {
+				// if this truth jet has already found a match, skip this truth jet entirely
+				if (matchedRecoIndex > -1) {
+					skipTruthJet = true;
+				}
+				matchedRecoIndex = ireco;
+			}
+		}
+
+		if (skipTruthJet) continue;
+
+		// if a reco jet was found to match this truth jet
+		if (matchedRecoIndex > -1) {
+			// if that matched jet is outside the acceptance,
+			// consider the truth jet to be unmatched
+			if (abs(jet_eta[matchedRecoIndex]) > jet_eta_max) {
+				unmatchedTruth.insert(itruth);
+			} else {
+				// save off this matched pair
+				matchedIndex = std::make_pair(itruth, matchedRecoIndex);
+				matchedJetIndices.push_back(matchedIndex);
+				// remove the reco jet from the set of unmatched reco jets
+				unmatchedReco.erase(matchedRecoIndex);
+                matchedReco.push_back(matchedRecoIndex);
+			}
+		} else {
+			unmatchedTruth.insert(itruth);
+		}
+	}
 }
 
 // Calculate isolation
@@ -317,8 +480,6 @@ void printCutSummary()
 	std::cout << "Cluster ncell min: " << cluster_ncell_min << std::endl;
 	std::cout << "Cluster Ecross/Emax min: " << cluster_ecross_emax_min << std::endl;
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
-	std::cout << "Cluster nlocal maxima max: " << cluster_nlm_max << std::endl;
-	std::cout << "Cluster TOF max: " << cluster_tof_max << std::endl;
 	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
 	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;
@@ -407,6 +568,20 @@ float getAvgEgNtrial(std::string filename)
     if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat6_18q_cent1030_int7.root") return 235.597678758;
     if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat7_18q_cent1030_int7.root") return 82.3022021864;
     if (filename == "/global/project/projectdirs/alice/NTuples/embed/embed_20g3c_pthat8_18q_cent1030_int7.root") return 24.400433146;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3a/20g3a_pthat1_297588.root") return 714.190082645;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3a/20g3a_pthat2_297588.root") return 41.5663471778;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3a/20g3a_pthat3_297588.root") return 17.5137374618;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3a/20g3a_pthat4_297588.root") return 14.8231126313;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3a/20g3a_pthat5_297588.root") return 12.3522151054;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3a/20g3a_pthat6_297588.root") return 9.58740424463;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat1_297588.root") return 1610992.77193;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat2_297588.root") return 166551.245902;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat3_297588.root") return 21003.3947368;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat4_297588.root") return 3561.51378446;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat5_297588.root") return 813.13949382;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat6_297588.root") return 255.870021723;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat7_297588.root") return 89.7408734602;
+    if (filename == "/global/project/projectdirs/alice/NTuples/MC/20g3c/20g3c_pthat8_297588.root") return 26.4355370716;
 
 	return 0;
 }
@@ -422,6 +597,14 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
 	_tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
 	_tree_event->SetBranchAddress("eg_cross_section", &eg_cross_section);
+    
+	// MC addresses
+	_tree_event->SetBranchAddress("nmc_truth", &nmc_truth);
+	_tree_event->SetBranchAddress("mc_truth_pt", mc_truth_pt);
+	_tree_event->SetBranchAddress("mc_truth_eta", mc_truth_eta);
+	_tree_event->SetBranchAddress("mc_truth_phi", mc_truth_phi);
+	_tree_event->SetBranchAddress("mc_truth_pdg_code", mc_truth_pdg_code);
+	_tree_event->SetBranchAddress("mc_truth_is_prompt_photon", mc_truth_is_prompt_photon);
 
 	// track addresses
 	_tree_event->SetBranchAddress("primary_vertex", primary_vertex);
@@ -470,6 +653,7 @@ void setBranchAddresses()
 
 	if (auxfile != NULL) {
 		auxtree->SetBranchAddress("cluster_5x5all", cluster_5x5all);
+        auxtree->SetBranchAddress("cluster_is_prompt", cluster_is_prompt);
 		auxtree->SetBranchAddress("isINT7", &isINT7);
 	}
 
@@ -482,6 +666,13 @@ void setBranchAddresses()
 		_tree_event->SetBranchAddress("jet_ak04tpc_phi", jet_phi);
 		_tree_event->SetBranchAddress("jet_ak04tpc_area", jet_area);
 		_tree_event->SetBranchAddress("jet_ak04tpc_multiplicity_raw", jet_multiplicity_raw);
+
+		_tree_event->SetBranchAddress("njet_charged_truth_ak04", &njet_charged_truth);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_pt", jet_charged_truth_pt);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_eta", jet_charged_truth_eta);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_phi", jet_charged_truth_phi);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_area", jet_charged_truth_area);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_multiplicity", jet_charged_truth_multiplicity);
 	} else if (jettype == "ak02tpc") {
 		auxtree->SetBranchAddress("njet_ak02tpc", &njet);
 		auxtree->SetBranchAddress("jet_ak02tpc_pt_raw", jet_pt_raw);
@@ -489,6 +680,13 @@ void setBranchAddresses()
 		auxtree->SetBranchAddress("jet_ak02tpc_phi", jet_phi);
 		auxtree->SetBranchAddress("jet_ak02tpc_area", jet_area);
 		auxtree->SetBranchAddress("jet_ak02tpc_multiplicity_raw", jet_multiplicity_raw);
+
+		auxtree->SetBranchAddress("njet_charged_truth_ak02", &njet_charged_truth);
+		auxtree->SetBranchAddress("jet_charged_truth_ak02_pt", jet_charged_truth_pt);
+		auxtree->SetBranchAddress("jet_charged_truth_ak02_eta", jet_charged_truth_eta);
+		auxtree->SetBranchAddress("jet_charged_truth_ak02_phi", jet_charged_truth_phi);
+		auxtree->SetBranchAddress("jet_charged_truth_ak02_area", jet_charged_truth_area);
+		auxtree->SetBranchAddress("jet_charged_truth_ak02_multiplicity", jet_charged_truth_multiplicity);
 	} else if (jettype == "ak04its") {
 		_tree_event->SetBranchAddress("njet_ak04its", &njet);
 		_tree_event->SetBranchAddress("jet_ak04its_pt_raw", jet_pt_raw);
@@ -496,13 +694,13 @@ void setBranchAddresses()
 		_tree_event->SetBranchAddress("jet_ak04its_phi", jet_phi);
 		_tree_event->SetBranchAddress("jet_ak04its_area", jet_area);
 		_tree_event->SetBranchAddress("jet_ak04its_multiplicity_raw", jet_multiplicity_raw);
-	} else if (jettype == "ak02its") {
-		auxtree->SetBranchAddress("njet_ak02its", &njet);
-		auxtree->SetBranchAddress("jet_ak02its_pt_raw", jet_pt_raw);
-		auxtree->SetBranchAddress("jet_ak02its_eta", jet_eta);
-		auxtree->SetBranchAddress("jet_ak02its_phi", jet_phi);
-		auxtree->SetBranchAddress("jet_ak02its_area", jet_area);
-		auxtree->SetBranchAddress("jet_ak02its_multiplicity_raw", jet_multiplicity_raw);
+
+		_tree_event->SetBranchAddress("njet_charged_truth_ak04", &njet_charged_truth);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_pt", jet_charged_truth_pt);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_eta", jet_charged_truth_eta);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_phi", jet_charged_truth_phi);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_area", jet_charged_truth_area);
+		_tree_event->SetBranchAddress("jet_charged_truth_ak04_multiplicity", jet_charged_truth_multiplicity);
 	} else {
 		std::cout << "ERROR: Jet type " << jettype << " not recognized. Aborting" << std::endl;
 		exit(EXIT_FAILURE);

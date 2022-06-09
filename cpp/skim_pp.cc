@@ -8,15 +8,21 @@
 
 int main(int argc, char *argv[])
 {
-	if (argc < 2) {
-		std::cout <<  "Format: [command] [config file]" << std::endl;
+	if (argc < 3) {
+		std::cout <<  "Format: [command] [config file] [fileset]" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
 	/*--------------------------------------------------------------
 	Initial setup
 	--------------------------------------------------------------*/
-	YAML::Node configrunperiod = YAML::LoadFile(argv[1]);
+	std::string fileset = argv[2];
+    if (fileset != "data" && fileset != "gjmc" && fileset != "jjmc" && fileset != "gjmcwithneutrals") {
+        std::cout << "fileset " << fileset << " not recognized; must be one of data, gjmc, jjmc, gjmcwithneutrals" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    
+    YAML::Node configrunperiod = YAML::LoadFile(argv[1]);
 	allconfigs.push_back(configrunperiod);
 	YAML::Node configsystem = YAML::LoadFile(configrunperiod["systemconfig"].as<std::string>());
 	allconfigs.push_back(configsystem);
@@ -28,12 +34,12 @@ int main(int argc, char *argv[])
 	/*--------------------------------------------------------------
 	Loop through files
 	--------------------------------------------------------------*/
-	YAML::Node filenames = configrunperiod["filelists"]["ntuples"]["data"];
+	YAML::Node filenames = configrunperiod["filelists"]["ntuples"][fileset];
 
 	// create output file - need to do it this way to not get the memory-resident TTree thing
 	openFilesAndGetTTrees(filenames[0].as<std::string>());
 	setBranchAddresses();
-	TFile* fout = new TFile((TString) configrunperiod["filelists"]["skimmedntuples"]["data"].as<std::string>(), "RECREATE");
+	TFile* fout = new TFile((TString) configrunperiod["filelists"]["skimmedntuples"][fileset].as<std::string>(), "RECREATE");
 	TTree* outtree = _tree_event->CloneTree(0);
 	setupNewBranches(outtree);
 

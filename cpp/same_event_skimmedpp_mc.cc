@@ -2,7 +2,7 @@
 #include <iostream>
 #include <math.h>
 
-#include "same_event_skimmedpp.h"
+#include "same_event_skimmedpp_mc.h"
 #include "config_parser.h"
 #include "shared_defs.h"
 
@@ -36,127 +36,132 @@ int main(int argc, char *argv[])
 	Double_t trig[ndimTrig];
 	Double_t corr[ndimCorr];
 
-	std::string root_filename = configrunperiod["filelists"]["skimmedntuples"]["data"].as<std::string>();
-	openFilesAndGetTTrees(root_filename);
-	setBranchAddresses();
+    std::vector<std::string> filenames;
+    filenames.push_back(configrunperiod["filelists"]["skimmedntuples"]["gjmc"].as<std::string>());
+    filenames.push_back(configrunperiod["filelists"]["skimmedntuples"]["jjmc"].as<std::string>());
 
-	/*--------------------------------------------------------------
-	Loop through events
-	--------------------------------------------------------------*/
-	nevents = std::min(_tree_event->GetEntries(), nevents_max);
-	for (long ievent = 0; ievent < nevents; ievent++) {
-		// load this event
-		_tree_event->GetEntry(ievent);
-		fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
+    for (auto & root_filename : filenames) {
+        openFilesAndGetTTrees(root_filename);
+        setBranchAddresses();
 
-		// event selection
-		if (abs(primary_vertex[2]) > 10) continue;
-		if (primary_vertex[2] == 0.00) continue;
-		if (do_pile && is_pileup_from_spd_5_08) continue;
+        /*--------------------------------------------------------------
+        Loop through events
+        --------------------------------------------------------------*/
+        nevents = std::min(_tree_event->GetEntries(), nevents_max);
+        for (long ievent = 0; ievent < nevents; ievent++) {
+            // load this event
+            _tree_event->GetEntry(ievent);
+            fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
 
-		/*--------------------------------------------------------------
-		Loop through clusters
-		--------------------------------------------------------------*/
-		for (long icluster = 0; icluster < ncluster; icluster++) {
-			// apply cluster cuts
-			if (rejectCluster(icluster)) continue;
+            // event selection
+            if (abs(primary_vertex[2]) > 10) continue;
+            if (primary_vertex[2] == 0.00) continue;
+            if (do_pile && is_pileup_from_spd_5_08) continue;
 
-			// determine whether the cluster is isolated
-			float isolation = getIsolation(icluster);
-			isIsolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
-			if (not(isIsolated)) continue;
+            /*--------------------------------------------------------------
+            Loop through clusters
+            --------------------------------------------------------------*/
+            for (long icluster = 0; icluster < ncluster; icluster++) {
+                // apply cluster cuts
+                if (rejectCluster(icluster)) continue;
 
-			// determine whether it is SR or BR (or neither), calculate purity, and fill trigger THnSparse
-			float shower = getShower(icluster);
-			isSignal = (shower > srmin) and (shower < srmax);
-			isBackground = (shower > brmin) and (shower < brmax);
-			if (not(isSignal or isBackground)) continue;
+                // determine whether the cluster is isolated
+                float isolation = getIsolation(icluster);
+                isIsolated = GetIsIsolated(isolation, centrality_v0m, isoconfig);
+                if (not(isIsolated)) continue;
 
-			float purity = getPurity(cluster_pt[icluster], centrality_v0m, purityconfig);
+                // determine whether it is SR or BR (or neither), calculate purity, and fill trigger THnSparse
+                float shower = getShower(icluster);
+                isSignal = (shower > srmin) and (shower < srmax);
+                isBackground = (shower > brmin) and (shower < brmax);
+                if (not(isSignal or isBackground)) continue;
 
-			trig[0] = centrality_v0m;
-			trig[1] = cluster_pt[icluster];
+                float purity = getPurity(cluster_pt[icluster], centrality_v0m, purityconfig);
 
-			if (isSignal) {
-				purity_weight = 1.0 / purity;
-				hTrigSR->Fill(trig);
-			}
+                trig[0] = centrality_v0m;
+                trig[1] = cluster_pt[icluster];
 
-			if (isBackground) {
-				purity_weight = 1.0 / purity - 1;
-				hTrigBR->Fill(trig);
-			}
+                if (isSignal) {
+                    purity_weight = 1.0 / purity;
+                    hTrigSR->Fill(trig);
+                }
 
-			bool foundJet = false;
-			bool foundB2bJet = false;
+                if (isBackground) {
+                    purity_weight = 1.0 / purity - 1;
+                    hTrigBR->Fill(trig);
+                }
 
-			/*--------------------------------------------------------------
-			Loop through jets
-			--------------------------------------------------------------*/
-			for (long ijet = 0; ijet < njet; ijet++) {
-				// apply jet cuts
-				if (not(jet_pt_raw[ijet] > jet_pt_min and jet_pt_raw[ijet] < jet_pt_max)) continue;
-				if (not(abs(jet_eta[ijet]) < jet_eta_max)) continue;
+                bool foundJet = false;
+                bool foundB2bJet = false;
 
-				// calculate observables
-				float deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ijet]));
-				float jetpt = jet_pt_raw[ijet];
-				float ptratio = jetpt / cluster_pt[icluster];
+                /*--------------------------------------------------------------
+                Loop through jets
+                --------------------------------------------------------------*/
+                for (long ijet = 0; ijet < njet; ijet++) {
+                    // apply jet cuts
+                    if (not(jet_pt_raw[ijet] > jet_pt_min and jet_pt_raw[ijet] < jet_pt_max)) continue;
+                    if (not(abs(jet_eta[ijet]) < jet_eta_max)) continue;
 
-				corr[0] = centrality_v0m;
-				corr[1] = cluster_pt[icluster];
-				corr[2] = deltaphi;
-				corr[3] = jetpt;
-				corr[4] = ptratio;
-				corr[5] = cluster_pt[icluster] * sin(deltaphi);
+                    // calculate observables
+                    float deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ijet]));
+                    float jetpt = jet_pt_raw[ijet];
+                    float ptratio = jetpt / cluster_pt[icluster];
 
-				// fill correlation THnSparse
-				if (isSignal) {
-					hCorrSR->Fill(corr, purity_weight);
-					hCorr1ptSR->Fill(corr, purity_weight / jetpt);
-				}
+                    corr[0] = centrality_v0m;
+                    corr[1] = cluster_pt[icluster];
+                    corr[2] = deltaphi;
+                    corr[3] = jetpt;
+                    corr[4] = ptratio;
+                    corr[5] = cluster_pt[icluster] * sin(deltaphi);
 
-				if (isBackground) {
-					hCorrBR->Fill(corr, purity_weight);
-					hCorr1ptBR->Fill(corr, purity_weight / jetpt);
-				}
+                    // fill correlation THnSparse
+                    if (isSignal) {
+                        hCorrSR->Fill(corr, purity_weight);
+                        hCorr1ptSR->Fill(corr, purity_weight / jetpt);
+                    }
 
-				if (jetpt > 10) foundJet = true;
-				if (jetpt > 10 && deltaphi > 7 * M_PI / 8) foundB2bJet = true;
-			} // end jet loop
+                    if (isBackground) {
+                        hCorrBR->Fill(corr, purity_weight);
+                        hCorr1ptBR->Fill(corr, purity_weight / jetpt);
+                    }
 
-			if (foundJet) {
-				if (isSignal) {
-					hTrigSRJet->Fill(trig);
-				}
+                    if (jetpt > 10) foundJet = true;
+                    if (jetpt > 10 && deltaphi > 7 * M_PI / 8) foundB2bJet = true;
+                } // end jet loop
 
-				if (isBackground) {
-					hTrigBRJet->Fill(trig);
-				}
-			}
+                if (foundJet) {
+                    if (isSignal) {
+                        hTrigSRJet->Fill(trig);
+                    }
 
-			if (foundB2bJet) {
-				if (isSignal) {
-					hTrigSRJetB2b->Fill(trig);
-				}
+                    if (isBackground) {
+                        hTrigBRJet->Fill(trig);
+                    }
+                }
 
-				if (isBackground) {
-					hTrigBRJetB2b->Fill(trig);
-				}
-			}
-		} // end cluster loop
-	} // end event loop
+                if (foundB2bJet) {
+                    if (isSignal) {
+                        hTrigSRJetB2b->Fill(trig);
+                    }
 
-	// close files
-	skimmedfile->Close();
-	std::cout << std::endl;
+                    if (isBackground) {
+                        hTrigBRJetB2b->Fill(trig);
+                    }
+                }
+            } // end cluster loop
+        } // end event loop
+
+        // close files
+        skimmedfile->Close();
+        std::cout << std::endl;
+    } // end file loop
 
 	/*--------------------------------------------------------------
 	Write outputs to file
 	--------------------------------------------------------------*/
 	// Write to fout
 	TFile* fout;
-	fout = new TFile((TString) configrunperiod["filelists"]["correlations"]["sameevent"].as<std::string>(), "RECREATE");
+	fout = new TFile("root/sameEventppMC.root", "RECREATE");
 	std::cout << "Total SR triggers: " << hTrigSR->GetEntries() << ", SR triggers with jet: " << hTrigSRJet->GetEntries() << ", SR triggers with b2b jet: " << hTrigSRJetB2b->GetEntries() << std::endl;
 	std::cout << "Writing to file" << std::endl;
 
@@ -266,7 +271,6 @@ bool rejectCluster(int icluster)
 	if (not(cluster_e_cross[icluster] / cluster_e_max[icluster] > cluster_ecross_emax_min)) return true;
 	if (not(cluster_distance_to_bad_channel[icluster] >= cluster_dbc_min)) return true;
 	if (not(cluster_nlocal_maxima[icluster] < cluster_nlm_max)) return true;
-	if (not(abs(cluster_tof[icluster]) < cluster_tof_max)) return true;
 	return false;
 }
 
@@ -325,7 +329,6 @@ void printCutSummary()
 	std::cout << "Cluster Ecross/Emax min: " << cluster_ecross_emax_min << std::endl;
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
 	std::cout << "Cluster nlocal maxima max: " << cluster_nlm_max << std::endl;
-	std::cout << "Cluster TOF max: " << cluster_tof_max << std::endl;
 	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
 	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;

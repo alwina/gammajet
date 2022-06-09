@@ -12,6 +12,7 @@ TFile *file;
 TFile *auxfile;
 TTree *_tree_event;
 TTree *auxtree;
+std::string fileset;
 long nevents;
 
 /*--------------------------------------------------------------

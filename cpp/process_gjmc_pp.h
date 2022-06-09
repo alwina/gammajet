@@ -1,10 +1,12 @@
 #include <TROOT.h>
 #include <TFile.h>
 #include <TTree.h>
+#include <THStack.h>
 #include <THnSparse.h>
 
-#include <set>
 #include <vector>
+
+#include "RooUnfoldResponse.h"
 
 #define NTRACK_MAX (1U << 14)
 
@@ -18,24 +20,46 @@ TTree *auxtree;
 Long64_t nevents_max;
 long nevents;
 
+// RooUnfoldResponse vectors, indexed by pt range
+// 2D response matrices
+std::vector<RooUnfoldResponse> deltaphijetptResponses;
+std::vector<RooUnfoldResponse> ptratiojetptResponses;
+
+// THnSparses because RooUnfold has terrible documentation and it's impossible to tell how to get a THn from a multi-dimensional RooUnfoldResponse object
+std::vector<THnSparseF*> deltaphijetptHists;
+std::vector<THnSparseF*> ptratiojetptHists;
+
+// 1D response matrices
+std::vector<RooUnfoldResponse> deltaphiResponses;
+std::vector<RooUnfoldResponse> ptratioResponses;
+std::vector<RooUnfoldResponse> jetptResponses;
+std::vector<RooUnfoldResponse> jetetaResponses;
+std::vector<RooUnfoldResponse> jetphiResponses;
+std::vector<RooUnfoldResponse> jetareaResponses;
+std::vector<RooUnfoldResponse> jetmultResponses;
+std::vector<RooUnfoldResponse> jeteffmultResponses; // reco is effective multiplicity
+std::vector<RooUnfoldResponse> photonptResponses;
+std::vector<RooUnfoldResponse> photonetaResponses;
+std::vector<RooUnfoldResponse> photonphiResponses;
+
 // THnSparses
-THnSparseF* hTrigSRPromptTruth;
 THnSparseF* hTrigSR;
-THnSparseF* hTrigBR;
-THnSparseF* hCorrSR;
-THnSparseF* hCorrBR;
-THnSparseF* hCorr1ptSR;
-THnSparseF* hCorr1ptBR;
-
-THnSparseF* hTrigSRNonDecay;
-THnSparseF* hTrigBRNonDecay;
-THnSparseF* hCorrSRNonDecayMatchedJet;
-THnSparseF* hCorrBRNonDecayMatchedJet;
-THnSparseF* hCorr1ptSRNonDecayMatchedJet;
-THnSparseF* hCorr1ptBRNonDecayMatchedJet;
-
+THnSparseF* hCorrSRTruth;
+THnSparseF* hCorrSRAll;
+THnSparseF* hCorr1ptSRTruth;
+THnSparseF* hCorr1ptSRAll;
 int ndimTrig;
 int ndimCorr;
+int ndimPhotonRes;
+int ndimJetRes;
+
+// TH1s
+THnSparseF* hPhotonPtResolution;
+THnSparseF* hPhotonPhiResolution;
+THnSparseF* hJetPtResolution;
+THnSparseF* hJetPhiResolution;
+THnSparseF* hJetB2bPtResolution;
+THnSparseF* hJetB2bPhiResolution;
 
 // correlation variables
 bool isSignal;
@@ -47,22 +71,22 @@ float purity_weight;
 std::vector<std::pair<int, int>> matchedJetIndices;
 std::set<int> unmatchedTruth;
 std::set<int> unmatchedReco;
-std::vector<int> matchedReco;
 std::pair<int, int> matchedIndex;
 
 /*--------------------------------------------------------------
 Helper functions
 --------------------------------------------------------------*/
 void printCutSummary();
+void initializeRooUnfoldResponses();
 void initializeTHnSparses();
 void openFilesAndGetTTrees(std::string root_filename);
 void setBranchAddresses();
-float getAvgEgNtrial(std::string root_filename);
+float getAvgEgNtrial(std::string filename);
 void matchJetsInEvent();
-bool getIsClusterNonDecay(int icluster);
 bool rejectCluster(int icluster);
 float getIsolation(int icluster);
 float getShower(int icluster);
+int getPtBinNumber(float pt);
 
 /*--------------------------------------------------------------
 Variables from TTrees
@@ -105,6 +129,7 @@ Float_t cluster_iso_its_04[NTRACK_MAX];
 Float_t cluster_frixione_tpc_04_02[NTRACK_MAX];
 Float_t cluster_frixione_its_04_02[NTRACK_MAX];
 Float_t cluster_s_nphoton[NTRACK_MAX][4];
+UInt_t cluster_nmc_truth[NTRACK_MAX];
 unsigned short cluster_mc_truth_index[NTRACK_MAX][32];
 Int_t cluster_ncell[NTRACK_MAX];
 UShort_t  cluster_cell_id_max[NTRACK_MAX];
@@ -144,11 +169,11 @@ Float_t mc_truth_eta[NTRACK_MAX];
 Float_t mc_truth_phi[NTRACK_MAX];
 short mc_truth_pdg_code[NTRACK_MAX];
 short mc_truth_first_parent_pdg_code[NTRACK_MAX];
-char mc_truth_charge[NTRACK_MAX];
+// char mc_truth_charge[NTRACK_MAX];
 Bool_t mc_truth_is_prompt_photon[NTRACK_MAX];
 
-Float_t mc_truth_first_parent_e[NTRACK_MAX];
-Float_t mc_truth_first_parent_pt[NTRACK_MAX];
-Float_t mc_truth_first_parent_eta[NTRACK_MAX];
-Float_t mc_truth_first_parent_phi[NTRACK_MAX];
-UChar_t mc_truth_status[NTRACK_MAX];
+// Float_t mc_truth_first_parent_e[NTRACK_MAX];
+// Float_t mc_truth_first_parent_pt[NTRACK_MAX];
+// Float_t mc_truth_first_parent_eta[NTRACK_MAX];
+// Float_t mc_truth_first_parent_phi[NTRACK_MAX];
+// UChar_t mc_truth_status[NTRACK_MAX];
