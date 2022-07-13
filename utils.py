@@ -168,6 +168,13 @@ def getUniformUncertainty(dist):
     return np.ptp(dist) / np.sqrt(12)
 
 
+def deltaphi0pi(phi1, phi2):
+    dphi1 = abs(phi1 - phi2)
+    dphi2 = 2 * np.pi + phi1 - phi2
+    dphi3 = 2 * np.pi + phi2 - phi1
+    return min(dphi1, dphi2, dphi3)
+
+
 # skip the underflow and overflow bins for now -- we can change our minds later
 # these assume equally-spaced bins
 def th1ToArrays(th1, divideBinWidths=False):
