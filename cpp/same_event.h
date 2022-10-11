@@ -55,6 +55,7 @@ Double_t primary_vertex[3];
 Float_t ue_estimate_its_const;
 Float_t ue_estimate_tpc_const;
 Float_t centrality_v0m;
+Int_t run_number;
 
 // Tracks
 UInt_t ntrack;

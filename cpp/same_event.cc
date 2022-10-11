@@ -68,6 +68,10 @@ int main(int argc, char *argv[])
 			}
 			fprintf(stderr, "\r%s:%d: %llu / %llu", __FILE__, __LINE__, ievent, nevents);
 
+            // Gustavo said these runs are bad, so skip them
+            if (run_number == 295721) continue;
+            if (run_number == 296191) continue;
+            
 			// event selection
 			if (abs(primary_vertex[2]) > 10) continue;
 			if (primary_vertex[2] == 0.00) continue;
@@ -87,8 +91,8 @@ int main(int argc, char *argv[])
 
 				// determine whether it is SR or BR (or neither), calculate purity, and fill trigger THnSparse
 				float shower = getShower(icluster);
-				isSignal = (shower > srmin) and (shower < srmax);
-				isBackground = (shower > brmin) and (shower < brmax);
+				isSignal = GetIsSignal(shower, centrality_v0m, ssconfig);
+				isBackground = GetIsBackground(shower, centrality_v0m, ssconfig);
 				if (not(isSignal or isBackground)) continue;
 
 				float purity = getPurity(cluster_pt[icluster], centrality_v0m, purityconfig);
@@ -349,8 +353,6 @@ void printCutSummary()
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
 	std::cout << "Cluster nlocal maxima max: " << cluster_nlm_max << std::endl;
 	std::cout << "Cluster TOF max: " << cluster_tof_max << std::endl;
-	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
-	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;
 	std::cout << "Jet pT range: " << jet_pt_min << "-" << jet_pt_max << std::endl;
 	std::cout << "Jet eta max: " << jet_eta_max << std::endl;
@@ -407,6 +409,7 @@ void setBranchAddresses()
 	_tree_event->SetBranchAddress("ue_estimate_its_const", &ue_estimate_its_const);
 	_tree_event->SetBranchAddress("ue_estimate_tpc_const", &ue_estimate_tpc_const);
 	_tree_event->SetBranchAddress("centrality_v0m", &centrality_v0m);
+    _tree_event->SetBranchAddress("run_number", &run_number);
 
 	// track addresses
 	_tree_event->SetBranchAddress("primary_vertex", primary_vertex);

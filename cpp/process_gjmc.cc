@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
 	printCutSummary();
 
 	initializeRooUnfoldResponses();
+    initializeColbtResponses();
 	initializeTHnSparses();
 	Double_t trig[ndimTrig];
 	Double_t corr[ndimCorr];
@@ -75,7 +76,7 @@ int main(int argc, char *argv[])
 			if (!isINT7) continue;
 
 			weight = eg_cross_section / avg_eg_ntrial;
-
+            
 			matchJetsInEvent();
             // if there are any reco jets matched with multiple truth jets, throw this away
             std::set<int> setMatchedReco(matchedReco.begin(), matchedReco.end());
@@ -87,6 +88,7 @@ int main(int argc, char *argv[])
                 matchedReco.clear();
                 continue;
             }
+            
 			/*--------------------------------------------------------------
 			Loop through clusters
 			--------------------------------------------------------------*/
@@ -127,21 +129,19 @@ int main(int argc, char *argv[])
 
 				// determine whether it is SR
 				float shower = getShower(icluster);
-				isSignal = (shower > srmin) and (shower < srmax);
+				isSignal = GetIsSignal(shower, centrality_v0m, ssconfig);
 				if (not(isSignal)) continue;
 
 				// get the centrality bin number
 				int centbin = getCentBinNumber(centrality_v0m);
 				int ptbin = getPtBinNumber(cluster_pt[icluster]);
 
-				// fill photon response matrices
-				photonptResponses[centbin][ptbin].Fill(cluster_pt[icluster], photon_truth_pt, weight);
-				photonetaResponses[centbin][ptbin].Fill(cluster_eta[icluster], photon_truth_eta, weight);
-				photonphiResponses[centbin][ptbin].Fill(cluster_phi[icluster], photon_truth_phi, weight);
-
 				trig[0] = centrality_v0m;
 				trig[1] = cluster_pt[icluster];
 				hTrigSR->Fill(trig, weight);
+                
+                trig[1] = photon_truth_pt;
+                hTrigPrompt->Fill(trig, weight);
 
 				photonresolution[0] = centrality_v0m;
 				photonresolution[1] = cluster_pt[icluster];
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 				hPhotonPhiResolution->Fill(photonresolution, weight);
 
 				/*--------------------------------------------------------------
-				Loop through all reco jets to fill THnSparses
+				Loop through all reco jets
 				--------------------------------------------------------------*/
 				for (ULong64_t ijet = 0; ijet < njet; ijet++) {
 					if (jet_pt_raw[ijet] < jet_pt_min) continue;
@@ -175,11 +175,17 @@ int main(int argc, char *argv[])
 					corr[4] = ptratio;
 					corr[5] = cluster_pt[icluster] * sin(deltaphi);
 					hCorrSRAll->Fill(corr, weight);
-					hCorr1ptSRAll->Fill(corr, weight / jetpt);
+                    
+                    deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(photon_truth_phi - jet_phi[ijet])); 
+                    corr[1] = photon_truth_pt;
+                    corr[2] = deltaphi;
+                    corr[4] = jetpt / photon_truth_pt;
+                    corr[5] = photon_truth_pt * sin(deltaphi);
+                    hCorrPromptAll->Fill(corr, weight);
 				}
 
 				/*--------------------------------------------------------------
-				Loop through all truth jets to fill THnSparses
+				Loop through all truth jets
 				--------------------------------------------------------------*/
 				for (ULong64_t ijet = 0; ijet < njet_charged_truth; ijet++) {
                     // keep jets regardless of pT in order to estimate the kinematic efficiency
@@ -200,11 +206,17 @@ int main(int argc, char *argv[])
 					corr[4] = ptratio;
 					corr[5] = cluster_pt[icluster] * sin(deltaphi);
 					hCorrSRTruth->Fill(corr, weight);
-					hCorr1ptSRTruth->Fill(corr, weight / jetpt);
+                    
+                    deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(photon_truth_phi - jet_charged_truth_phi[ijet])); 
+                    corr[1] = photon_truth_pt;
+                    corr[2] = deltaphi;
+                    corr[4] = jetpt / photon_truth_pt;
+                    corr[5] = photon_truth_pt * sin(deltaphi);
+                    hCorrPromptTruth->Fill(corr, weight);
 				}
 
 				/*--------------------------------------------------------------
-				Loop through matched jets to fill jet response matrices
+				Loop through matched jets
 				--------------------------------------------------------------*/
 				for (auto matchedIndex : matchedJetIndices) {
 					int itruth = matchedIndex.first;
@@ -230,33 +242,9 @@ int main(int argc, char *argv[])
 					// effective multiplicity: jet multiplicity scaled by pt kept / pt before UE subtraction
 					float j_reco_eff_mult = j_reco_mult * (j_reco_pt) / (j_reco_pt + j_reco_area * ue_estimate_tpc_const);
                     
-					corr[0] = centrality_v0m;
-					corr[1] = cluster_pt[icluster];
-					corr[2] = deltaphi_truth;
-					corr[3] = j_truth_pt;
-					corr[4] = j_truth_pt / photon_truth_pt;
-					corr[5] = cluster_pt[icluster] * sin(deltaphi_truth);
-					hCorrSRMatchedTruth->Fill(corr, weight);
-					hCorr1ptSRMatchedTruth->Fill(corr, weight / j_truth_pt);
-
-					corr[0] = centrality_v0m;
-					corr[1] = cluster_pt[icluster];
-					corr[2] = deltaphi_reco;
-					corr[3] = j_reco_pt;
-					corr[4] = j_reco_pt / cluster_pt[icluster];
-					corr[5] = cluster_pt[icluster] * sin(deltaphi_reco);
-					hCorrSRMatchedReco->Fill(corr, weight);
-					hCorr1ptSRMatchedReco->Fill(corr, weight / j_reco_pt);
-
 					if (deltaphi_truth > 7 * M_PI / 8 && deltaphi_reco > 7 * M_PI / 8) {
 						ptratiojetptResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_reco_pt, j_truth_pt / photon_truth_pt, j_truth_pt, weight);
-						ptratioResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt, weight);
-						jetptResponses[centbin][ptbin].Fill(j_reco_pt, j_truth_pt, weight);
-						jetetaResponses[centbin][ptbin].Fill(j_reco_eta, j_truth_eta, weight);
-						jetphiResponses[centbin][ptbin].Fill(j_reco_phi, j_truth_phi, weight);
-						jetareaResponses[centbin][ptbin].Fill(j_reco_area, j_truth_area, weight);
-						jetmultResponses[centbin][ptbin].Fill(j_reco_mult, j_truth_mult, weight);
-						jeteffmultResponses[centbin][ptbin].Fill(j_reco_eff_mult, j_truth_mult, weight);
+                        colbtptratioResponses[centbin][ptbin].Fill(j_reco_pt / cluster_pt[icluster], j_truth_pt / photon_truth_pt, weight);
 
 						h4[0] = j_reco_pt / cluster_pt[icluster];
 						h4[1] = j_truth_pt / photon_truth_pt;
@@ -279,17 +267,14 @@ int main(int argc, char *argv[])
                     // unclear whether this should also happen at the truth level though
                     if (j_reco_pt / cluster_pt[icluster] < 1.2) {
                         deltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt, weight);
-                        deltaphiResponses[centbin][ptbin].Fill(deltaphi_reco, deltaphi_truth, weight);
+                        colbtdeltaphijetptResponses[centbin][ptbin].Fill(deltaphi_reco, j_reco_pt, deltaphi_truth, j_truth_pt, weight);
 
                         h4[0] = deltaphi_reco;
                         h4[1] = deltaphi_truth;
                         h4[2] = j_reco_pt;
                         h4[3] = j_truth_pt;
                         deltaphijetptHists[centbin][ptbin]->Fill(h4, weight);
-
-                        if (j_truth_pt / photon_truth_pt > 1.2) {
-                            nVeryHighPtJets++;
-                        }
+                        colbtdeltaphijetptHists[centbin][ptbin]->Fill(h4, weight);
                     }
                     
 					// fill jet pt and phi resolution
@@ -304,17 +289,27 @@ int main(int argc, char *argv[])
 
 				if (keepMisses) {
 					for (int itruth : unmatchedTruth) {
-						deltaphiResponses[centbin][ptbin].Miss(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_charged_truth_phi[itruth]))), weight;
-						jetptResponses[centbin][ptbin].Miss(jet_charged_truth_pt[itruth], weight);
-						ptratioResponses[centbin][ptbin].Miss(jet_charged_truth_pt[itruth] / cluster_pt[icluster], weight);
+                        float deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_charged_truth_phi[itruth]));
+                        float jetpt = jet_charged_truth_pt[itruth];
+                        float ptratio = jet_charged_truth_pt[itruth] / cluster_pt[icluster];
+                        
+                        deltaphijetptResponses[centbin][ptbin].Miss(deltaphi, jetpt, weight);
+                        colbtdeltaphijetptResponses[centbin][ptbin].Miss(deltaphi, jetpt, weight);
+						ptratiojetptResponses[centbin][ptbin].Miss(ptratio, jetpt, weight);
+                        colbtptratioResponses[centbin][ptbin].Miss(ptratio, weight);
 					}
 				}
 
 				if (keepFakes) {
 					for (int ireco : unmatchedReco) {
-						deltaphiResponses[centbin][ptbin].Fake(TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ireco])), weight);
-						jetptResponses[centbin][ptbin].Fake(jet_pt_raw[ireco], weight);
-						ptratioResponses[centbin][ptbin].Fake(jet_pt_raw[ireco] / cluster_pt[icluster], weight);
+                        float deltaphi = TMath::Abs(TVector2::Phi_mpi_pi(cluster_phi[icluster] - jet_phi[ireco]));
+                        float jetpt = jet_pt_raw[ireco];
+                        float ptratio = jet_pt_raw[ireco] / cluster_pt[icluster];
+                        
+                        deltaphijetptResponses[centbin][ptbin].Fake(deltaphi, jetpt, weight);
+                        colbtdeltaphijetptResponses[centbin][ptbin].Fake(deltaphi, jetpt, weight);
+						ptratiojetptResponses[centbin][ptbin].Fake(ptratio, jetpt, weight);
+                        colbtptratioResponses[centbin][ptbin].Fake(ptratio, weight);
 					}
 				}
 			} // end cluster loop
@@ -344,54 +339,34 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < ncentralityranges; i++) {
 		for (int j = 0; j < nphotonptranges; j++) {
 			std::string deltaphijetptname = "deltaphijetptResponse" + std::to_string(i) + std::to_string(j);
-			std::string ptratiojetptname = "ptratiojetptResponse" + std::to_string(i) + std::to_string(j);
 			std::string deltaphijetpthistname = "deltaphijetptHist" + std::to_string(i) + std::to_string(j);
+			std::string ptratiojetptname = "ptratiojetptResponse" + std::to_string(i) + std::to_string(j);
 			std::string ptratiojetpthistname = "ptratiojetptHist" + std::to_string(i) + std::to_string(j);
-			std::string deltaphiname = "deltaphiResponse" + std::to_string(i) + std::to_string(j);
-			std::string ptrationame = "ptratioResponse" + std::to_string(i) + std::to_string(j);
-			std::string jetptname = "jetptResponse" + std::to_string(i) + std::to_string(j);
-			std::string jetetaname = "jetetaResponse" + std::to_string(i) + std::to_string(j);
-			std::string jetphiname = "jetphiResponse" + std::to_string(i) + std::to_string(j);
-			std::string jetareaname = "jetareaResponse" + std::to_string(i) + std::to_string(j);
-			std::string jetmultname = "jetmultResponse" + std::to_string(i) + std::to_string(j);
-			std::string jeteffmultname = "jeteffmultResponse" + std::to_string(i) + std::to_string(j);
-			std::string photonptname = "photonptResponse" + std::to_string(i) + std::to_string(j);
-			std::string photonetaname = "photonetaResponse" + std::to_string(i) + std::to_string(j);
-			std::string photonphiname = "photonphiResponse" + std::to_string(i) + std::to_string(j);
+			std::string colbtdeltaphijetptname = "colbtdeltaphijetptResponse" + std::to_string(i) + std::to_string(j);
+			std::string colbtdeltaphijetpthistname = "colbtdeltaphijetptHist" + std::to_string(i) + std::to_string(j);
+            std::string colbtptrationame = "colbtptratioResponse" + std::to_string(i) + std::to_string(j);
 
 			deltaphijetptResponses[i][j].Write(deltaphijetptname.c_str());
-			ptratiojetptResponses[i][j].Write(ptratiojetptname.c_str());
 			deltaphijetptHists[i][j]->Write(deltaphijetpthistname.c_str());
+			ptratiojetptResponses[i][j].Write(ptratiojetptname.c_str());
 			ptratiojetptHists[i][j]->Write(ptratiojetpthistname.c_str());
-			deltaphiResponses[i][j].Write(deltaphiname.c_str());
-			ptratioResponses[i][j].Write(ptrationame.c_str());
-			jetptResponses[i][j].Write(jetptname.c_str());
-			jetetaResponses[i][j].Write(jetetaname.c_str());
-			jetphiResponses[i][j].Write(jetphiname.c_str());
-			jetareaResponses[i][j].Write(jetareaname.c_str());
-			jetmultResponses[i][j].Write(jetmultname.c_str());
-			jeteffmultResponses[i][j].Write(jeteffmultname.c_str());
-			photonptResponses[i][j].Write(photonptname.c_str());
-			photonetaResponses[i][j].Write(photonetaname.c_str());
-			photonphiResponses[i][j].Write(photonphiname.c_str());
+			colbtdeltaphijetptResponses[i][j].Write(colbtdeltaphijetptname.c_str());
+			colbtdeltaphijetptHists[i][j]->Write(colbtdeltaphijetpthistname.c_str());
+			colbtptratioResponses[i][j].Write(colbtptrationame.c_str());
 		}
 	}
 
 	foutrm->Close();
 
 	TFile* fouthists;
-	fouthists = new TFile((TString) configrunperiod["filelists"]["correlations"]["gjmcchecks"].as<std::string>(), "RECREATE");
+	fouthists = new TFile((TString) configrunperiod["filelists"]["correlations"]["gjmc"].as<std::string>(), "RECREATE");
 	std::cout << "Writing THnSparses to file" << std::endl;
 
 	hTrigSR->Write();
 	hCorrSRTruth->Write();
 	hCorrSRAll->Write();
-    hCorrSRMatchedTruth->Write();
-    hCorrSRMatchedReco->Write();
-	hCorr1ptSRTruth->Write();
-	hCorr1ptSRAll->Write();
-    hCorr1ptSRMatchedTruth->Write();
-    hCorr1ptSRMatchedReco->Write();
+	hCorrPromptTruth->Write();
+	hCorrPromptAll->Write();
     hPhotonPtResolution->Write();
 	hPhotonPhiResolution->Write();
 	hJetPtResolution->Write();
@@ -413,8 +388,6 @@ void printCutSummary()
 	std::cout << "Cluster Ecross/Emax min: " << cluster_ecross_emax_min << std::endl;
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
 	std::cout << "Cluster nlocal maxima max: " << cluster_nlm_max << std::endl;
-	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
-	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;
 	std::cout << "Jet pT range: " << jet_pt_min << "-" << jet_pt_max << std::endl;
 	std::cout << "Jet eta max: " << jet_eta_max << std::endl;
@@ -438,17 +411,6 @@ void initializeRooUnfoldResponses()
 		ptratiojetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 		deltaphijetptHists.push_back(std::vector<THnSparseF*> (nphotonptranges));
 		ptratiojetptHists.push_back(std::vector<THnSparseF*> (nphotonptranges));
-		deltaphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		ptratioResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		jetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		jetetaResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		jetphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		jetareaResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		jetmultResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		jeteffmultResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		photonptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		photonetaResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
-		photonphiResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
 
 		for (int j = 0; j < nphotonptranges; j++) {
 			THnSparseF* h4DeltaphiJetpt = new THnSparseF("", "", 4, nbinsh4dpjp, minbinsh4dpjp, maxbinsh4dpjp);
@@ -464,48 +426,50 @@ void initializeRooUnfoldResponses()
 
 			RooUnfoldResponse ptratiojetptResponse(h2PtratioJetpt, h2PtratioJetpt);
 			ptratiojetptResponses[i][j] = ptratiojetptResponse;
+		}
+	}
+}
 
-			RooUnfoldResponse deltaphiResponse(120, deltaphi_min, deltaphi_max);
-			deltaphiResponses[i][j] = deltaphiResponse;
+void initializeColbtResponses()
+{
+	TH2F* h2DeltaphiJetptReco = new TH2F("", "", deltaphi_nbins, deltaphi_min, deltaphi_max, 1, 20.0, 40.0);
+    Double_t colbtdeltaphibins[8] = {1.570801, 2.094398, 2.443464, 2.639812, 2.79689, 2.91179, 3.02669, 3.14159};
+    Double_t colbtjetptbins[4] = {5, 10, 25, 100};
+    TH2F* h2DeltaphiJetptTruth = new TH2F("", "", 7, colbtdeltaphibins, 3, colbtjetptbins);
 
-			RooUnfoldResponse ptratioResponse(200, ptratio_min, ptratio_max);
-			ptratioResponses[i][j] = ptratioResponse;
+	Int_t nbinsh4dpjp[4] = {deltaphi_nbins, 7, 1, 3};
+	Double_t minbinsh4dpjp[4] = {deltaphi_min, M_PI / 2, 20, 5};
+	Double_t maxbinsh4dpjp[4] = {deltaphi_max, M_PI, 40, 100};
+    
+    TH1F* h1PtratioReco = new TH1F("", "", ptratio_nbins, ptratio_min, ptratio_max);
+    TH1F* h1PtratioTruth = new TH1F("", "", 12, 0, 1.2);
 
-			RooUnfoldResponse jetptResponse(120, jetpt_min, jetpt_max);
-			jetptResponses[i][j] = jetptResponse;
+	for (int i = 0; i < ncentralityranges; i++) {
+		colbtdeltaphijetptResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
+		colbtptratioResponses.push_back(std::vector<RooUnfoldResponse> (nphotonptranges));
+		colbtdeltaphijetptHists.push_back(std::vector<THnSparseF*> (nphotonptranges));
 
-			RooUnfoldResponse jetetaResponse(140, -0.7, 0.7);
-			jetetaResponses[i][j] = jetetaResponse;
+		for (int j = 0; j < nphotonptranges; j++) {
+			THnSparseF* h4DeltaphiJetpt = new THnSparseF("", "", 4, nbinsh4dpjp, minbinsh4dpjp, maxbinsh4dpjp);
+			h4DeltaphiJetpt->Sumw2();
+			colbtdeltaphijetptHists[i][j] = h4DeltaphiJetpt;
 
-			RooUnfoldResponse jetphiResponse(120, -M_PI, M_PI);
-			jetphiResponses[i][j] = jetphiResponse;
+			RooUnfoldResponse deltaphijetptResponse(h2DeltaphiJetptReco, h2DeltaphiJetptTruth);
+			colbtdeltaphijetptResponses[i][j] = deltaphijetptResponse;
 
-			RooUnfoldResponse jetareaResponse(40, 0.0, 0.4);
-			jetareaResponses[i][j] = jetareaResponse;
-
-			RooUnfoldResponse jetmultResponse(200, 0.0, 100.0);
-			jetmultResponses[i][j] = jetmultResponse;
-
-			RooUnfoldResponse jeteffmultResponse(200, 0.0, 100.0);
-			jeteffmultResponses[i][j] = jeteffmultResponse;
-
-			RooUnfoldResponse photonptResponse(10 * (cluster_pt_max - cluster_pt_min), cluster_pt_min, cluster_pt_max);
-			photonptResponses[i][j] = photonptResponse;
-
-			RooUnfoldResponse photonetaResponse(140, -0.7, 0.7);
-			photonetaResponses[i][j] = photonetaResponse;
-
-			RooUnfoldResponse photonphiResponse(120, -M_PI, M_PI);
-			photonphiResponses[i][j] = photonphiResponse;
+			RooUnfoldResponse ptratioResponse(h1PtratioReco, h1PtratioTruth);
+			colbtptratioResponses[i][j] = ptratioResponse;
 		}
 	}
 }
 
 /*--------------------------------------------------------------
-Set up THnSparses
+Set up THnSparses for getting PYTHIA calculations
 hTrigSR: Number of real photon clusters in SR
 hCorrSRTruth: SR photons correlated with truth jets
 hCorrSRAll: SR photons correlated with all jets
+hCorrPromptTruth: prompt photons correlated with truth jets
+hCorrPromptAll: prompt photons correlated with all jets
 --------------------------------------------------------------*/
 void initializeTHnSparses()
 {
@@ -528,6 +492,7 @@ void initializeTHnSparses()
 	maxbinsTrig[1] = cluster_pt_max;
 
 	hTrigSR = new THnSparseF("hTrigSR", "Number of real photon clusters in SR", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
+    hTrigPrompt = new THnSparseF("hTrigPrompt", "Number of prompt photons", ndimTrig, nbinsTrig, minbinsTrig, maxbinsTrig);
 
 	// dimensions: centrality, cluster pT, delta phi, jet pT, pT ratio, jet kT
 	ndimCorr = 6;
@@ -565,18 +530,14 @@ void initializeTHnSparses()
 	minbinsCorr[5] = 0;
 	maxbinsCorr[5] = 60;
 
-	hCorrSRTruth = new THnSparseF("hCorrSRTruth", "Correlations (Truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-	hCorrSRAll = new THnSparseF("hCorrSRAll", "Correlations (All jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-    hCorrSRMatchedTruth = new THnSparseF("hCorrSRMatchedTruth", "Correlations (Matched truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-    hCorrSRMatchedReco = new THnSparseF("hCorrSRMatchedReco", "Correlations (Matched reco jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-	hCorr1ptSRTruth = new THnSparseF("hCorr1ptSRTruth", "Correlations with 1/jetpt weight (Truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-	hCorr1ptSRAll = new THnSparseF("hCorr1ptSRAll", "Correlations with 1/jetpt weight (All jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-    hCorr1ptSRMatchedTruth = new THnSparseF("hCorr1ptSRMatchedTruth", "Correlations with 1/jetpt weight (Matched truth jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
-    hCorr1ptSRMatchedReco = new THnSparseF("hCorr1ptSRMatchedReco", "Correlations with 1/jetpt weight (Matched reco jets)", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrSRTruth = new THnSparseF("hCorrSRTruth", "SR clusters with truth jets", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+	hCorrSRAll = new THnSparseF("hCorrSRAll", "SR clusters with all jets", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+    hCorrPromptTruth = new THnSparseF("hCorrPromptTruth", "Prompt photons with truth jets", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
+    hCorrPromptAll = new THnSparseF("hCorrPromptAll", "Prompt clusters with all jets", ndimCorr, nbinsCorr, minbinsCorr, maxbinsCorr);
 	hCorrSRTruth->Sumw2();
 	hCorrSRAll->Sumw2();
-	hCorr1ptSRTruth->Sumw2();
-	hCorr1ptSRAll->Sumw2();
+    hCorrPromptTruth->Sumw2();
+    hCorrPromptAll->Sumw2();
 
 	// resolutions
 	ndimPhotonRes = 3;

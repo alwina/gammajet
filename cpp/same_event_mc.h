@@ -74,6 +74,7 @@ Float_t ue_estimate_its_const;
 Float_t ue_estimate_tpc_const;
 Float_t centrality_v0m;
 Float_t eg_cross_section;
+Int_t run_number;
 Bool_t isINT7;
 
 // Tracks

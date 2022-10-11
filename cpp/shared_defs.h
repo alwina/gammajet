@@ -3,6 +3,53 @@
 #include "yaml-cpp/yaml.h"
 
 /*--------------------------------------------------------------
+Shower shape SR/BR determinations with and without centrality-dependence
+--------------------------------------------------------------*/
+bool GetIsSignal(float shower, float centrality, YAML::Node isoConfig) {
+	// centrality-dependent SR definition
+	if (isoConfig["centralityvalues"]) {
+		YAML::Node centvalues = isoConfig["centralityvalues"];
+		for (YAML::const_iterator it = centvalues.begin(); it != centvalues.end(); it++) {
+			const YAML::Node& centvalue = *it;
+			std::pair<float, float> centrange = centvalue["centralityrange"].as<std::pair<float, float>>();
+			if (centrality >= centrange.first && centrality < centrange.second) {
+				return shower > centvalue["srmin"].as<float>() && shower < centvalue["srmax"].as<float>();
+			}
+		}
+		// out of centrality range
+		std::cout << "centrality " << centrality << " out of range in SR calculation" << std::endl;
+		return false;
+	// flat SR definition
+	} else {
+		float srmin = isoConfig["srmin"].as<float>();
+        float srmax = isoConfig["srmax"].as<float>();
+		return shower > srmin && shower < srmax;
+	}
+}
+
+bool GetIsBackground(float shower, float centrality, YAML::Node isoConfig) {
+	// centrality-dependent SR definition
+	if (isoConfig["centralityvalues"]) {
+		YAML::Node centvalues = isoConfig["centralityvalues"];
+		for (YAML::const_iterator it = centvalues.begin(); it != centvalues.end(); it++) {
+			const YAML::Node& centvalue = *it;
+			std::pair<float, float> centrange = centvalue["centralityrange"].as<std::pair<float, float>>();
+			if (centrality >= centrange.first && centrality < centrange.second) {
+				return shower > centvalue["brmin"].as<float>() && shower < centvalue["brmax"].as<float>();
+			}
+		}
+		// out of centrality range
+		std::cout << "centrality " << centrality << " out of range in BR calculation" << std::endl;
+		return false;
+	// flat SR definition
+	} else {
+		float brmin = isoConfig["brmin"].as<float>();
+        float brmax = isoConfig["brmax"].as<float>();
+		return shower > brmin && shower < brmax;
+	}
+}
+
+/*--------------------------------------------------------------
 Isolation calculations with and without centrality-dependence
 --------------------------------------------------------------*/
 bool GetIsIsolated(float isolation, float centrality, YAML::Node isoConfig) {

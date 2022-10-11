@@ -95,8 +95,8 @@ int main(int argc, char *argv[])
 
 				// determine whether it is SR or BR (or neither), calculate purity, and fill trigger THnSparse
 				float shower = getShower(icluster);
-				isSignal = (shower > srmin) and (shower < srmax);
-				isBackground = (shower > brmin) and (shower < brmax);
+				isSignal = GetIsSignal(shower, centrality_v0m, ssconfig);
+				isBackground = GetIsBackground(shower, centrality_v0m, ssconfig);
 				if (not(isSignal or isBackground)) continue;
                 
                 // determine if this is a non-decay photon
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 	--------------------------------------------------------------*/
 	// Write to fout
 	TFile* fout;
-	fout = new TFile("root/sameEvent20g3_bettertruth.root", "RECREATE");
+	fout = new TFile("root/sameEvent20g3.root", "RECREATE");
 	std::cout << "Writing to file" << std::endl;
 
     hTrigSRPromptTruth->Write();
@@ -480,8 +480,6 @@ void printCutSummary()
 	std::cout << "Cluster ncell min: " << cluster_ncell_min << std::endl;
 	std::cout << "Cluster Ecross/Emax min: " << cluster_ecross_emax_min << std::endl;
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
-	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
-	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;
 	std::cout << "Jet pT range: " << jet_pt_min << "-" << jet_pt_max << std::endl;
 	std::cout << "Jet eta max: " << jet_eta_max << std::endl;

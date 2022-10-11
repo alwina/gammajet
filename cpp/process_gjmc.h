@@ -21,7 +21,7 @@ Long64_t nevents_max;
 long nevents;
 
 // RooUnfoldResponse vectors, indexed by centrality range and pt range
-// 2D response matrices
+// 2D response matrices for unfolding (if only)
 std::vector<std::vector<RooUnfoldResponse>> deltaphijetptResponses;
 std::vector<std::vector<RooUnfoldResponse>> ptratiojetptResponses;
 
@@ -29,35 +29,24 @@ std::vector<std::vector<RooUnfoldResponse>> ptratiojetptResponses;
 std::vector<std::vector<THnSparseF*>> deltaphijetptHists;
 std::vector<std::vector<THnSparseF*>> ptratiojetptHists;
 
-// 1D response matrices
-std::vector<std::vector<RooUnfoldResponse>> deltaphiResponses;
-std::vector<std::vector<RooUnfoldResponse>> ptratioResponses;
-std::vector<std::vector<RooUnfoldResponse>> jetptResponses;
-std::vector<std::vector<RooUnfoldResponse>> jetetaResponses;
-std::vector<std::vector<RooUnfoldResponse>> jetphiResponses;
-std::vector<std::vector<RooUnfoldResponse>> jetareaResponses;
-std::vector<std::vector<RooUnfoldResponse>> jetmultResponses;
-std::vector<std::vector<RooUnfoldResponse>> jeteffmultResponses; // reco is effective multiplicity
-std::vector<std::vector<RooUnfoldResponse>> photonptResponses;
-std::vector<std::vector<RooUnfoldResponse>> photonetaResponses;
-std::vector<std::vector<RooUnfoldResponse>> photonphiResponses;
+// response matrices with CoLBT binning
+std::vector<std::vector<RooUnfoldResponse>> colbtdeltaphijetptResponses;
+std::vector<std::vector<RooUnfoldResponse>> colbtptratioResponses;
+std::vector<std::vector<THnSparseF*>> colbtdeltaphijetptHists;
 
-// THnSparses
+// correlations in PYTHIA
 THnSparseF* hTrigSR;
+THnSparseF* hTrigPrompt;
 THnSparseF* hCorrSRTruth;
 THnSparseF* hCorrSRAll;
-THnSparseF* hCorrSRMatchedTruth;
-THnSparseF* hCorrSRMatchedReco;
-THnSparseF* hCorr1ptSRTruth;
-THnSparseF* hCorr1ptSRAll;
-THnSparseF* hCorr1ptSRMatchedTruth;
-THnSparseF* hCorr1ptSRMatchedReco;
+THnSparseF* hCorrPromptTruth;
+THnSparseF* hCorrPromptAll;
 int ndimTrig;
 int ndimCorr;
 int ndimPhotonRes;
 int ndimJetRes;
 
-// TH1s
+// resolutions
 THnSparseF* hPhotonPtResolution;
 THnSparseF* hPhotonPhiResolution;
 THnSparseF* hJetPtResolution;
@@ -84,6 +73,7 @@ Helper functions
 void printCutSummary();
 void initializeRooUnfoldResponses();
 void initializeTHnSparses();
+void initializeColbtResponses();
 void openFilesAndGetTTrees(std::string root_filename);
 void setBranchAddresses();
 float getAvgEgNtrial(std::string filename);

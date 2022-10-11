@@ -2,10 +2,6 @@
 
 std::vector<YAML::Node> allconfigs;
 
-double srmin = 0;
-double srmax = 0;
-double brmin = 0;
-double brmax = 0;
 double cluster_pt_min = 0;
 double cluster_pt_max = 0;
 double cluster_eta_max = 0;
@@ -42,6 +38,7 @@ double dv2_max = 0.5;
 
 YAML::Node purityconfig;
 YAML::Node isoconfig;
+YAML::Node ssconfig;
 YAML::Node centralityranges;
 YAML::Node photonptranges;
 
@@ -61,11 +58,7 @@ void parseConfig()
 		// parse config file
 		// check for existence first, then cast as appropriate
 		if (config["showershape"]) {
-			srmin = config["showershape"]["srmin"].as<double>();
-			srmax = config["showershape"]["srmax"].as<double>();
-			brmin = config["showershape"]["brmin"].as<double>();
-			brmax = config["showershape"]["brmax"].as<double>();
-
+            ssconfig = config["showershape"];
 			shower_shape = config["showershape"]["ssvar"].as<std::string>();
 		}
 

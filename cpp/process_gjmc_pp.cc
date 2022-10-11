@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
                 if (not(isIsolated)) continue;
                 // determine whether it is SR
                 float shower = getShower(icluster);
-                isSignal = (shower > srmin) and (shower < srmax);
+                isSignal = GetIsSignal(shower, centrality_v0m, ssconfig);
                 if (not(isSignal)) continue;
 
                 // get the pt bin number
@@ -384,8 +384,6 @@ void printCutSummary()
 	std::cout << "Cluster Ecross/Emax min: " << cluster_ecross_emax_min << std::endl;
 	std::cout << "Cluster dist to bad channel min: " << cluster_dbc_min << std::endl;
 	std::cout << "Cluster nlocal maxima max: " << cluster_nlm_max << std::endl;
-	std::cout << "Shower shape SR range: " << srmin << "-" << srmax << std::endl;
-	std::cout << "Shower shape BR range: " << brmin << "-" << brmax << std::endl;
 	std::cout << "Jet type: " << jettype << std::endl;
 	std::cout << "Jet pT range: " << jet_pt_min << "-" << jet_pt_max << std::endl;
 	std::cout << "Jet eta max: " << jet_eta_max << std::endl;
