@@ -195,7 +195,25 @@ def th1ToArrays(th1, divideBinWidths=False):
     return np.array(hist), np.array(err), np.array(binCenters), np.array(binWidths)
 
 
-def plotTH1(th1, plotXerr=False, plotYerr=True, divideBinWidths=False, skipZeros=False, **kwargs):
+# get the mean of the bin values within some range
+# this is the "mean along the vertical axis" as opposed to GetMean, which is the "mean along the horizontal axis"
+def getTH1MeanBinValue(th1, lowerbound=None, upperbound=None):
+    hist, err, centers, widths = th1ToArrays(th1)
+    binvalues = []
+
+    if lowerbound is None:
+        lowerbound = -np.inf
+    if upperbound is None:
+        upperbound = np.inf
+
+    for val, center, width in zip(hist, centers, widths):
+        if (center - width / 2.0 > upperbound) or (center + width / 2.0 < lowerbound):
+            continue
+        binvalues.append(val)
+    return np.mean(binvalues)
+
+
+def plotTH1(th1, plotXerr=False, plotYerr=True, divideBinWidths=False, skipZeros=False, shiftx=0.0, **kwargs):
     """
     Plots a ROOT TH1 with pyplot
     """
@@ -214,7 +232,7 @@ def plotTH1(th1, plotXerr=False, plotYerr=True, divideBinWidths=False, skipZeros
     if skipZeros:
         hist[hist == 0] = np.nan
 
-    plt.errorbar(binCenters, hist, yerr=yerr, xerr=xerr, **kwargs)
+    plt.errorbar(np.add(binCenters, shiftx), hist, yerr=yerr, xerr=xerr, **kwargs)
 
 
 def plotTH1Norm(th1, plotXerr=False, plotYerr=True, divideBinWidths=False, skipZeros=False, **kwargs):

@@ -2,7 +2,7 @@ from enum import Enum
 import ROOT
 
 from unfolder import Unfolder2D
-from utils import sliceAndProjectTHnSparse
+from utils import sliceAndProjectTHnSparse, getTH1MeanBinValue
 
 # instructions for use
 # 1. initialize with the observable name
@@ -61,7 +61,7 @@ class GammaJetCorrelation2D:
         self.seth2finebins = self.sesrth2finebins.Clone()
         self.seth2finebins.Add(self.sebrth2finebins, -1.0)
 
-    def setMixedEvent(self, srth2, brth2, srnmix, brnmix, mescale=1.0):
+    def setMixedEvent(self, srth2, brth2, srnmix, brnmix, mesrscale=1.0, mebrscale=1.0):
         self.mesrth2 = srth2.Clone()
         self.mebrth2 = brth2.Clone()
         self.unscaledmesrth2 = srth2.Clone()
@@ -69,10 +69,10 @@ class GammaJetCorrelation2D:
 
         # scale by number of trigger-event pairs and any other scaling
         if srnmix != 0:
-            self.mesrth2.Scale(mescale / srnmix)
+            self.mesrth2.Scale(mesrscale / srnmix)
             self.unscaledmesrth2.Scale(1.0 / srnmix)
         if brnmix != 0:
-            self.mebrth2.Scale(mescale / brnmix)
+            self.mebrth2.Scale(mebrscale / brnmix)
             self.unscaledmebrth2.Scale(1.0 / brnmix)
         self.srnmix = srnmix
         self.brnmix = brnmix
@@ -198,7 +198,7 @@ class AxisNum(Enum):
     jetkt = 5
 
 
-def getAll2DCorr(centranges, ptranges, observables, observableInfo, rootfileSE, rootfileME, rmfilename, scaledeltaphilow, scaledeltaphihigh, unfoldVerbosity=1, **kwargs):
+def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfileSE, rootfileME, rmfilename, allMEScales, unfoldVerbosity=1, **kwargs):
     # set up the dictionary for all correlation objects
     allCorr = {}
 
@@ -221,7 +221,7 @@ def getAll2DCorr(centranges, ptranges, observables, observableInfo, rootfileSE, 
 
     for i, centrange in enumerate(centranges):
         allCorr[centrange] = {}
-        for j, ptrange in enumerate(ptranges):
+        for j, ptrange in enumerate(photonptranges):
             allCorr[centrange][ptrange] = {}
 
             slices = []
@@ -243,13 +243,9 @@ def getAll2DCorr(centranges, ptranges, observables, observableInfo, rootfileSE, 
             nMixBR = hnMixBR.Integral()
 
             # get the scaling for ME
-            deltaphislices = [(AxisNum[cutvar].value, cut['min'], cut['max']) for cutvar, cut in observableInfo['deltaphi']['cuts'].iteritems()]
-            deltaphislices.append((AxisNum.deltaphi.value, scaledeltaphilow, scaledeltaphihigh))
-            sesrintegral = sliceAndProjectTHnSparse(sehCorrSR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nTrigSESR
-            sebrintegral = sliceAndProjectTHnSparse(sehCorrBR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nTrigSEBR
-            mesrintegral = sliceAndProjectTHnSparse(mehCorrSR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nMixSR
-            mebrintegral = sliceAndProjectTHnSparse(mehCorrBR, slices + deltaphislices, AxisNum.deltaphi.value).Integral() / nMixBR
-            mescale = (sesrintegral - sebrintegral) / (mesrintegral - mebrintegral)
+            mescales = allMEScales[centrange][ptrange]
+            mesrscale = mescales['sr']
+            mebrscale = mescales['br']
 
             for observable in observables:
                 gjCorr = GammaJetCorrelation2D(observable, 'jetpt', observableInfo, unfoldVerbosity)
@@ -265,7 +261,7 @@ def getAll2DCorr(centranges, ptranges, observables, observableInfo, rootfileSE, 
 
                 srth2 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
                 brth2 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
-                gjCorr.setMixedEvent(srth2, brth2, nMixSR, nMixBR, mescale)
+                gjCorr.setMixedEvent(srth2, brth2, nMixSR, nMixBR, mesrscale, mebrscale)
 
                 gjCorr.unfolder.setResponseMatrix(rmfile.Get('{0}{1}Response{2}{3}'.format(observable, 'jetpt', i, j)))
                 gjCorr.unfolder.setTH4(rmfile.Get('{0}{1}Hist{2}{3}'.format(observable, 'jetpt', i, j)))
@@ -276,3 +272,88 @@ def getAll2DCorr(centranges, ptranges, observables, observableInfo, rootfileSE, 
 
     rmfile.Close()
     return allCorr
+
+
+def getAllMEScales(centranges, photonptranges, observables, observableInfo, rootfileSE, rootfileME, jetptranges, deltaphirange):
+    allMEScales = {}
+
+    # parsing ROOT files - extracting THnSparses
+    rootfile = ROOT.TFile.Open(rootfileSE)
+    sehTrigSR = rootfile.Get('hTrigSR')
+    sehTrigBR = rootfile.Get('hTrigBR')
+    sehCorrSR = rootfile.Get('hCorrSR')
+    sehCorrBR = rootfile.Get('hCorrBR')
+    rootfile.Close()
+
+    rootfile = ROOT.TFile.Open(rootfileME)
+    mehnMixSR = rootfile.Get('hnMixSR')
+    mehnMixBR = rootfile.Get('hnMixBR')
+    mehCorrSR = rootfile.Get('hCorrSR')
+    mehCorrBR = rootfile.Get('hCorrBR')
+    rootfile.Close()
+
+    for i, centrange in enumerate(centranges):
+        allMEScales[centrange] = {}
+        jetptrange = jetptranges[centrange]
+        for j, ptrange in enumerate(photonptranges):
+            allMEScales[centrange][ptrange] = {}
+
+            slices = []
+            slices.append((AxisNum.centrality.value, centrange[0], centrange[1]))
+            slices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
+
+            # get the number of triggers for each bin in the same-event
+            nTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, 0).Integral()
+            nTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, 0).Integral()
+
+            # get the number of trigger-MB event pairs for each bin in the mixed-event
+            nMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, 0).Integral()
+            nMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0).Integral()
+
+            # get TH1s from the correlation histograms
+            slices.append((AxisNum.jetpt.value, jetptrange[0], jetptrange[1]))
+            sesrh1 = sliceAndProjectTHnSparse(sehCorrSR, slices, AxisNum.deltaphi.value)
+            sebrh1 = sliceAndProjectTHnSparse(sehCorrBR, slices, AxisNum.deltaphi.value)
+            mesrh1 = sliceAndProjectTHnSparse(mehCorrSR, slices, AxisNum.deltaphi.value)
+            mebrh1 = sliceAndProjectTHnSparse(mehCorrBR, slices, AxisNum.deltaphi.value)
+
+            # scale by number of triggers
+            sesrh1.Scale(1.0 / nTrigSESR)
+            sebrh1.Scale(1.0 / nTrigSEBR)
+            mesrh1.Scale(1.0 / nMixSR)
+            mebrh1.Scale(1.0 / nMixBR)
+
+            # rebin
+            rebin = 120 / observableInfo['deltaphi']['nbins']
+            sesrh1.Rebin(rebin)
+            sebrh1.Rebin(rebin)
+            mesrh1.Rebin(rebin)
+            mebrh1.Rebin(rebin)
+
+            # get ratios
+            ratiosr = sesrh1.Clone()
+            ratiosr.Divide(mesrh1)
+            ratiobr = sebrh1.Clone()
+            ratiobr.Divide(mebrh1)
+
+            # restrict to deltaphi range
+            ratiosr.GetXaxis().SetRangeUser(deltaphirange[0], deltaphirange[1])
+            ratiobr.GetXaxis().SetRangeUser(deltaphirange[0], deltaphirange[1])
+
+            allMEScales[centrange][ptrange]['sr'] = {}
+            avgscale = getTH1MeanBinValue(ratiosr, deltaphirange[0], deltaphirange[1])
+            minscale = ratiosr.GetBinContent(ratiosr.GetMinimumBin())
+            maxscale = ratiosr.GetBinContent(ratiosr.GetMaximumBin())
+            allMEScales[centrange][ptrange]['sr']['avg'] = avgscale
+            allMEScales[centrange][ptrange]['sr']['min'] = minscale
+            allMEScales[centrange][ptrange]['sr']['max'] = maxscale
+
+            allMEScales[centrange][ptrange]['br'] = {}
+            avgscale = getTH1MeanBinValue(ratiobr, deltaphirange[0], deltaphirange[1])
+            minscale = ratiobr.GetBinContent(ratiobr.GetMinimumBin())
+            maxscale = ratiobr.GetBinContent(ratiobr.GetMaximumBin())
+            allMEScales[centrange][ptrange]['br']['avg'] = avgscale
+            allMEScales[centrange][ptrange]['br']['min'] = minscale
+            allMEScales[centrange][ptrange]['br']['max'] = maxscale
+
+    return allMEScales
