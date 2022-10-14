@@ -40,8 +40,10 @@ int main(int argc, char *argv[])
 	initializeTHnSparses();
 	Double_t trig[ndimTrig];
 	Double_t corr[ndimCorr];
-	Double_t photonresolution[ndimPhotonRes];
-	Double_t jetresolution[ndimJetRes];
+	Double_t photonptresolution[4];
+	Double_t jetptresolution[5];
+	Double_t photonphiresolution[3];
+	Double_t jetphiresolution[4];
 	Double_t h4[4];
 	float avg_eg_ntrial = 0;
 	float weight = 0;
@@ -143,17 +145,21 @@ int main(int argc, char *argv[])
                 trig[1] = photon_truth_pt;
                 hTrigPrompt->Fill(trig, weight);
 
-				photonresolution[0] = centrality_v0m;
-				photonresolution[1] = cluster_pt[icluster];
-
-				jetresolution[0] = centrality_v0m;
-				jetresolution[1] = cluster_pt[icluster];
+				photonptresolution[0] = centrality_v0m;
+				photonptresolution[1] = cluster_pt[icluster];
+				photonphiresolution[0] = centrality_v0m;
+				photonphiresolution[1] = cluster_pt[icluster];
+				jetptresolution[0] = centrality_v0m;
+				jetptresolution[1] = cluster_pt[icluster];
+				jetphiresolution[0] = centrality_v0m;
+				jetphiresolution[1] = cluster_pt[icluster];
 
 				// fill photon pt and phi resolution
-				photonresolution[2] = (cluster_pt[icluster] - photon_truth_pt) / photon_truth_pt;
-				hPhotonPtResolution->Fill(photonresolution, weight);
-				photonresolution[2] = TVector2::Phi_mpi_pi(cluster_phi[icluster] - photon_truth_phi);
-				hPhotonPhiResolution->Fill(photonresolution, weight);
+				photonptresolution[2] = (cluster_pt[icluster] - photon_truth_pt) / photon_truth_pt;
+                photonptresolution[3] = cluster_pt[icluster] - photon_truth_pt;
+				hPhotonPtResolution->Fill(photonptresolution, weight);
+				photonphiresolution[2] = TVector2::Phi_mpi_pi(cluster_phi[icluster] - photon_truth_phi);
+				hPhotonPhiResolution->Fill(photonphiresolution, weight);
 
 				/*--------------------------------------------------------------
 				Loop through all reco jets
@@ -253,13 +259,14 @@ int main(int argc, char *argv[])
 						ptratiojetptHists[centbin][ptbin]->Fill(h4, weight);
 
 						// fill jet pt and phi resolution
-						jetresolution[2] = j_reco_pt;
-						jetresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
-						hJetB2bPtResolution->Fill(jetresolution, weight);
+						jetptresolution[2] = j_reco_pt;
+						jetptresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
+                        jetptresolution[4] = j_reco_pt - j_truth_pt;
+						hJetB2bPtResolution->Fill(jetptresolution, weight);
 
-						jetresolution[2] = j_reco_pt;
-						jetresolution[3] = TVector2::Phi_mpi_pi(j_reco_phi - j_truth_phi);
-						hJetB2bPhiResolution->Fill(jetresolution, weight);
+						jetphiresolution[2] = j_reco_pt;
+						jetphiresolution[3] = TVector2::Phi_mpi_pi(j_reco_phi - j_truth_phi);
+						hJetB2bPhiResolution->Fill(jetphiresolution, weight);
 					}
                     
                     // deltaphi requires ptratio < 1.2, which we do at the reco level
@@ -278,13 +285,14 @@ int main(int argc, char *argv[])
                     }
                     
 					// fill jet pt and phi resolution
-					jetresolution[2] = j_reco_pt;
-					jetresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
-					hJetPtResolution->Fill(jetresolution, weight);
+                    jetptresolution[2] = j_reco_pt;
+                    jetptresolution[3] = (j_reco_pt - j_truth_pt) / j_truth_pt;
+                    jetptresolution[4] = j_reco_pt - j_truth_pt;
+					hJetPtResolution->Fill(jetptresolution, weight);
 
-					jetresolution[2] = j_reco_pt;
-					jetresolution[3] = j_reco_phi - j_truth_phi;
-					hJetPhiResolution->Fill(jetresolution, weight);
+                    jetphiresolution[2] = j_reco_pt;
+                    jetphiresolution[3] = TVector2::Phi_mpi_pi(j_reco_phi - j_truth_phi);
+					hJetPhiResolution->Fill(jetphiresolution, weight);
 				}
 
 				if (keepMisses) {
@@ -363,6 +371,7 @@ int main(int argc, char *argv[])
 	std::cout << "Writing THnSparses to file" << std::endl;
 
 	hTrigSR->Write();
+    hTrigPrompt->Write();
 	hCorrSRTruth->Write();
 	hCorrSRAll->Write();
 	hCorrPromptTruth->Write();
@@ -539,36 +548,32 @@ void initializeTHnSparses()
     hCorrPromptTruth->Sumw2();
     hCorrPromptAll->Sumw2();
 
-	// resolutions
-	ndimPhotonRes = 3;
-	ndimJetRes = 4;
-
-	Int_t nbinsPhotonPtResolution[ndimPhotonRes] = {10, nbinsClusterPt, 100};
-	Double_t minbinsPhotonPtResolution[ndimPhotonRes] = {0, cluster_pt_min, -0.5};
-	Double_t maxbinsPhotonPtResolution[ndimPhotonRes] = {100, cluster_pt_max, 0.5};
-	hPhotonPtResolution = new THnSparseF("hPhotonPtResolution", "(reco - truth) / truth", ndimPhotonRes, nbinsPhotonPtResolution, minbinsPhotonPtResolution, maxbinsPhotonPtResolution);
+	Int_t nbinsPhotonPtResolution[4] = {10, nbinsClusterPt, 100, 40};
+	Double_t minbinsPhotonPtResolution[4] = {0, cluster_pt_min, -0.5, -10};
+	Double_t maxbinsPhotonPtResolution[4] = {100, cluster_pt_max, 0.5, 10};
+	hPhotonPtResolution = new THnSparseF("hPhotonPtResolution", "(reco - truth) / truth", 4, nbinsPhotonPtResolution, minbinsPhotonPtResolution, maxbinsPhotonPtResolution);
 	hPhotonPtResolution->Sumw2();
 
-	Int_t nbinsJetPtResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 400};
-	Double_t minbinsJetPtResolution[ndimJetRes] = {0, cluster_pt_min, 0, -2.0};
-	Double_t maxbinsJetPtResolution[ndimJetRes] = {100, cluster_pt_max, 60, 2.0};
-	hJetPtResolution = new THnSparseF("hJetPtResolution", "(reco - truth) / truth", ndimJetRes, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
+	Int_t nbinsJetPtResolution[5] = {10, nbinsClusterPt, 120, 400, 200};
+	Double_t minbinsJetPtResolution[5] = {0, cluster_pt_min, jetpt_min, -2.0, -50};
+	Double_t maxbinsJetPtResolution[5] = {100, cluster_pt_max, jetpt_max, 2.0, 50};
+	hJetPtResolution = new THnSparseF("hJetPtResolution", "(reco - truth) / truth", 5, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
 	hJetPtResolution->Sumw2();
-	hJetB2bPtResolution = new THnSparseF("hJetB2bPtResolution", "(reco - truth) / truth", ndimJetRes, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
+	hJetB2bPtResolution = new THnSparseF("hJetB2bPtResolution", "(reco - truth) / truth", 5, nbinsJetPtResolution, minbinsJetPtResolution, maxbinsJetPtResolution);
 	hJetB2bPtResolution->Sumw2();
 
-	Int_t nbinsPhotonPhiResolution[ndimPhotonRes] = {10, nbinsClusterPt, 120};
-	Double_t minbinsPhotonPhiResolution[ndimPhotonRes] = {0, cluster_pt_min, -M_PI};
-	Double_t maxbinsPhotonPhiResolution[ndimPhotonRes] = {100, cluster_pt_max, M_PI};
-	hPhotonPhiResolution = new THnSparseF("hPhotonPhiResolution", "reco - truth", ndimPhotonRes, nbinsPhotonPhiResolution, minbinsPhotonPhiResolution, maxbinsPhotonPhiResolution);
+	Int_t nbinsPhotonPhiResolution[3] = {10, nbinsClusterPt, 120};
+	Double_t minbinsPhotonPhiResolution[3] = {0, cluster_pt_min, -M_PI};
+	Double_t maxbinsPhotonPhiResolution[3] = {100, cluster_pt_max, M_PI};
+	hPhotonPhiResolution = new THnSparseF("hPhotonPhiResolution", "reco - truth", 3, nbinsPhotonPhiResolution, minbinsPhotonPhiResolution, maxbinsPhotonPhiResolution);
 	hPhotonPhiResolution->Sumw2();
 
-	Int_t nbinsJetPhiResolution[ndimJetRes] = {10, nbinsClusterPt, 120, 120};
-	Double_t minbinsJetPhiResolution[ndimJetRes] = {0, cluster_pt_min, 0, -M_PI};
-	Double_t maxbinsJetPhiResolution[ndimJetRes] = {100, cluster_pt_max, 60, M_PI};
-	hJetPhiResolution = new THnSparseF("hJetPhiResolution", "reco - truth", ndimJetRes, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
+	Int_t nbinsJetPhiResolution[4] = {10, nbinsClusterPt, 120, 120};
+	Double_t minbinsJetPhiResolution[4] = {0, cluster_pt_min, jetpt_min, -M_PI};
+	Double_t maxbinsJetPhiResolution[4] = {100, cluster_pt_max, jetpt_max, M_PI};
+	hJetPhiResolution = new THnSparseF("hJetPhiResolution", "reco - truth", 4, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
 	hJetPhiResolution->Sumw2();
-	hJetB2bPhiResolution = new THnSparseF("hJetB2bPhiResolution", "reco - truth", ndimJetRes, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
+	hJetB2bPhiResolution = new THnSparseF("hJetB2bPhiResolution", "reco - truth", 4, nbinsJetPhiResolution, minbinsJetPhiResolution, maxbinsJetPhiResolution);
 	hJetB2bPhiResolution->Sumw2();
 }
 

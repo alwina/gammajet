@@ -43,8 +43,6 @@ THnSparseF* hCorrPromptTruth;
 THnSparseF* hCorrPromptAll;
 int ndimTrig;
 int ndimCorr;
-int ndimPhotonRes;
-int ndimJetRes;
 
 // resolutions
 THnSparseF* hPhotonPtResolution;
