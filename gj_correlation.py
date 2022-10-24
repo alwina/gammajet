@@ -64,39 +64,27 @@ class GammaJetCorrelation2D:
     def setMixedEvent(self, srth2, brth2, srnmix, brnmix, mesrscale=1.0, mebrscale=1.0):
         self.mesrth2 = srth2.Clone()
         self.mebrth2 = brth2.Clone()
-        self.unscaledmesrth2 = srth2.Clone()
-        self.unscaledmebrth2 = brth2.Clone()
 
         # scale by number of trigger-event pairs and any other scaling
         if srnmix != 0:
             self.mesrth2.Scale(mesrscale / srnmix)
-            self.unscaledmesrth2.Scale(1.0 / srnmix)
         if brnmix != 0:
             self.mebrth2.Scale(mebrscale / brnmix)
-            self.unscaledmebrth2.Scale(1.0 / brnmix)
         self.srnmix = srnmix
         self.brnmix = brnmix
 
         self.mesrth2finebins = self.mesrth2.Clone()
         self.mebrth2finebins = self.mebrth2.Clone()
-        self.unscaledmesrth2finebins = self.unscaledmesrth2.Clone()
-        self.unscaledmebrth2finebins = self.unscaledmebrth2.Clone()
 
         # rebin
         self.mesrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
         self.mebrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
-        self.unscaledmesrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
-        self.unscaledmebrth2.Rebin2D(self.rebinFactorX, self.rebinFactorY)
 
         # subtract
         self.meth2 = self.mesrth2.Clone()
         self.meth2.Add(self.mebrth2, -1.0)
-        self.unscaledmeth2 = self.unscaledmesrth2.Clone()
-        self.unscaledmeth2.Add(self.unscaledmebrth2, -1.0)
         self.meth2finebins = self.mesrth2finebins.Clone()
         self.meth2finebins.Add(self.mebrth2finebins, -1.0)
-        self.unscaledmeth2finebins = self.unscaledmesrth2finebins.Clone()
-        self.unscaledmeth2finebins.Add(self.unscaledmebrth2finebins, -1.0)
 
     def getSignalCorrelation(self):
         self.corrth2 = self.sesrth2.Clone()
@@ -229,18 +217,12 @@ def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfi
             slices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
 
             # get the number of triggers for each bin in the same-event
-            hTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, 0)
-            nTrigSESR = hTrigSESR.Integral()
-
-            hTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, 0)
-            nTrigSEBR = hTrigSEBR.Integral()
+            nTrigSESR = sliceAndProjectTHnSparse(sehTrigSR, slices, 0).Integral()
+            nTrigSEBR = sliceAndProjectTHnSparse(sehTrigBR, slices, 0).Integral()
 
             # get the number of trigger-MB event pairs for each bin in the mixed-event
-            hnMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, 0)
-            nMixSR = hnMixSR.Integral()
-
-            hnMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0)
-            nMixBR = hnMixBR.Integral()
+            nMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, 0).Integral()
+            nMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0).Integral()
 
             # get the scaling for ME
             mescales = allMEScales[centrange][ptrange]
@@ -259,9 +241,63 @@ def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfi
                 brth2 = sliceAndProjectTHnSparse(sehCorrBR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
                 gjCorr.setSameEvent(srth2, brth2, nTrigSESR, nTrigSEBR)
 
-                srth2 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
-                brth2 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
-                gjCorr.setMixedEvent(srth2, brth2, nMixSR, nMixBR, mesrscale, mebrscale)
+                if centrange == (0, 30):
+                    # separate 0-10% and 10-30, calculate ME correlation
+                    # then recombine with weights from SE centrality distribution
+
+                    # calculate per-trigger yield for 0-10%
+                    otherslices = []
+                    otherslices.append((AxisNum.centrality.value, 0, 10))
+                    otherslices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
+                    nTrigsr010 = sliceAndProjectTHnSparse(sehTrigSR, otherslices, 0).Integral()
+                    nTrigbr010 = sliceAndProjectTHnSparse(sehTrigBR, otherslices, 0).Integral()
+                    nMixsr010 = sliceAndProjectTHnSparse(mehnMixSR, otherslices, 0).Integral()
+                    nMixbr010 = sliceAndProjectTHnSparse(mehnMixBR, otherslices, 0).Integral()
+                    mesr010 = sliceAndProjectTHnSparse(mehCorrSR, otherslices + additionalCuts, AxisNum.jetpt.value, AxisNum[observable].value)
+                    mebr010 = sliceAndProjectTHnSparse(mehCorrBR, otherslices + additionalCuts, AxisNum.jetpt.value, AxisNum[observable].value)
+                    mesr010.Scale(mesrscale / nMixsr010)
+                    mebr010.Scale(mebrscale / nMixbr010)
+
+                    # calculate per-trigger yield for 10-30%
+                    otherslices = []
+                    otherslices.append((AxisNum.centrality.value, 10, 30))
+                    otherslices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
+                    nTrigsr1030 = sliceAndProjectTHnSparse(sehTrigSR, otherslices, 0).Integral()
+                    nTrigbr1030 = sliceAndProjectTHnSparse(sehTrigBR, otherslices, 0).Integral()
+                    nMixsr1030 = sliceAndProjectTHnSparse(mehnMixSR, otherslices, 0).Integral()
+                    nMixbr1030 = sliceAndProjectTHnSparse(mehnMixBR, otherslices, 0).Integral()
+                    mesr1030 = sliceAndProjectTHnSparse(mehCorrSR, otherslices + additionalCuts, AxisNum.jetpt.value, AxisNum[observable].value)
+                    mebr1030 = sliceAndProjectTHnSparse(mehCorrBR, otherslices + additionalCuts, AxisNum.jetpt.value, AxisNum[observable].value)
+                    mesr1030.Scale(mesrscale / nMixsr1030)
+                    mebr1030.Scale(mebrscale / nMixbr1030)
+
+                    # combine 0-10% and 10-30%
+                    srth2 = mesr010.Clone()
+                    srth2.Scale(float(nTrigsr010) / nTrigSESR)
+                    srth2.Add(mesr1030, float(nTrigsr1030) / nTrigSESR)
+                    brth2 = mebr010.Clone()
+                    brth2.Scale(float(nTrigbr010) / nTrigSEBR)
+                    brth2.Add(mebr1030, float(nTrigbr1030) / nTrigSEBR)
+
+                    # modified version of setMixedEvent
+                    gjCorr.mesrth2finebins = srth2.Clone()
+                    gjCorr.mebrth2finebins = brth2.Clone()
+                    gjCorr.srnmix = nMixSR
+                    gjCorr.brnmix = nMixBR
+
+                    srth2.Rebin2D(gjCorr.rebinFactorX, gjCorr.rebinFactorY)
+                    brth2.Rebin2D(gjCorr.rebinFactorX, gjCorr.rebinFactorY)
+                    gjCorr.mesrth2 = srth2
+                    gjCorr.mebrth2 = brth2
+
+                    gjCorr.meth2 = gjCorr.mesrth2.Clone()
+                    gjCorr.meth2.Add(gjCorr.mebrth2, -1.0)
+                    gjCorr.meth2finebins = gjCorr.mesrth2finebins.Clone()
+                    gjCorr.meth2finebins.Add(gjCorr.mebrth2finebins, -1.0)
+                else:
+                    srth2 = sliceAndProjectTHnSparse(mehCorrSR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
+                    brth2 = sliceAndProjectTHnSparse(mehCorrBR, slices + additionalCuts, AxisNum['jetpt'].value, AxisNum[observable].value)
+                    gjCorr.setMixedEvent(srth2, brth2, nMixSR, nMixBR, mesrscale, mebrscale)
 
                 gjCorr.unfolder.setResponseMatrix(rmfile.Get('{0}{1}Response{2}{3}'.format(observable, 'jetpt', i, j)))
                 gjCorr.unfolder.setTH4(rmfile.Get('{0}{1}Hist{2}{3}'.format(observable, 'jetpt', i, j)))
@@ -310,21 +346,57 @@ def getAllMEScales(centranges, photonptranges, observables, observableInfo, root
             nMixSR = sliceAndProjectTHnSparse(mehnMixSR, slices, 0).Integral()
             nMixBR = sliceAndProjectTHnSparse(mehnMixBR, slices, 0).Integral()
 
-            # get TH1s from the correlation histograms
-            slices.append((AxisNum.jetpt.value, jetptrange[0], jetptrange[1]))
-            sesrh1 = sliceAndProjectTHnSparse(sehCorrSR, slices, AxisNum.deltaphi.value)
-            sebrh1 = sliceAndProjectTHnSparse(sehCorrBR, slices, AxisNum.deltaphi.value)
-            mesrh1 = sliceAndProjectTHnSparse(mehCorrSR, slices, AxisNum.deltaphi.value)
-            mebrh1 = sliceAndProjectTHnSparse(mehCorrBR, slices, AxisNum.deltaphi.value)
+            jetptslice = (AxisNum.jetpt.value, jetptrange[0], jetptrange[1])
+            rebin = 120 / observableInfo['deltaphi']['nbins']
 
-            # scale by number of triggers
+            # get per-trigger yields for SE
+            sesrh1 = sliceAndProjectTHnSparse(sehCorrSR, slices + [jetptslice], AxisNum.deltaphi.value)
+            sebrh1 = sliceAndProjectTHnSparse(sehCorrBR, slices + [jetptslice], AxisNum.deltaphi.value)
             sesrh1.Scale(1.0 / nTrigSESR)
             sebrh1.Scale(1.0 / nTrigSEBR)
-            mesrh1.Scale(1.0 / nMixSR)
-            mebrh1.Scale(1.0 / nMixBR)
+
+            # get per-trigger yields for ME
+            if centrange == (0, 30):
+                # calculate per-trigger yield for 0-10%
+                otherslices = []
+                otherslices.append((AxisNum.centrality.value, 0, 10))
+                otherslices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
+                nTrigsr010 = sliceAndProjectTHnSparse(sehTrigSR, otherslices, 0).Integral()
+                nTrigbr010 = sliceAndProjectTHnSparse(sehTrigBR, otherslices, 0).Integral()
+                nMixsr010 = sliceAndProjectTHnSparse(mehnMixSR, otherslices, 0).Integral()
+                nMixbr010 = sliceAndProjectTHnSparse(mehnMixBR, otherslices, 0).Integral()
+                mesr010 = sliceAndProjectTHnSparse(mehCorrSR, otherslices + [jetptslice], AxisNum.deltaphi.value)
+                mebr010 = sliceAndProjectTHnSparse(mehCorrBR, otherslices + [jetptslice], AxisNum.deltaphi.value)
+                mesr010.Scale(1.0 / nMixsr010)
+                mebr010.Scale(1.0 / nMixbr010)
+
+                # calculate per-trigger yield for 10-30%
+                otherslices = []
+                otherslices.append((AxisNum.centrality.value, 10, 30))
+                otherslices.append((AxisNum.clusterpt.value, ptrange[0], ptrange[1]))
+                nTrigsr1030 = sliceAndProjectTHnSparse(sehTrigSR, otherslices, 0).Integral()
+                nTrigbr1030 = sliceAndProjectTHnSparse(sehTrigBR, otherslices, 0).Integral()
+                nMixsr1030 = sliceAndProjectTHnSparse(mehnMixSR, otherslices, 0).Integral()
+                nMixbr1030 = sliceAndProjectTHnSparse(mehnMixBR, otherslices, 0).Integral()
+                mesr1030 = sliceAndProjectTHnSparse(mehCorrSR, otherslices + [jetptslice], AxisNum.deltaphi.value)
+                mebr1030 = sliceAndProjectTHnSparse(mehCorrBR, otherslices + [jetptslice], AxisNum.deltaphi.value)
+                mesr1030.Scale(1.0 / nMixsr1030)
+                mebr1030.Scale(1.0 / nMixbr1030)
+
+                # combine 0-10% and 10-30%
+                mesrh1 = mesr010.Clone()
+                mesrh1.Scale(float(nTrigsr010) / nTrigSESR)
+                mesrh1.Add(mesr1030, float(nTrigsr1030) / nTrigSESR)
+                mebrh1 = mebr010.Clone()
+                mebrh1.Scale(float(nTrigbr010) / nTrigSEBR)
+                mebrh1.Add(mebr1030, float(nTrigbr1030) / nTrigSEBR)
+            else:
+                mesrh1 = sliceAndProjectTHnSparse(mehCorrSR, slices + [jetptslice], AxisNum.deltaphi.value)
+                mebrh1 = sliceAndProjectTHnSparse(mehCorrBR, slices + [jetptslice], AxisNum.deltaphi.value)
+                mesrh1.Scale(1.0 / nMixSR)
+                mebrh1.Scale(1.0 / nMixBR)
 
             # rebin
-            rebin = 120 / observableInfo['deltaphi']['nbins']
             sesrh1.Rebin(rebin)
             sebrh1.Rebin(rebin)
             mesrh1.Rebin(rebin)
