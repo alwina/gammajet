@@ -176,7 +176,6 @@ def deltaphi0pi(phi1, phi2):
 
 
 # skip the underflow and overflow bins for now -- we can change our minds later
-# these assume equally-spaced bins
 def th1ToArrays(th1, divideBinWidths=False):
     """
     Converts a ROOT TH1 to numpy arrays (hist, err, binCenters, binWidths)
