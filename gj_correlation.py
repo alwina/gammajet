@@ -2,7 +2,6 @@ from enum import Enum
 import numpy as np
 import ROOT
 
-from unfolder import Unfolder2D
 from utils import sliceAndProjectTHnSparse, getTH1MeanBinValue
 
 # instructions for use
@@ -20,11 +19,10 @@ class GammaJetCorrelation2D:
 
     2D response matrix axes: observable reco, observable truth, jetpt reco, jetpt truth
     """
-    def __init__(self, observableX, observableY, observableInfo, unfoldVerbosity=1):
+    def __init__(self, observableX, observableY, observableInfo):
         self.observableX = observableX
         self.observableY = observableY
         self.observableInfo = observableInfo
-        self.unfolder = Unfolder2D(unfoldVerbosity)
 
         self.nBinsX = observableInfo[observableX]['nbins']
         self.minBinX = observableInfo[observableX]['min']
@@ -128,7 +126,7 @@ class AxisNum(Enum):
     jetkt = 5
 
 
-def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfileSE, rootfileME, rmfilename, allMEScales, unfoldVerbosity=1, **kwargs):
+def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfileSE, rootfileME, allMEScales, **kwargs):
     # set up the dictionary for all correlation objects
     allCorr = {}
 
@@ -146,8 +144,6 @@ def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfi
     mehCorrSR = rootfile.Get('hCorrSR')
     mehCorrBR = rootfile.Get('hCorrBR')
     rootfile.Close()
-
-    rmfile = ROOT.TFile.Open(rmfilename)
 
     for i, centrange in enumerate(centranges):
         allCorr[centrange] = {}
@@ -172,7 +168,7 @@ def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfi
             mebrscale = mescales['br']
 
             for observable in observables:
-                gjCorr = GammaJetCorrelation2D(observable, 'jetpt', observableInfo, unfoldVerbosity)
+                gjCorr = GammaJetCorrelation2D(observable, 'jetpt', observableInfo)
 
                 additionalCuts = []
                 for cutvar in observableInfo[observable]['cuts']:
@@ -189,9 +185,6 @@ def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfi
                 brth2.Scale(mebrscale)
                 gjCorr.setMixedEvent(srth2, brth2, nMixSR, nMixBR)
 
-                gjCorr.unfolder.setResponseMatrix(rmfile.Get('{0}{1}Response{2}{3}'.format(observable, 'jetpt', i, j)))
-                gjCorr.unfolder.setTH4(rmfile.Get('{0}{1}Hist{2}{3}'.format(observable, 'jetpt', i, j)))
-
                 gjCorr.doCorrelationSubtraction()
                 specialBins = []
                 if observable == 'deltaphi':
@@ -203,7 +196,6 @@ def getAll2DCorr(centranges, photonptranges, observables, observableInfo, rootfi
 
                 allCorr[centrange][ptrange][observable] = gjCorr
 
-    rmfile.Close()
     return allCorr
 
 

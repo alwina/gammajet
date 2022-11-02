@@ -44,25 +44,25 @@ class Unfolder2D:
             return
 
         if axis == 1:
-            plotTH1(self.measuredTH2.ProjectionX(), fmt='ko', label='Measured')
+            plotTH1(self.measuredTH2.ProjectionX(), fmt='ko', label='Measured', divideBinWidths=True, skipZeros=True)
         else:
-            plotTH1(self.measuredTH2.ProjectionY(), fmt='ko', label='Measured')
+            plotTH1(self.measuredTH2.ProjectionY(), fmt='ko', label='Measured', divideBinWidths=True, skipZeros=True)
 
         if bayesKeys is None:
             bayesKeys = sorted(self.unfoldedBayesTH2.keys())
         for key in bayesKeys:
             if axis == 1:
-                plotTH1(self.unfoldedBayesTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key))
+                plotTH1(self.unfoldedBayesTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key), divideBinWidths=True, skipZeros=True)
             else:
-                plotTH1(self.unfoldedBayesTH2[key].ProjectionY(), fmt='o-', label='Bayesian {0}'.format(key))
+                plotTH1(self.unfoldedBayesTH2[key].ProjectionY(), fmt='o-', label='Bayesian {0}'.format(key), divideBinWidths=True, skipZeros=True)
 
         if svdKeys is None:
             svdKeys = sorted(self.unfoldedSvdTH2.keys())
         for key in svdKeys:
             if axis == 1:
-                plotTH1(self.unfoldedSvdTH2[key].ProjectionX(), fmt='o-', label='Bayesian {0}'.format(key))
+                plotTH1(self.unfoldedSvdTH2[key].ProjectionX(), fmt='o-', label='SVD {0}'.format(key), divideBinWidths=True, skipZeros=True)
             else:
-                plotTH1(self.unfoldedSvdTH2[key].ProjectionY(), fmt='o-', label='Bayesian {0}'.format(key))
+                plotTH1(self.unfoldedSvdTH2[key].ProjectionY(), fmt='o-', label='SVD {0}'.format(key), divideBinWidths=True, skipZeros=True)
 
     def plotBayesConvergence(self, bayesKeys=None, axis=1):
         if axis not in (1, 2):
