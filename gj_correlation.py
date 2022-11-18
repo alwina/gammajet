@@ -100,8 +100,6 @@ class GammaJetCorrelation2D:
         self.totalbkgth2finebins.Add(self.mebrth2finebins, -1.0)
 
     def getSignalCorrelation(self, specialBins=[]):
-        self.unfolder.setMeasuredTH2(self.corrth2)
-
         # make sure we always divide by bin widths! use this instead of corrth2.ProjectionX()!
         self.corrth1regbins = self.corrth2.ProjectionX()
         self.corrth1finebins = self.corrth2finebins.ProjectionX()
